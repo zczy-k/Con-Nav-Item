@@ -6,7 +6,7 @@
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Vue](https://img.shields.io/badge/Vue.js-3-brightgreen.svg)](https://vuejs.org/)
 
-[在线演示](https://navitem.vvvv.ee) · [问题反馈](https://github.com/zczy-k/Con-Nav-Item/issues) · [安全政策](SECURITY.md)
+[在线演示](https://navitem.vvvv.ee) · [问题反馈](https://github.com/zczy-k/Con-Nav-Item/issues)
 
 </div>
 
@@ -459,6 +459,7 @@ docker exec -it Con-Nav-Item node check-password.js reset-env
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
+
 
 
 
