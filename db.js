@@ -176,7 +176,6 @@ async function seedDefaultData() {
         const result = await dbRun('INSERT INTO menus (name, "order") VALUES (?, ?)', [name, order]);
         menuMap[name] = result.lastID;
       }
-      }
 
       // 插入默认子菜单
       const subMenus = [
