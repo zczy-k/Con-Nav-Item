@@ -1259,7 +1259,13 @@ const allCategoryCards = ref({});
 async function loadCards() {
   if (!activeMenu.value) return;
   
-  cardsLoading.value = true; // 显示加载状态
+  // 智能骨架屏：只在加载超过 200ms 时才显示
+  let showSkeleton = false;
+  const skeletonTimer = setTimeout(() => {
+    showSkeleton = true;
+    cardsLoading.value = true;
+  }, 200);
+  
   try {
     const res = await getCards(activeMenu.value.id, activeSubMenu.value?.id);
     cards.value = res.data;
@@ -1267,10 +1273,18 @@ async function loadCards() {
     console.error('加载卡片失败:', error);
     cards.value = [];
   } finally {
-    // 延迟 150ms 隐藏骨架屏，让过渡更平滑
-    setTimeout(() => {
+    // 清除定时器
+    clearTimeout(skeletonTimer);
+    
+    // 如果显示了骨架屏，略微延迟隐藏以保证平滑过渡
+    if (showSkeleton) {
+      setTimeout(() => {
+        cardsLoading.value = false;
+      }, 100);
+    } else {
+      // 快速加载（<200ms），直接显示内容
       cardsLoading.value = false;
-    }, 150);
+    }
   }
 }
 
