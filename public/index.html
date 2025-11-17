@@ -43,14 +43,11 @@
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-              console.log('✅ PWA Service Worker 注册成功:', registration.scope);
-              
               // 检查更新
               registration.addEventListener('updatefound', () => {
                 const newWorker = registration.installing;
                 newWorker.addEventListener('statechange', () => {
                   if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    console.log('🔄 发现新版本，刷新页面以更新');
                     // 可选：提示用户刷新
                     if (confirm('发现新版本，是否立即更新？')) {
                       newWorker.postMessage({ type: 'SKIP_WAITING' });
@@ -60,9 +57,7 @@
                 });
               });
             })
-            .catch(err => {
-              console.log('❌ PWA Service Worker 注册失败:', err);
-            });
+            .catch(() => {});
         });
       }
     </script>

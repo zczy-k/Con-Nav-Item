@@ -134,10 +134,7 @@ app.use(globalErrorHandler);
 if (require.main === module) {
   db.initPromise
     .then(() => {
-      app.listen(PORT, () => {
-        console.log(`⚡ Server is running at http://localhost:${PORT}`);
-        console.log(`🔒 Security features enabled: Helmet, Rate Limiting, Input Sanitization`);
-      });
+      app.listen(PORT);
     })
     .catch(err => {
       console.error('✗ Failed to start server due to database initialization error:', err);

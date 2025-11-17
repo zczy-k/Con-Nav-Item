@@ -143,12 +143,8 @@ async function initializeDatabase() {
       await dbRun(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`);
     } catch (e) {}
 
-    console.log('✓ 数据库表结构创建完成');
-
     // 2. 检查并插入默认数据
     await seedDefaultData();
-    
-    console.log('✓ 数据库初始化完成');
   } catch (error) {
     console.error('✗ 数据库初始化失败:', error);
     throw error;
@@ -165,8 +161,6 @@ async function seedDefaultData() {
     const menuCount = await dbGet('SELECT COUNT(*) as count FROM menus');
     
     if (menuCount && menuCount.count === 0) {
-      console.log('→ 开始插入默认菜单数据...');
-      
       // 插入默认菜单
       const defaultMenus = [
         ['Home', 1],
@@ -181,11 +175,10 @@ async function seedDefaultData() {
       for (const [name, order] of defaultMenus) {
         const result = await dbRun('INSERT INTO menus (name, "order") VALUES (?, ?)', [name, order]);
         menuMap[name] = result.lastID;
-        console.log(`  ✓ 插入菜单: ${name} (ID: ${result.lastID})`);
+      }
       }
 
       // 插入默认子菜单
-      console.log('→ 开始插入默认子菜单...');
       const subMenus = [
         { parentMenu: 'Ai Stuff', name: 'AI chat', order: 1 },
         { parentMenu: 'Ai Stuff', name: 'AI tools', order: 2 },
@@ -204,12 +197,10 @@ async function seedDefaultData() {
             [menuMap[subMenu.parentMenu], subMenu.name, subMenu.order]
           );
           subMenuMap[`${subMenu.parentMenu}_${subMenu.name}`] = result.lastID;
-          console.log(`  ✓ 插入子菜单: [${subMenu.parentMenu}] ${subMenu.name} (ID: ${result.lastID})`);
         }
       }
 
       // 插入默认卡片
-      console.log('→ 开始插入默认卡片...');
       const cards = [
         // Home
         { menu: 'Home', title: 'Baidu', url: 'https://www.baidu.com', logo_url: 'https://api.xinac.net/icon/?url=https://www.baidu.com&sz=128', desc: '全球最大的中文搜索引擎'  },
@@ -308,8 +299,6 @@ async function seedDefaultData() {
           cardCount++;
         }
       }
-      
-      console.log(`  ✓ 插入 ${cardCount} 张卡片`);
     }
 
     // 插入默认管理员账号（仅首次初始化）
@@ -317,10 +306,6 @@ async function seedDefaultData() {
     if (userCount && userCount.count === 0) {
       const passwordHash = bcrypt.hashSync(config.admin.password, 10);
       await dbRun('INSERT INTO users (username, password) VALUES (?, ?)', [config.admin.username, passwordHash]);
-      console.log(`  ✓ 创建管理员账号: ${config.admin.username}`);
-      console.log(`  ✓ 初始密码: ${config.admin.password}`);
-    } else {
-      console.log(`  ✓ 管理员账号已存在，跳过初始化`);
     }
 
     // 插入默认友情链接
@@ -333,7 +318,6 @@ async function seedDefaultData() {
       for (const [title, url, logo] of defaultFriends) {
         await dbRun('INSERT INTO friends (title, url, logo) VALUES (?, ?, ?)', [title, url, logo]);
       }
-      console.log(`  ✓ 插入 ${defaultFriends.length} 个友情链接`);
     }
 
     // 预置标签分类
@@ -355,11 +339,8 @@ async function seedTags() {
     const tagCount = await dbGet('SELECT COUNT(*) as count FROM tags');
     
     if (tagCount && tagCount.count > 0) {
-      console.log(`  ✓ 标签已存在，跳过预置`);
       return;
     }
-    
-    console.log('→ 开始预置标签分类...');
     
     // 预置标签
     const DEFAULT_TAGS = [
@@ -387,7 +368,6 @@ async function seedTags() {
       );
       tagMap[tag.name] = result.lastID;
     }
-    console.log(`  ✓ 预置 ${DEFAULT_TAGS.length} 个标签分类`);
     
     // 为卡片分配标签
     const CARD_TAG_RULES = [
@@ -474,8 +454,6 @@ async function seedTags() {
         assignCount++;
       }
     }
-    
-    console.log(`  ✓ 为 ${assignCount} 张卡片分配标签`);
   } catch (error) {
     console.error('✗ 预置标签失败:', error);
     // 不阻断初始化流程

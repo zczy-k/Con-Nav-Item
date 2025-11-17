@@ -1,4 +1,4 @@
-ï»¿<template>
+<template>
   <div class="home-container" @click="handleContainerClick">
     <div class="menu-bar-fixed">
       <MenuBar 
@@ -12,9 +12,9 @@
     <div class="search-section">
 <div class="search-box-wrapper" v-if="selectedEngine">
         <div class="search-container">
-          <!-- æœç´¢å¼•æ“ä¸‹æ‹‰é€‰æ‹©å™¨ -->
+          <!-- ËÑË÷ÒıÇæÏÂÀ­Ñ¡ÔñÆ÷ -->
           <div class="search-engine-dropdown" @click.stop>
-            <button @click="toggleEngineDropdown" class="engine-selector" title="é€‰æ‹©æœç´¢å¼•æ“">
+            <button @click="toggleEngineDropdown" class="engine-selector" title="Ñ¡ÔñËÑË÷ÒıÇæ">
               <span class="engine-icon">
                 <img 
                   :src="getEngineIcon(selectedEngine)" 
@@ -27,12 +27,12 @@
                 <polyline points="6 9 12 15 18 9"></polyline>
               </svg>
             </button>
-            <!-- ä¸‹æ‹‰èœå• -->
+            <!-- ÏÂÀ­²Ëµ¥ -->
             <transition name="dropdown">
               <div v-if="showEngineDropdown" class="engine-dropdown-menu" @click.stop>
                 <div class="engine-menu-header">
-                  <span>æœç´¢å¼•æ“</span>
-                  <button @click="openAddEngineModal" class="add-engine-icon-btn" title="æ·»åŠ è‡ªå®šä¹‰">
+                  <span>ËÑË÷ÒıÇæ</span>
+                  <button @click="openAddEngineModal" class="add-engine-icon-btn" title="Ìí¼Ó×Ô¶¨Òå">
                     +
                   </button>
                 </div>
@@ -50,8 +50,8 @@
                       />
                     </span>
                     <span class="engine-label">{{ engine.label }}</span>
-                    <button v-if="engine.custom" @click.stop="deleteCustomEngine(engine)" class="delete-engine-btn-small" title="åˆ é™¤">
-                      Ã—
+                    <button v-if="engine.custom" @click.stop="deleteCustomEngine(engine)" class="delete-engine-btn-small" title="É¾³ı">
+                      ¡Á
                     </button>
                   </button>
                 </div>
@@ -61,11 +61,11 @@
 <input 
             v-model="searchQuery" 
             type="text" 
-            :placeholder="selectedEngine ? selectedEngine.placeholder : 'æœç´¢...'" 
+            :placeholder="selectedEngine ? selectedEngine.placeholder : 'ËÑË÷...'" 
             class="search-input"
             @keyup.enter="handleSearch"
           />
-          <button v-if="searchQuery" class="clear-btn" @click="clearSearch" aria-label="æ¸…ç©º" title="clear">
+          <button v-if="searchQuery" class="clear-btn" @click="clearSearch" aria-label="Çå¿Õ" title="clear">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"></path></svg>
           </button>
           <button @click="handleSearch" class="search-btn" title="search">
@@ -77,17 +77,17 @@
       </div>
     </div>
     
-    <!-- è¿·ä½ æ ‡ç­¾æ  -->
+    <!-- ÃÔÄã±êÇ©À¸ -->
     <div v-if="allTags.length > 0" class="mini-tag-bar">
-      <!-- å·²é€‰æ ‡ç­¾æ˜¾ç¤º -->
+      <!-- ÒÑÑ¡±êÇ©ÏÔÊ¾ -->
       <div class="selected-tag-display" v-if="selectedTagId">
         <span class="mini-tag-chip" :style="{ backgroundColor: getTagById(selectedTagId)?.color }">
           {{ getTagById(selectedTagId)?.name }}
-          <button class="mini-tag-close" @click="clearTagFilter" title="æ¸…é™¤ç­›é€‰">Ã—</button>
+          <button class="mini-tag-close" @click="clearTagFilter" title="Çå³ıÉ¸Ñ¡">¡Á</button>
         </span>
       </div>
-      <!-- æ ‡ç­¾é€‰æ‹©æŒ‰é’® -->
-      <button class="mini-tag-btn" @click="showTagPanel = !showTagPanel" :title="showTagPanel ? 'å…³é—­æ ‡ç­¾' : 'é€‰æ‹©æ ‡ç­¾'">
+      <!-- ±êÇ©Ñ¡Ôñ°´Å¥ -->
+      <button class="mini-tag-btn" @click="showTagPanel = !showTagPanel" :title="showTagPanel ? '¹Ø±Õ±êÇ©' : 'Ñ¡Ôñ±êÇ©'">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
           <line x1="7" y1="7" x2="7.01" y2="7"/>
@@ -96,13 +96,13 @@
       </button>
     </div>
     
-    <!-- æ ‡ç­¾é€‰æ‹©æµ®å±‚ -->
+    <!-- ±êÇ©Ñ¡Ôñ¸¡²ã -->
     <transition name="tag-panel">
       <div v-if="showTagPanel" class="tag-panel-overlay" @click="showTagPanel = false">
         <div class="tag-panel" @click.stop>
           <div class="tag-panel-header">
-            <h4>é€‰æ‹©æ ‡ç­¾</h4>
-            <button class="panel-close-btn" @click="showTagPanel = false">Ã—</button>
+            <h4>Ñ¡Ôñ±êÇ©</h4>
+            <button class="panel-close-btn" @click="showTagPanel = false">¡Á</button>
           </div>
           <div class="tag-panel-content">
             <button 
@@ -128,25 +128,25 @@
       </div>
     </transition>
     
-    <!-- å·¦ä¾§å¹¿å‘Šæ¡ -->
+    <!-- ×ó²à¹ã¸æÌõ -->
     <div v-if="leftAds.length" class="ad-space-fixed left-ad-fixed">
       <a v-for="ad in leftAds" :key="ad.id" :href="ad.url" target="_blank">
-        <img :src="ad.img" alt="å¹¿å‘Š" loading="lazy" />
+        <img :src="ad.img" alt="¹ã¸æ" loading="lazy" />
       </a>
     </div>
-    <!-- å³ä¾§å¹¿å‘Šæ¡ -->
+    <!-- ÓÒ²à¹ã¸æÌõ -->
     <div v-if="rightAds.length" class="ad-space-fixed right-ad-fixed">
       <a v-for="ad in rightAds" :key="ad.id" :href="ad.url" target="_blank">
-        <img :src="ad.img" alt="å¹¿å‘Š" loading="lazy" />
+        <img :src="ad.img" alt="¹ã¸æ" loading="lazy" />
       </a>
     </div>
     
     
-    <!-- ç¼–è¾‘æ¨¡å¼ç›®æ ‡åˆ†ç±»é€‰æ‹©é¢æ¿ -->
+    <!-- ±à¼­Ä£Ê½Ä¿±ê·ÖÀàÑ¡ÔñÃæ°å -->
     <div v-if="editMode && showMovePanel" class="move-target-panel">
       <div class="move-target-header">
-        <h4>ç§»åŠ¨åˆ° ({{ selectedCards.length }})</h4>
-        <button @click="cancelMove" class="cancel-move-btn">Ã—</button>
+        <h4>ÒÆ¶¯µ½ ({{ selectedCards.length }})</h4>
+        <button @click="cancelMove" class="cancel-move-btn">¡Á</button>
       </div>
       <div class="move-target-list">
         <div v-for="menu in menus" :key="menu.id" class="target-menu-group">
@@ -165,14 +165,14 @@
               class="target-submenu-btn"
               :class="{ 'active': targetMenuId === menu.id && targetSubMenuId === subMenu.id }"
             >
-              â¤· {{ subMenu.name }}
+              ? {{ subMenu.name }}
             </button>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- å§‹ç»ˆæ˜¾ç¤ºå½“å‰é€‰ä¸­çš„åˆ†ç±» -->
+    <!-- Ê¼ÖÕÏÔÊ¾µ±Ç°Ñ¡ÖĞµÄ·ÖÀà -->
     <CardGrid 
       :cards="filteredCards" 
       :editMode="editMode"
@@ -186,11 +186,11 @@
       @click.stop
     />
     
-    <!-- æµ®åŠ¨æ“ä½œæŒ‰é’®èœå• -->
+    <!-- ¸¡¶¯²Ù×÷°´Å¥²Ëµ¥ -->
     <div class="fab-container" @click.stop>
-      <!-- åˆ‡æ¢èƒŒæ™¯æŒ‰é’® -->
+      <!-- ÇĞ»»±³¾°°´Å¥ -->
       <transition name="fab-item">
-        <button v-show="showFabMenu" @click="changeBackground" class="change-bg-btn" title="åˆ‡æ¢èƒŒæ™¯" :disabled="bgLoading">
+        <button v-show="showFabMenu" @click="changeBackground" class="change-bg-btn" title="ÇĞ»»±³¾°" :disabled="bgLoading">
           <svg v-if="!bgLoading" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
             <circle cx="8.5" cy="8.5" r="1.5"></circle>
@@ -202,9 +202,9 @@
         </button>
       </transition>
 
-      <!-- æ‰¹é‡æ·»åŠ æ‚¬æµ®æŒ‰é’® -->
+      <!-- ÅúÁ¿Ìí¼ÓĞü¸¡°´Å¥ -->
       <transition name="fab-item">
-        <button v-if="activeMenu" v-show="showFabMenu" @click="openBatchAddModal" class="batch-add-btn" title="æ‰¹é‡æ·»åŠ ç½‘ç«™">
+        <button v-if="activeMenu" v-show="showFabMenu" @click="openBatchAddModal" class="batch-add-btn" title="ÅúÁ¿Ìí¼ÓÍøÕ¾">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 5v14M5 12h14"/>
           </svg>
@@ -212,14 +212,14 @@
       </transition>
       
       
-      <!-- é€€å‡ºç¼–è¾‘æ¨¡å¼æŒ‰é’® -->
+      <!-- ÍË³ö±à¼­Ä£Ê½°´Å¥ -->
       <transition name="fab-item">
         <button 
           v-if="editMode" 
           v-show="showFabMenu" 
           @click="exitEditMode" 
           class="exit-edit-btn" 
-          title="é€€å‡ºç¼–è¾‘æ¨¡å¼"
+          title="ÍË³ö±à¼­Ä£Ê½"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M18 6L6 18M6 6l12 12"></path>
@@ -227,14 +227,14 @@
         </button>
       </transition>
       
-      <!-- è¿›å…¥ç¼–è¾‘æ¨¡å¼æŒ‰é’® -->
+      <!-- ½øÈë±à¼­Ä£Ê½°´Å¥ -->
       <transition name="fab-item">
         <button 
           v-if="!editMode" 
           v-show="showFabMenu" 
           @click="enterEditMode" 
           class="edit-mode-btn" 
-          title="ç¼–è¾‘æ¨¡å¼"
+          title="±à¼­Ä£Ê½"
         >
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
@@ -243,8 +243,8 @@
         </button>
       </transition>
       
-      <!-- ä¸»åˆ‡æ¢æŒ‰é’® -->
-      <button @click="toggleFabMenu" class="fab-toggle-btn" title="æ›´å¤šåŠŸèƒ½">
+      <!-- Ö÷ÇĞ»»°´Å¥ -->
+      <button @click="toggleFabMenu" class="fab-toggle-btn" title="¸ü¶à¹¦ÄÜ">
         <transition name="fab-icon" mode="out-in">
           <svg v-if="!showFabMenu" key="plus" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line>
@@ -256,11 +256,11 @@
       </button>
     </div>
     
-    <!-- æ‰¹é‡æ·»åŠ å¼¹çª— -->
+    <!-- ÅúÁ¿Ìí¼Óµ¯´° -->
     <div v-if="showBatchAddModal" class="modal-overlay">
       <div class="modal-content batch-modal" @click.stop>
         <div class="modal-header">
-          <h3>{{ batchStep === 1 ? 'éªŒè¯å¯†ç ' : batchStep === 2 ? 'è¾“å…¥ç½‘å€' : 'é¢„è§ˆå¹¶é€‰æ‹©' }}</h3>
+          <h3>{{ batchStep === 1 ? 'ÑéÖ¤ÃÜÂë' : batchStep === 2 ? 'ÊäÈëÍøÖ·' : 'Ô¤ÀÀ²¢Ñ¡Ôñ' }}</h3>
           <button @click="closeBatchAdd" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -268,52 +268,52 @@
           </button>
         </div>
         <div class="modal-body">
-          <!-- æ­¥éª¤ 1: å¯†ç éªŒè¯ -->
+          <!-- ²½Öè 1: ÃÜÂëÑéÖ¤ -->
           <div v-if="batchStep === 1" class="batch-step">
-            <p class="batch-tip">è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç ä»¥ç»§ç»­ï¼š</p>
+            <p class="batch-tip">ÇëÊäÈë¹ÜÀíÔ±ÃÜÂëÒÔ¼ÌĞø£º</p>
             <input 
               v-model="batchPassword" 
               type="password" 
-              placeholder="è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç "
+              placeholder="ÇëÊäÈë¹ÜÀíÔ±ÃÜÂë"
               class="batch-input"
               @keyup.enter="verifyBatchPassword"
             />
             <div class="remember-password-wrapper">
               <label>
                 <input type="checkbox" v-model="rememberPassword" />
-                <span>è®°ä½å¯†ç ï¼ˆ2å°æ—¶ï¼‰</span>
+                <span>¼Ç×¡ÃÜÂë£¨2Ğ¡Ê±£©</span>
               </label>
             </div>
             <p v-if="batchError" class="batch-error">{{ batchError }}</p>
             <div class="batch-actions">
-              <button @click="closeBatchAdd" class="btn btn-cancel">å–æ¶ˆ</button>
+              <button @click="closeBatchAdd" class="btn btn-cancel">È¡Ïû</button>
               <button @click="verifyBatchPassword" class="btn btn-primary" :disabled="batchLoading">
-                {{ batchLoading ? 'éªŒè¯ä¸­...' : 'ç¡®è®¤' }}
+                {{ batchLoading ? 'ÑéÖ¤ÖĞ...' : 'È·ÈÏ' }}
               </button>
             </div>
           </div>
           
-          <!-- æ­¥éª¤ 2: è¾“å…¥ç½‘å€ -->
+          <!-- ²½Öè 2: ÊäÈëÍøÖ· -->
           <div v-if="batchStep === 2" class="batch-step">
-            <p class="batch-tip">è¯·è¾“å…¥éœ€è¦æ·»åŠ çš„ç½‘å€ï¼Œæ¯è¡Œä¸€ä¸ªï¼š</p>
+            <p class="batch-tip">ÇëÊäÈëĞèÒªÌí¼ÓµÄÍøÖ·£¬Ã¿ĞĞÒ»¸ö£º</p>
             <textarea 
               v-model="batchUrls" 
-              placeholder="ä¾‹å¦‚ï¼š&#10;https://github.com&#10;https://google.com&#10;https://stackoverflow.com"
+              placeholder="ÀıÈç£º&#10;https://github.com&#10;https://google.com&#10;https://stackoverflow.com"
               class="batch-textarea"
               rows="10"
             ></textarea>
             <p v-if="batchError" class="batch-error">{{ batchError }}</p>
             <div class="batch-actions">
-              <button @click="handleBackToPassword" class="btn btn-cancel">ä¸Šä¸€æ­¥</button>
+              <button @click="handleBackToPassword" class="btn btn-cancel">ÉÏÒ»²½</button>
               <button @click="parseUrls" class="btn btn-primary" :disabled="batchLoading || !batchUrls.trim()">
-                {{ batchLoading ? 'è§£æä¸­...' : 'ä¸‹ä¸€æ­¥' }}
+                {{ batchLoading ? '½âÎöÖĞ...' : 'ÏÂÒ»²½' }}
               </button>
             </div>
           </div>
           
-          <!-- æ­¥éª¤ 3: é¢„è§ˆé€‰æ‹© -->
+          <!-- ²½Öè 3: Ô¤ÀÀÑ¡Ôñ -->
           <div v-if="batchStep === 3" class="batch-step">
-            <p class="batch-tip">è¯·é€‰æ‹©éœ€è¦æ·»åŠ çš„ç½‘ç«™ï¼š</p>
+            <p class="batch-tip">ÇëÑ¡ÔñĞèÒªÌí¼ÓµÄÍøÕ¾£º</p>
             <div class="batch-preview-list">
               <div v-for="(item, index) in parsedCards" :key="index" class="batch-preview-item">
                 <input type="checkbox" v-model="item.selected" :id="`card-${index}`" />
@@ -321,24 +321,24 @@
                   <img :src="item.logo" :alt="item.title" class="batch-card-logo" @error="e => e.target.src = '/default-favicon.png'" />
                   <div class="batch-card-info">
                     <div class="batch-edit-field">
-                      <label>æ ‡é¢˜ï¼š</label>
+                      <label>±êÌâ£º</label>
                       <input type="text" v-model="item.title" class="batch-edit-input" />
                     </div>
                     <div class="batch-edit-field">
-                      <label>Logoï¼š</label>
+                      <label>Logo£º</label>
                       <input type="text" v-model="item.logo" class="batch-edit-input" />
                     </div>
                     <div class="batch-edit-field">
-                      <label>æè¿°ï¼š</label>
+                      <label>ÃèÊö£º</label>
                       <textarea v-model="item.description" class="batch-edit-textarea" rows="2"></textarea>
                     </div>
                     <div class="batch-edit-field" v-if="allTags.length > 0">
-                      <label>æ ‡ç­¾ï¼š</label>
+                      <label>±êÇ©£º</label>
                       <div class="batch-tags-selector">
-                        <!-- æ¨èæ ‡ç­¾åŒºåŸŸ -->
+                        <!-- ÍÆ¼ö±êÇ©ÇøÓò -->
                         <div v-if="item.recommendedTagIds && item.recommendedTagIds.length > 0" class="recommended-tags-section">
                           <div class="recommended-tags-header">
-                            <span class="recommend-badge">â­ æ™ºèƒ½æ¨è</span>
+                            <span class="recommend-badge">? ÖÇÄÜÍÆ¼ö</span>
                           </div>
                           <div class="recommended-tags-list">
                             <label 
@@ -357,9 +357,9 @@
                             </label>
                           </div>
                         </div>
-                        <!-- å…¶ä»–æ ‡ç­¾åŒºåŸŸ -->
+                        <!-- ÆäËû±êÇ©ÇøÓò -->
                         <div v-if="getOtherTags(item).length > 0" class="other-tags-section">
-                          <div class="other-tags-header">å…¶ä»–æ ‡ç­¾</div>
+                          <div class="other-tags-header">ÆäËû±êÇ©</div>
                           <div class="other-tags-list">
                             <label 
                               v-for="tag in getOtherTags(item)" 
@@ -380,16 +380,16 @@
                       </div>
                     </div>
                     <p class="batch-card-url">{{ item.url }}</p>
-                    <p v-if="!item.success" class="batch-card-warning">âš ï¸ {{ item.error }}</p>
+                    <p v-if="!item.success" class="batch-card-warning">?? {{ item.error }}</p>
                   </div>
                 </div>
               </div>
             </div>
             <p v-if="batchError" class="batch-error">{{ batchError }}</p>
             <div class="batch-actions">
-              <button @click="batchStep = 2" class="btn btn-cancel">ä¸Šä¸€æ­¥</button>
+              <button @click="batchStep = 2" class="btn btn-cancel">ÉÏÒ»²½</button>
               <button @click="addSelectedCards" class="btn btn-primary" :disabled="batchLoading || selectedCardsCount === 0">
-                {{ batchLoading ? 'æ·»åŠ ä¸­...' : `æ·»åŠ  (${selectedCardsCount})` }}
+                {{ batchLoading ? 'Ìí¼ÓÖĞ...' : `Ìí¼Ó (${selectedCardsCount})` }}
               </button>
             </div>
           </div>
@@ -404,17 +404,17 @@
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
           </svg>
-          å‹æƒ…é“¾æ¥
+          ÓÑÇéÁ´½Ó
         </button>
-        <p class="copyright">Copyright Â© 2025 Con-Nav-Item | <a href="https://github.com/zczy-k/Con-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
+        <p class="copyright">Copyright ? 2025 Con-Nav-Item | <a href="https://github.com/zczy-k/Con-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
       </div>
     </footer>
 
-    <!-- ç¼–è¾‘æ¨¡å¼å¯†ç éªŒè¯å¼¹çª— -->
+    <!-- ±à¼­Ä£Ê½ÃÜÂëÑéÖ¤µ¯´° -->
     <div v-if="showEditPasswordModal" class="modal-overlay" @click="showEditPasswordModal = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>è¿›å…¥ç¼–è¾‘æ¨¡å¼</h3>
+          <h3>½øÈë±à¼­Ä£Ê½</h3>
           <button @click="showEditPasswordModal = false" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -422,11 +422,11 @@
           </button>
         </div>
         <div class="modal-body">
-          <p style="margin-bottom: 15px;">è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç ä»¥ç»§ç»­ï¼š</p>
+          <p style="margin-bottom: 15px;">ÇëÊäÈë¹ÜÀíÔ±ÃÜÂëÒÔ¼ÌĞø£º</p>
           <input 
             v-model="editPassword" 
             type="password" 
-            placeholder="è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç "
+            placeholder="ÇëÊäÈë¹ÜÀíÔ±ÃÜÂë"
             class="batch-input"
             @keyup.enter="verifyEditPassword"
             style="width: 100%;"
@@ -434,25 +434,25 @@
           <div class="remember-password-wrapper">
             <label>
               <input type="checkbox" v-model="rememberEditPassword" />
-              <span>è®°ä½å¯†ç ï¼ˆ2å°æ—¶ï¼‰</span>
+              <span>¼Ç×¡ÃÜÂë£¨2Ğ¡Ê±£©</span>
             </label>
           </div>
           <p v-if="editError" class="batch-error">{{ editError }}</p>
           <div class="batch-actions" style="margin-top: 20px;">
-            <button @click="showEditPasswordModal = false" class="btn btn-cancel">å–æ¶ˆ</button>
+            <button @click="showEditPasswordModal = false" class="btn btn-cancel">È¡Ïû</button>
             <button @click="verifyEditPassword" class="btn btn-primary" :disabled="editLoading">
-              {{ editLoading ? 'éªŒè¯ä¸­...' : 'ç¡®è®¤' }}
+              {{ editLoading ? 'ÑéÖ¤ÖĞ...' : 'È·ÈÏ' }}
             </button>
           </div>
         </div>
       </div>
     </div>
     
-    <!-- å‹æƒ…é“¾æ¥å¼¹çª— -->
+    <!-- ÓÑÇéÁ´½Óµ¯´° -->
     <div v-if="showFriendLinks" class="modal-overlay" @click="showFriendLinks = false">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>å‹æƒ…é“¾æ¥</h3>
+          <h3>ÓÑÇéÁ´½Ó</h3>
           <button @click="showFriendLinks = false" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -489,11 +489,11 @@
       </div>
     </div>
     
-    <!-- å¡ç‰‡ç¼–è¾‘å¼¹çª— -->
+    <!-- ¿¨Æ¬±à¼­µ¯´° -->
     <div v-if="showEditCardModal" class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>ç¼–è¾‘å¡ç‰‡</h3>
+          <h3>±à¼­¿¨Æ¬</h3>
           <button @click="closeEditCardModal" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -503,43 +503,43 @@
         <div class="modal-body">
           <div class="edit-card-form">
             <div class="form-group">
-              <label>æ ‡é¢˜</label>
+              <label>±êÌâ</label>
               <input 
                 v-model="cardEditForm.title" 
                 type="text" 
-                placeholder="è¯·è¾“å…¥æ ‡é¢˜"
+                placeholder="ÇëÊäÈë±êÌâ"
                 class="batch-input"
               />
             </div>
             <div class="form-group">
-              <label>ç½‘å€</label>
+              <label>ÍøÖ·</label>
               <input 
                 v-model="cardEditForm.url" 
                 type="url" 
-                placeholder="è¯·è¾“å…¥ç½‘å€"
+                placeholder="ÇëÊäÈëÍøÖ·"
                 class="batch-input"
               />
             </div>
             <div class="form-group">
-              <label>Logo é“¾æ¥</label>
+              <label>Logo Á´½Ó</label>
               <input 
                 v-model="cardEditForm.logo_url" 
                 type="url" 
-                placeholder="è¯·è¾“å…¥ Logo å›¾ç‰‡é“¾æ¥"
+                placeholder="ÇëÊäÈë Logo Í¼Æ¬Á´½Ó"
                 class="batch-input"
               />
             </div>
             <div class="form-group">
-              <label>æè¿°</label>
+              <label>ÃèÊö</label>
               <textarea 
                 v-model="cardEditForm.desc" 
-                placeholder="è¯·è¾“å…¥æè¿°"
+                placeholder="ÇëÊäÈëÃèÊö"
                 class="batch-textarea"
                 rows="4"
               ></textarea>
             </div>
             <div class="form-group">
-              <label>æ ‡ç­¾</label>
+              <label>±êÇ©</label>
               <div class="tag-select-area">
                 <div class="selected-tags">
                   <span 
@@ -548,8 +548,8 @@
                     class="selected-tag"
                     :style="{ backgroundColor: getTagById(tagId)?.color || '#666' }"
                   >
-                    {{ getTagById(tagId)?.name || 'æœªçŸ¥' }}
-                    <button @click="removeTag(tagId)" class="remove-tag-btn">Ã—</button>
+                    {{ getTagById(tagId)?.name || 'Î´Öª' }}
+                    <button @click="removeTag(tagId)" class="remove-tag-btn">¡Á</button>
                   </span>
                 </div>
                 <div class="available-tags">
@@ -567,9 +567,9 @@
             </div>
             <p v-if="editError" class="batch-error">{{ editError }}</p>
             <div class="batch-actions" style="margin-top: 20px;">
-              <button @click="closeEditCardModal" class="btn btn-cancel">å–æ¶ˆ</button>
+              <button @click="closeEditCardModal" class="btn btn-cancel">È¡Ïû</button>
               <button @click="saveCardEdit" class="btn btn-primary" :disabled="editLoading">
-                {{ editLoading ? 'ä¿å­˜ä¸­...' : 'ä¿å­˜' }}
+                {{ editLoading ? '±£´æÖĞ...' : '±£´æ' }}
               </button>
             </div>
           </div>
@@ -577,11 +577,11 @@
       </div>
     </div>
     
-    <!-- æ·»åŠ æœç´¢å¼•æ“å¼¹çª— -->
+    <!-- Ìí¼ÓËÑË÷ÒıÇæµ¯´° -->
     <div v-if="showAddEngineModal" class="modal-overlay">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
-          <h3>{{ engineStep === 1 ? 'æ·»åŠ æœç´¢å¼•æ“ - è¾“å…¥URL' : 'æ·»åŠ æœç´¢å¼•æ“ - ç¼–è¾‘ä¿¡æ¯' }}</h3>
+          <h3>{{ engineStep === 1 ? 'Ìí¼ÓËÑË÷ÒıÇæ - ÊäÈëURL' : 'Ìí¼ÓËÑË÷ÒıÇæ - ±à¼­ĞÅÏ¢' }}</h3>
           <button @click="closeAddEngineModal" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -589,64 +589,64 @@
           </button>
         </div>
         <div class="modal-body">
-          <!-- æ­¥éª¤1ï¼šè¾“å…¥URL -->
+          <!-- ²½Öè1£ºÊäÈëURL -->
           <div v-if="engineStep === 1">
             <div class="form-group">
-              <label>æœç´¢å¼•æ“URL</label>
+              <label>ËÑË÷ÒıÇæURL</label>
               <input 
                 v-model="engineUrl" 
                 type="url" 
-                placeholder="ä¾‹å¦‚ï¼šhttps://www.google.com"
+                placeholder="ÀıÈç£ºhttps://www.google.com"
                 class="batch-input"
                 @keyup.enter="parseEngineUrl"
               />
-              <p style="font-size: 12px; color: #666; margin-top: 5px;">è¾“å…¥æœç´¢å¼•æ“çš„ä¸»é¡µåœ°å€ï¼Œç³»ç»Ÿä¼šè‡ªåŠ¨è§£æ</p>
+              <p style="font-size: 12px; color: #666; margin-top: 5px;">ÊäÈëËÑË÷ÒıÇæµÄÖ÷Ò³µØÖ·£¬ÏµÍ³»á×Ô¶¯½âÎö</p>
             </div>
             <p v-if="engineError" class="batch-error">{{ engineError }}</p>
             <div class="batch-actions" style="margin-top: 20px;">
-              <button @click="closeAddEngineModal" class="btn btn-cancel">å–æ¶ˆ</button>
+              <button @click="closeAddEngineModal" class="btn btn-cancel">È¡Ïû</button>
               <button @click="parseEngineUrl" class="btn btn-primary" :disabled="engineLoading || !engineUrl">
-                {{ engineLoading ? 'è§£æä¸­...' : 'ä¸‹ä¸€æ­¥' }}
+                {{ engineLoading ? '½âÎöÖĞ...' : 'ÏÂÒ»²½' }}
               </button>
             </div>
           </div>
           
-          <!-- æ­¥éª¤2ï¼šç¼–è¾‘è§£æåçš„ä¿¡æ¯ -->
+          <!-- ²½Öè2£º±à¼­½âÎöºóµÄĞÅÏ¢ -->
           <div v-if="engineStep === 2">
             <div class="form-group">
-              <label>åç§°</label>
+              <label>Ãû³Æ</label>
               <input 
                 v-model="newEngine.name" 
                 type="text" 
-                placeholder="ä¾‹å¦‚ï¼šGoogle"
+                placeholder="ÀıÈç£ºGoogle"
                 class="batch-input"
               />
             </div>
             <div class="form-group">
-              <label>æœç´¢URLæ¨¡æ¿</label>
+              <label>ËÑË÷URLÄ£°å</label>
               <input 
                 v-model="newEngine.searchUrl" 
                 type="text" 
-                placeholder="ä¾‹å¦‚ï¼šhttps://www.google.com/search?q={searchTerms}"
+                placeholder="ÀıÈç£ºhttps://www.google.com/search?q={searchTerms}"
                 class="batch-input"
               />
-              <p style="font-size: 12px; color: #666; margin-top: 5px;">ä½¿ç”¨ {searchTerms} ä½œä¸ºæœç´¢å…³é”®è¯å ä½ç¬¦</p>
+              <p style="font-size: 12px; color: #666; margin-top: 5px;">Ê¹ÓÃ {searchTerms} ×÷ÎªËÑË÷¹Ø¼ü´ÊÕ¼Î»·û</p>
             </div>
             <div class="form-group">
-              <label>å…³é”®è¯ï¼ˆå¯é€‰ï¼‰</label>
+              <label>¹Ø¼ü´Ê£¨¿ÉÑ¡£©</label>
               <input 
                 v-model="newEngine.keyword" 
                 type="text" 
-                placeholder="ä¾‹å¦‚ï¼šgoogle"
+                placeholder="ÀıÈç£ºgoogle"
                 class="batch-input"
               />
-              <p style="font-size: 12px; color: #666; margin-top: 5px;">ç”¨äºå¿«æ·é”®æœç´¢ï¼Œä¾‹å¦‚è¾“å…¥ 'g å…³é”®è¯' ä½¿ç”¨Googleæœç´¢</p>
+              <p style="font-size: 12px; color: #666; margin-top: 5px;">ÓÃÓÚ¿ì½İ¼üËÑË÷£¬ÀıÈçÊäÈë 'g ¹Ø¼ü´Ê' Ê¹ÓÃGoogleËÑË÷</p>
             </div>
             <p v-if="engineError" class="batch-error">{{ engineError }}</p>
             <div class="batch-actions" style="margin-top: 20px;">
-              <button @click="engineStep = 1" class="btn btn-cancel">ä¸Šä¸€æ­¥</button>
+              <button @click="engineStep = 1" class="btn btn-cancel">ÉÏÒ»²½</button>
               <button @click="addCustomEngine" class="btn btn-primary" :disabled="engineLoading">
-                {{ engineLoading ? 'æ·»åŠ ä¸­...' : 'æ·»åŠ ' }}
+                {{ engineLoading ? 'Ìí¼ÓÖĞ...' : 'Ìí¼Ó' }}
               </button>
             </div>
           </div>
@@ -654,7 +654,7 @@
       </div>
     </div>
     
-    <!-- Toast æç¤º -->
+    <!-- Toast ÌáÊ¾ -->
     <transition name="toast">
       <div v-if="showToast" class="toast-notification">
         {{ toastMessage }}
@@ -673,7 +673,7 @@ const menus = ref([]);
 const activeMenu = ref(null);
 const activeSubMenu = ref(null);
 const cards = ref([]);
-const allCards = ref([]); // å­˜å‚¨æ‰€æœ‰èœå•çš„å¡ç‰‡ï¼Œç”¨äºæœç´¢
+const allCards = ref([]); // ´æ´¢ËùÓĞ²Ëµ¥µÄ¿¨Æ¬£¬ÓÃÓÚËÑË÷
 const searchQuery = ref('');
 const leftAds = ref([]);
 const rightAds = ref([]);
@@ -681,11 +681,11 @@ const showFriendLinks = ref(false);
 const friendLinks = ref([]);
 const allTags = ref([]);
 const selectedTagId = ref(null);
-const showTagPanel = ref(false); // æ ‡ç­¾é€‰æ‹©æµ®å±‚
+const showTagPanel = ref(false); // ±êÇ©Ñ¡Ôñ¸¡²ã
 
-// æ‰¹é‡æ·»åŠ ç›¸å…³çŠ¶æ€
+// ÅúÁ¿Ìí¼ÓÏà¹Ø×´Ì¬
 const showBatchAddModal = ref(false);
-const batchStep = ref(1); // 1:å¯†ç éªŒè¯ 2:è¾“å…¥ç½‘å€ 3:é¢„è§ˆé€‰æ‹©
+const batchStep = ref(1); // 1:ÃÜÂëÑéÖ¤ 2:ÊäÈëÍøÖ· 3:Ô¤ÀÀÑ¡Ôñ
 const batchPassword = ref('');
 const batchUrls = ref('');
 const batchLoading = ref(false);
@@ -693,7 +693,7 @@ const batchError = ref('');
 const parsedCards = ref([]);
 const rememberPassword = ref(false);
 
-// ç¼–è¾‘æ¨¡å¼ç›¸å…³çŠ¶æ€
+// ±à¼­Ä£Ê½Ïà¹Ø×´Ì¬
 const editMode = ref(false);
 const editPassword = ref('');
 const showEditPasswordModal = ref(false);
@@ -701,17 +701,17 @@ const editLoading = ref(false);
 const editError = ref('');
 const rememberEditPassword = ref(false);
 
-// æ‰¹é‡ç§»åŠ¨ç›¸å…³çŠ¶æ€
+// ÅúÁ¿ÒÆ¶¯Ïà¹Ø×´Ì¬
 const selectedCards = ref([]);
 const showMovePanel = ref(false);
 const targetMenuId = ref(null);
 const targetSubMenuId = ref(null);
 
-// Toast æç¤ºçŠ¶æ€
+// Toast ÌáÊ¾×´Ì¬
 const toastMessage = ref('');
 const showToast = ref(false);
 
-// å¡ç‰‡ç¼–è¾‘æ¨¡æ€æ¡†ç›¸å…³çŠ¶æ€
+// ¿¨Æ¬±à¼­Ä£Ì¬¿òÏà¹Ø×´Ì¬
 const showEditCardModal = ref(false);
 const editingCard = ref(null);
 const cardEditForm = ref({
@@ -722,7 +722,7 @@ const cardEditForm = ref({
   tagIds: []
 });
 
-// FAB èœå•
+// FAB ²Ëµ¥
 const showFabMenu = ref(false);
 
 function toggleFabMenu() {
@@ -735,14 +735,14 @@ function closeFabMenu() {
   }
 }
 
-// èƒŒæ™¯åˆ‡æ¢ç›¸å…³
+// ±³¾°ÇĞ»»Ïà¹Ø
 const bgLoading = ref(false);
 
 const selectedCardsCount = computed(() => {
   return parsedCards.value.filter(card => card.selected).length;
 });
 
-// é»˜è®¤æœç´¢å¼•æ“é…ç½®
+// Ä¬ÈÏËÑË÷ÒıÇæÅäÖÃ
 const defaultEngines = [
   {
     name: 'google',
@@ -751,17 +751,17 @@ const defaultEngines = [
   },
   {
     name: 'baidu',
-    label: 'ç™¾åº¦',
+    label: '°Ù¶È',
     url: q => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}`
   },
   {
     name: '360',
-    label: '360æœç´¢',
+    label: '360ËÑË÷',
     url: q => `https://www.so.com/s?q=${encodeURIComponent(q)}`
   },
   {
     name: 'sogou',
-    label: 'æœç‹—',
+    label: 'ËÑ¹·',
     url: q => `https://www.sogou.com/web?query=${encodeURIComponent(q)}`
   },
   {
@@ -794,12 +794,12 @@ const defaultEngines = [
 const searchEngines = ref([]);
 const selectedEngine = ref(null);
 
-// è‡ªå®šä¹‰æœç´¢å¼•æ“ç›¸å…³çŠ¶æ€
+// ×Ô¶¨ÒåËÑË÷ÒıÇæÏà¹Ø×´Ì¬
 const showAddEngineModal = ref(false);
 const showEngineDropdown = ref(false);
 const engineError = ref('');
 const engineLoading = ref(false);
-const engineStep = ref(1); // 1:è¾“å…¥URL 2:ç¼–è¾‘ä¿¡æ¯
+const engineStep = ref(1); // 1:ÊäÈëURL 2:±à¼­ĞÅÏ¢
 const engineUrl = ref('');
 const newEngine = ref({
   name: '',
@@ -807,13 +807,13 @@ const newEngine = ref({
   keyword: ''
 });
 
-// æœç´¢å¼•æ“é…ç½®ç‰ˆæœ¬å·ï¼ˆç§»é™¤å›¾æ ‡åŠŸèƒ½åï¼‰
+// ËÑË÷ÒıÇæÅäÖÃ°æ±¾ºÅ£¨ÒÆ³ıÍ¼±ê¹¦ÄÜºó£©
 const ENGINE_CONFIG_VERSION = '3.0';
 
 
 function selectEngine(engine) {
   selectedEngine.value = engine;
-  // ä¿å­˜åˆ° localStorage
+  // ±£´æµ½ localStorage
   try {
     localStorage.setItem('default_search_engine', engine.name);
   } catch (e) {
@@ -821,12 +821,12 @@ function selectEngine(engine) {
   }
 }
 
-// åˆ‡æ¢ä¸‹æ‹‰èœå•æ˜¾ç¤º
+// ÇĞ»»ÏÂÀ­²Ëµ¥ÏÔÊ¾
 function toggleEngineDropdown() {
   showEngineDropdown.value = !showEngineDropdown.value;
 }
 
-// ä»ä¸‹æ‹‰èœå•é€‰æ‹©æœç´¢å¼•æ“
+// ´ÓÏÂÀ­²Ëµ¥Ñ¡ÔñËÑË÷ÒıÇæ
 function selectEngineFromDropdown(engine) {
   selectEngine(engine);
   showEngineDropdown.value = false;
@@ -836,7 +836,7 @@ function clearSearch() {
   searchQuery.value = '';
 }
 
-// æ ‡ç­¾ç­›é€‰æ§åˆ¶
+// ±êÇ©É¸Ñ¡¿ØÖÆ
 function toggleTagFilter(tagId) {
   selectedTagId.value = selectedTagId.value === tagId ? null : tagId;
 }
@@ -850,13 +850,13 @@ function selectTag(tagId) {
   showTagPanel.value = false;
 }
 
-// æ‰“å¼€æ·»åŠ æœç´¢å¼•æ“å¼¹çª—(éœ€è¦å…ˆéªŒè¯å¯†ç )
+// ´ò¿ªÌí¼ÓËÑË÷ÒıÇæµ¯´°(ĞèÒªÏÈÑéÖ¤ÃÜÂë)
 async function openAddEngineModal() {
-  // æ£€æŸ¥æ˜¯å¦å·²ç™»å½•
+  // ¼ì²éÊÇ·ñÒÑµÇÂ¼
   const token = localStorage.getItem('token');
   if (!token) {
-    // æ²¡æœ‰tokenï¼Œéœ€è¦å…ˆç™»å½•
-    const password = prompt('è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç ä»¥æ·»åŠ æœç´¢å¼•æ“ï¼š');
+    // Ã»ÓĞtoken£¬ĞèÒªÏÈµÇÂ¼
+    const password = prompt('ÇëÊäÈë¹ÜÀíÔ±ÃÜÂëÒÔÌí¼ÓËÑË÷ÒıÇæ£º');
     if (!password) {
       showEngineDropdown.value = false;
       return;
@@ -866,7 +866,7 @@ async function openAddEngineModal() {
       const res = await login('admin', password);
       localStorage.setItem('token', res.data.token);
     } catch (error) {
-      alert('å¯†ç é”™è¯¯');
+      alert('ÃÜÂë´íÎó');
       showEngineDropdown.value = false;
       return;
     }
@@ -883,7 +883,7 @@ async function openAddEngineModal() {
   };
 }
 
-// å…³é—­æ·»åŠ æœç´¢å¼•æ“å¼¹çª—
+// ¹Ø±ÕÌí¼ÓËÑË÷ÒıÇæµ¯´°
 function closeAddEngineModal() {
   showAddEngineModal.value = false;
   engineStep.value = 1;
@@ -892,10 +892,10 @@ function closeAddEngineModal() {
   showEngineDropdown.value = false;
 }
 
-// è§£ææœç´¢å¼•æ“URL
+// ½âÎöËÑË÷ÒıÇæURL
 async function parseEngineUrl() {
   if (!engineUrl.value.trim()) {
-    engineError.value = 'è¯·è¾“å…¥URL';
+    engineError.value = 'ÇëÊäÈëURL';
     return;
   }
   
@@ -911,24 +911,24 @@ async function parseEngineUrl() {
     };
     engineStep.value = 2;
   } catch (error) {
-    engineError.value = error.response?.data?.error || 'è§£æå¤±è´¥ï¼Œè¯·æ£€æŸ¥URLæ˜¯å¦æ­£ç¡®';
+    engineError.value = error.response?.data?.error || '½âÎöÊ§°Ü£¬Çë¼ì²éURLÊÇ·ñÕıÈ·';
   } finally {
     engineLoading.value = false;
   }
 }
 
-// æ·»åŠ è‡ªå®šä¹‰æœç´¢å¼•æ“
+// Ìí¼Ó×Ô¶¨ÒåËÑË÷ÒıÇæ
 async function addCustomEngine() {
   if (!newEngine.value.name.trim()) {
-    engineError.value = 'è¯·è¾“å…¥æœç´¢å¼•æ“åç§°';
+    engineError.value = 'ÇëÊäÈëËÑË÷ÒıÇæÃû³Æ';
     return;
   }
   if (!newEngine.value.searchUrl.trim()) {
-    engineError.value = 'è¯·è¾“å…¥æœç´¢URLæ¨¡æ¿';
+    engineError.value = 'ÇëÊäÈëËÑË÷URLÄ£°å';
     return;
   }
   if (!newEngine.value.searchUrl.includes('{searchTerms}')) {
-    engineError.value = 'æœç´¢URLæ¨¡æ¿å¿…é¡»åŒ…å« {searchTerms} å ä½ç¬¦';
+    engineError.value = 'ËÑË÷URLÄ£°å±ØĞë°üº¬ {searchTerms} Õ¼Î»·û';
     return;
   }
   
@@ -942,12 +942,12 @@ async function addCustomEngine() {
       keyword: newEngine.value.keyword
     });
     
-    // æ·»åŠ åˆ°å‰ç«¯åˆ—è¡¨
+    // Ìí¼Óµ½Ç°¶ËÁĞ±í
     const customEngine = {
       name: 'custom_' + res.data.id,
       label: res.data.name,
-      icon: 'ğŸ”',
-      placeholder: `${res.data.name} æœç´¢...`,
+      icon: '??',
+      placeholder: `${res.data.name} ËÑË÷...`,
       url: q => res.data.search_url.replace('{searchTerms}', encodeURIComponent(q)),
       custom: true,
       id: res.data.id,
@@ -955,30 +955,30 @@ async function addCustomEngine() {
     };
     searchEngines.value.push(customEngine);
     
-    showToastMessage('æœç´¢å¼•æ“æ·»åŠ æˆåŠŸ');
+    showToastMessage('ËÑË÷ÒıÇæÌí¼Ó³É¹¦');
     closeAddEngineModal();
   } catch (error) {
-    engineError.value = error.response?.data?.error || 'æ·»åŠ å¤±è´¥';
+    engineError.value = error.response?.data?.error || 'Ìí¼ÓÊ§°Ü';
   } finally {
     engineLoading.value = false;
   }
 }
 
-// åˆ é™¤è‡ªå®šä¹‰æœç´¢å¼•æ“
+// É¾³ı×Ô¶¨ÒåËÑË÷ÒıÇæ
 async function deleteCustomEngine(engine) {
-  if (!confirm(`ç¡®å®šè¦åˆ é™¤ã€Œ${engine.label}ã€æœç´¢å¼•æ“å—ï¼Ÿ`)) return;
+  if (!confirm(`È·¶¨ÒªÉ¾³ı¡¸${engine.label}¡¹ËÑË÷ÒıÇæÂğ£¿`)) return;
   
-  // æ£€æŸ¥æ˜¯å¦å·²ç™»å½•
+  // ¼ì²éÊÇ·ñÒÑµÇÂ¼
   const token = localStorage.getItem('token');
   if (!token) {
-    const password = prompt('è¯·è¾“å…¥ç®¡ç†å‘˜å¯†ç ä»¥åˆ é™¤æœç´¢å¼•æ“ï¼š');
+    const password = prompt('ÇëÊäÈë¹ÜÀíÔ±ÃÜÂëÒÔÉ¾³ıËÑË÷ÒıÇæ£º');
     if (!password) return;
     
     try {
       const res = await login('admin', password);
       localStorage.setItem('token', res.data.token);
     } catch (error) {
-      alert('å¯†ç é”™è¯¯');
+      alert('ÃÜÂë´íÎó');
       return;
     }
   }
@@ -986,38 +986,38 @@ async function deleteCustomEngine(engine) {
   try {
     await deleteSearchEngine(engine.id);
     
-    // ä»åˆ—è¡¨ä¸­ç§»é™¤
+    // ´ÓÁĞ±íÖĞÒÆ³ı
     const index = searchEngines.value.findIndex(e => e.name === engine.name);
     if (index > -1) {
       searchEngines.value.splice(index, 1);
     }
     
-    // å¦‚æœåˆ é™¤çš„æ˜¯å½“å‰é€‰ä¸­çš„å¼•æ“ï¼Œåˆ‡æ¢åˆ°ç¬¬ä¸€ä¸ª
+    // Èç¹ûÉ¾³ıµÄÊÇµ±Ç°Ñ¡ÖĞµÄÒıÇæ£¬ÇĞ»»µ½µÚÒ»¸ö
     if (selectedEngine.value.name === engine.name) {
       selectedEngine.value = searchEngines.value[0];
       selectEngine(searchEngines.value[0]);
     }
     
-    showToastMessage('åˆ é™¤æˆåŠŸ');
+    showToastMessage('É¾³ı³É¹¦');
   } catch (error) {
-    alert('åˆ é™¤å¤±è´¥ï¼š' + (error.response?.data?.error || error.message));
+    alert('É¾³ıÊ§°Ü£º' + (error.response?.data?.error || error.message));
   }
 }
 
 const filteredCards = computed(() => {
   let result = cards.value;
   
-  // å…ˆåº”ç”¨æ ‡ç­¾ç­›é€‰
+  // ÏÈÓ¦ÓÃ±êÇ©É¸Ñ¡
   if (selectedTagId.value) {
     result = result.filter(card => 
       card.tags && card.tags.some(tag => tag.id === selectedTagId.value)
     );
   }
   
-  // å†åº”ç”¨æœç´¢ç­›é€‰
+  // ÔÙÓ¦ÓÃËÑË÷É¸Ñ¡
   if (searchQuery.value) {
     const searchQueryLower = searchQuery.value.toLowerCase();
-    // åœ¨å½“å‰ç»“æœé›†ä¸­æœç´¢
+    // ÔÚµ±Ç°½á¹û¼¯ÖĞËÑË÷
     result = result.filter(card => 
       card.title.toLowerCase().includes(searchQueryLower) ||
       card.url.toLowerCase().includes(searchQueryLower) ||
@@ -1028,11 +1028,11 @@ const filteredCards = computed(() => {
   return result;
 });
 
-// åœ¨ç»„ä»¶æ¸²æŸ“å‰åº”ç”¨ä¿å­˜çš„èƒŒæ™¯ï¼Œé¿å…é—ªçƒ
+// ÔÚ×é¼şäÖÈ¾Ç°Ó¦ÓÃ±£´æµÄ±³¾°£¬±ÜÃâÉÁË¸
 onBeforeMount(() => {
   const savedBg = localStorage.getItem('nav_background');
   if (savedBg) {
-    // åœ¨ nextTick ä¸­åº”ç”¨ï¼Œç¡®ä¿ DOM å…ƒç´ å­˜åœ¨
+    // ÔÚ nextTick ÖĞÓ¦ÓÃ£¬È·±£ DOM ÔªËØ´æÔÚ
     document.addEventListener('DOMContentLoaded', () => {
       const homeContainer = document.querySelector('.home-container');
       if (homeContainer) {
@@ -1047,7 +1047,7 @@ onBeforeMount(() => {
 });
 
 onMounted(async () => {
-  // å¹¶è¡ŒåŠ è½½æ‰€æœ‰ç‹¬ç«‹æ•°æ®ï¼šèœå•ã€å¹¿å‘Šã€å‹é“¾ã€æ ‡ç­¾ã€è‡ªå®šä¹‰æœç´¢å¼•æ“
+  // ²¢ĞĞ¼ÓÔØËùÓĞ¶ÀÁ¢Êı¾İ£º²Ëµ¥¡¢¹ã¸æ¡¢ÓÑÁ´¡¢±êÇ©¡¢×Ô¶¨ÒåËÑË÷ÒıÇæ
   const [menusRes, adsRes, friendsRes, tagsRes, enginesRes] = await Promise.allSettled([
     getMenus(),
     getAds(),
@@ -1056,43 +1056,43 @@ onMounted(async () => {
     getSearchEngines()
   ]);
   
-  // å¤„ç†èœå•æ•°æ®ï¼ˆä¼˜å…ˆçº§æœ€é«˜ï¼‰
+  // ´¦Àí²Ëµ¥Êı¾İ£¨ÓÅÏÈ¼¶×î¸ß£©
   if (menusRes.status === 'fulfilled') {
     menus.value = menusRes.value.data;
     if (menus.value.length) {
       activeMenu.value = menus.value[0];
       loadCards();
-      // å¼‚æ­¥åŠ è½½æ‰€æœ‰å¡ç‰‡ç”¨äºæœç´¢ï¼ˆä¸é˜»å¡ä¸»æµç¨‹ï¼‰
+      // Òì²½¼ÓÔØËùÓĞ¿¨Æ¬ÓÃÓÚËÑË÷£¨²»×èÈûÖ÷Á÷³Ì£©
       loadAllCardsForSearch();
     }
   }
   
-  // å¤„ç†å¹¿å‘Šæ•°æ®
+  // ´¦Àí¹ã¸æÊı¾İ
   if (adsRes.status === 'fulfilled') {
     leftAds.value = adsRes.value.data.filter(ad => ad.position === 'left');
     rightAds.value = adsRes.value.data.filter(ad => ad.position === 'right');
   }
   
-  // å¤„ç†å‹é“¾æ•°æ®
+  // ´¦ÀíÓÑÁ´Êı¾İ
   if (friendsRes.status === 'fulfilled') {
     friendLinks.value = friendsRes.value.data;
   }
   
-  // å¤„ç†æ ‡ç­¾æ•°æ®
+  // ´¦Àí±êÇ©Êı¾İ
   if (tagsRes.status === 'fulfilled') {
     allTags.value = tagsRes.value.data;
   } else {
-    console.error('åŠ è½½æ ‡ç­¾å¤±è´¥:', tagsRes.reason);
+    console.error('¼ÓÔØ±êÇ©Ê§°Ü:', tagsRes.reason);
   }
   
-  // å¤„ç†è‡ªå®šä¹‰æœç´¢å¼•æ“
+  // ´¦Àí×Ô¶¨ÒåËÑË÷ÒıÇæ
   if (enginesRes.status === 'fulfilled') {
     const customEngines = enginesRes.value.data.map(engine => ({
       name: 'custom_' + engine.id,
       label: engine.name,
       iconUrl: null,
-      iconFallback: 'ğŸ”',
-      placeholder: `${engine.name} æœç´¢...`,
+      iconFallback: '??',
+      placeholder: `${engine.name} ËÑË÷...`,
       url: q => engine.search_url.replace('{searchTerms}', encodeURIComponent(q)),
       custom: true,
       id: engine.id,
@@ -1100,18 +1100,17 @@ onMounted(async () => {
     }));
     searchEngines.value = [...defaultEngines, ...customEngines];
   } else {
-    console.error('åŠ è½½è‡ªå®šä¹‰æœç´¢å¼•æ“å¤±è´¥:', enginesRes.reason);
+    console.error('¼ÓÔØ×Ô¶¨ÒåËÑË÷ÒıÇæÊ§°Ü:', enginesRes.reason);
     searchEngines.value = [...defaultEngines];
   }
 
-  // ä» localStorage åˆå§‹åŒ–é»˜è®¤æœç´¢å¼•æ“
+  // ´Ó localStorage ³õÊ¼»¯Ä¬ÈÏËÑË÷ÒıÇæ
   try {
     const savedVersion = localStorage.getItem('engine_config_version');
     if (savedVersion !== ENGINE_CONFIG_VERSION) {
-      console.log('Search engine config version mismatch, clearing all related cache.');
-      // æ¸…é™¤æ‰€æœ‰æœç´¢å¼•æ“ç›¸å…³ç¼“å­˜
+      // Çå³ıËùÓĞËÑË÷ÒıÇæÏà¹Ø»º´æ
       localStorage.removeItem('default_search_engine');
-      localStorage.removeItem('search_engines'); // æ¸…é™¤å¯èƒ½å­˜åœ¨çš„æ—§ç¼“å­˜
+      localStorage.removeItem('search_engines'); // Çå³ı¿ÉÄÜ´æÔÚµÄ¾É»º´æ
       localStorage.setItem('engine_config_version', ENGINE_CONFIG_VERSION);
     }
 
@@ -1131,7 +1130,7 @@ onMounted(async () => {
     }
   }
   
-  // å†æ¬¡æ£€æŸ¥å¹¶åº”ç”¨èƒŒæ™¯ï¼ˆé˜²æ­¢ onBeforeMount æ²¡æœ‰æ‰§è¡Œï¼‰
+  // ÔÙ´Î¼ì²é²¢Ó¦ÓÃ±³¾°£¨·ÀÖ¹ onBeforeMount Ã»ÓĞÖ´ĞĞ£©
   const savedBg = localStorage.getItem('nav_background');
   if (savedBg) {
     const homeContainer = document.querySelector('.home-container');
@@ -1144,7 +1143,7 @@ onMounted(async () => {
     }
   }
   
-  // æ£€æŸ¥æ˜¯å¦æœ‰ä¿å­˜çš„å¯†ç token
+  // ¼ì²éÊÇ·ñÓĞ±£´æµÄÃÜÂëtoken
   checkSavedPassword();
   
   document.addEventListener('click', closeFabMenu);
@@ -1157,7 +1156,7 @@ onUnmounted(() => {
   document.removeEventListener('click', closeEngineDropdown);
 });
 
-// å…³é—­æœç´¢å¼•æ“ä¸‹æ‹‰èœå•
+// ¹Ø±ÕËÑË÷ÒıÇæÏÂÀ­²Ëµ¥
 function closeEngineDropdown() {
   if (showEngineDropdown.value) {
     showEngineDropdown.value = false;
@@ -1166,18 +1165,18 @@ function closeEngineDropdown() {
 
 async function selectMenu(menu, parentMenu = null) {
   if (parentMenu) {
-    // é€‰æ‹©çš„æ˜¯å­èœå•
+    // Ñ¡ÔñµÄÊÇ×Ó²Ëµ¥
     activeMenu.value = parentMenu;
     activeSubMenu.value = menu;
   } else {
-    // é€‰æ‹©çš„æ˜¯ä¸»èœå•
+    // Ñ¡ÔñµÄÊÇÖ÷²Ëµ¥
     activeMenu.value = menu;
     activeSubMenu.value = null;
   }
   loadCards();
 }
 
-// åŠ è½½æ‰€æœ‰åˆ†ç±»çš„å¡ç‰‡ï¼ˆç¼–è¾‘æ¨¡å¼ç”¨ï¼‰
+// ¼ÓÔØËùÓĞ·ÖÀàµÄ¿¨Æ¬£¨±à¼­Ä£Ê½ÓÃ£©
 const allCategoryCards = ref({});
 
 async function loadCards() {
@@ -1186,29 +1185,29 @@ async function loadCards() {
   cards.value = res.data;
 }
 
-// åŠ è½½æ‰€æœ‰å¡ç‰‡ç”¨äºæœç´¢ï¼ˆä¼˜åŒ–ç‰ˆï¼šå¹¶è¡ŒåŠ è½½ï¼‰
+// ¼ÓÔØËùÓĞ¿¨Æ¬ÓÃÓÚËÑË÷£¨ÓÅ»¯°æ£º²¢ĞĞ¼ÓÔØ£©
 async function loadAllCardsForSearch() {
   const promises = [];
   
   for (const menu of menus.value) {
-    // å¹¶è¡ŒåŠ è½½ä¸»èœå•çš„å¡ç‰‡
+    // ²¢ĞĞ¼ÓÔØÖ÷²Ëµ¥µÄ¿¨Æ¬
     promises.push(
       getCards(menu.id, null)
         .then(res => res.data)
         .catch(error => {
-          console.error(`åŠ è½½èœå• ${menu.name} çš„å¡ç‰‡å¤±è´¥:`, error);
+          console.error(`¼ÓÔØ²Ëµ¥ ${menu.name} µÄ¿¨Æ¬Ê§°Ü:`, error);
           return [];
         })
     );
     
-    // å¹¶è¡ŒåŠ è½½å­èœå•çš„å¡ç‰‡
+    // ²¢ĞĞ¼ÓÔØ×Ó²Ëµ¥µÄ¿¨Æ¬
     if (menu.subMenus && menu.subMenus.length) {
       for (const subMenu of menu.subMenus) {
         promises.push(
           getCards(menu.id, subMenu.id)
             .then(res => res.data)
             .catch(error => {
-              console.error(`åŠ è½½å­èœå• ${subMenu.name} çš„å¡ç‰‡å¤±è´¥:`, error);
+              console.error(`¼ÓÔØ×Ó²Ëµ¥ ${subMenu.name} µÄ¿¨Æ¬Ê§°Ü:`, error);
               return [];
             })
         );
@@ -1216,12 +1215,12 @@ async function loadAllCardsForSearch() {
     }
   }
   
-  // ç­‰å¾…æ‰€æœ‰è¯·æ±‚å®Œæˆï¼Œåˆå¹¶ç»“æœ
+  // µÈ´ıËùÓĞÇëÇóÍê³É£¬ºÏ²¢½á¹û
   const results = await Promise.all(promises);
   allCards.value = results.flat();
 }
 
-// åŠ è½½æ‰€æœ‰åˆ†ç±»çš„å¡ç‰‡ï¼ˆä¼˜åŒ–ç‰ˆï¼šå¹¶è¡ŒåŠ è½½ï¼‰
+// ¼ÓÔØËùÓĞ·ÖÀàµÄ¿¨Æ¬£¨ÓÅ»¯°æ£º²¢ĞĞ¼ÓÔØ£©
 async function loadAllCards() {
   const promises = [];
   const keys = [];
@@ -1235,7 +1234,7 @@ async function loadAllCards() {
         .catch(() => [])
     );
     
-    // å¹¶è¡ŒåŠ è½½å­åˆ†ç±»
+    // ²¢ĞĞ¼ÓÔØ×Ó·ÖÀà
     if (menu.subMenus && menu.subMenus.length) {
       for (const subMenu of menu.subMenus) {
         const subKey = `${menu.id}_${subMenu.id}`;
@@ -1257,7 +1256,7 @@ async function loadAllCards() {
   allCategoryCards.value = tempCards;
 }
 
-// æ ¹æ®åˆ†ç±»IDè·å–å¡ç‰‡
+// ¸ù¾İ·ÖÀàID»ñÈ¡¿¨Æ¬
 function getCategoryCards(menuId, subMenuId) {
   const key = `${menuId}_${subMenuId}`;
   return allCategoryCards.value[key] || [];
@@ -1266,7 +1265,7 @@ function getCategoryCards(menuId, subMenuId) {
 async function handleSearch() {
   if (!searchQuery.value.trim()) return;
   if (selectedEngine.value.name === 'site') {
-    // ç«™å†…æœç´¢ï¼šéå†æ‰€æœ‰èœå•ï¼ŒæŸ¥æ‰¾æ‰€æœ‰å¡ç‰‡
+    // Õ¾ÄÚËÑË÷£º±éÀúËùÓĞ²Ëµ¥£¬²éÕÒËùÓĞ¿¨Æ¬
     let found = false;
     for (const menu of menus.value) {
       const res = await getCards(menu.id);
@@ -1286,7 +1285,7 @@ async function handleSearch() {
       }
     }
     if (!found) {
-      alert('æœªæ‰¾åˆ°ç›¸å…³å†…å®¹');
+      alert('Î´ÕÒµ½Ïà¹ØÄÚÈİ');
     }
   } else {
     const url = selectedEngine.value.url(searchQuery.value);
@@ -1294,38 +1293,38 @@ async function handleSearch() {
   }
 }
 
-// è·å–æœç´¢å¼•æ“å›¾æ ‡
+// »ñÈ¡ËÑË÷ÒıÇæÍ¼±ê
 function getEngineIcon(engine) {
   if (engine.iconUrl) return engine.iconUrl;
   const origin = new URL(engine.url('')).origin;
   return `https://api.xinac.net/icon/?url=${origin}&sz=128`;
 }
 
-// å¤„ç†æœç´¢å¼•æ“å›¾æ ‡é”™è¯¯
+// ´¦ÀíËÑË÷ÒıÇæÍ¼±ê´íÎó
 function handleEngineIconError(event) {
   event.target.src = '/default-favicon.png';
 }
 
-// æ‰¹é‡æ·»åŠ ç›¸å…³å‡½æ•°
-// æ‰“å¼€æ‰¹é‡æ·»åŠ å¼¹çª—ï¼Œæ£€æŸ¥æ˜¯å¦æœ‰æœ‰æ•ˆçš„token
+// ÅúÁ¿Ìí¼ÓÏà¹Øº¯Êı
+// ´ò¿ªÅúÁ¿Ìí¼Óµ¯´°£¬¼ì²éÊÇ·ñÓĞÓĞĞ§µÄtoken
 async function openBatchAddModal() {
   showBatchAddModal.value = true;
   batchError.value = '';
   
-  // æ£€æŸ¥æ˜¯å¦æœ‰ä¿å­˜çš„å¯†ç token
+  // ¼ì²éÊÇ·ñÓĞ±£´æµÄÃÜÂëtoken
   const savedData = localStorage.getItem('nav_password_token');
   if (savedData) {
     try {
       const { password, expiry, token } = JSON.parse(savedData);
       if (Date.now() < expiry && token) {
-        // tokenæœªè¿‡æœŸï¼Œæ¢å¤tokenå¹¶ç›´æ¥è·³åˆ°ç¬¬äºŒæ­¥
+        // tokenÎ´¹ıÆÚ£¬»Ö¸´token²¢Ö±½ÓÌøµ½µÚ¶ş²½
         localStorage.setItem('token', token);
         batchPassword.value = password;
         rememberPassword.value = true;
         batchStep.value = 2;
         return;
       } else {
-        // å·²è¿‡æœŸï¼Œæ¸…é™¤
+        // ÒÑ¹ıÆÚ£¬Çå³ı
         localStorage.removeItem('nav_password_token');
       }
     } catch (e) {
@@ -1333,7 +1332,7 @@ async function openBatchAddModal() {
     }
   }
   
-  // æ²¡æœ‰æœ‰æ•ˆtokenï¼Œæ˜¾ç¤ºå¯†ç éªŒè¯æ­¥éª¤
+  // Ã»ÓĞÓĞĞ§token£¬ÏÔÊ¾ÃÜÂëÑéÖ¤²½Öè
   batchStep.value = 1;
 }
 
@@ -1347,22 +1346,22 @@ function closeBatchAdd() {
   batchLoading.value = false;
 }
 
-// æ£€æŸ¥ä¿å­˜çš„å¯†ç 
+// ¼ì²é±£´æµÄÃÜÂë
 function checkSavedPassword() {
   const savedData = localStorage.getItem('nav_password_token');
   if (savedData) {
     try {
       const { password, expiry, token } = JSON.parse(savedData);
       if (Date.now() < expiry) {
-        // å¯†ç æœªè¿‡æœŸï¼Œè‡ªåŠ¨å¡«å……å¹¶æ¢å¤token
+        // ÃÜÂëÎ´¹ıÆÚ£¬×Ô¶¯Ìî³ä²¢»Ö¸´token
         batchPassword.value = password;
         rememberPassword.value = true;
-        // å¦‚æœæœ‰ä¿å­˜çš„tokenï¼Œä¹Ÿæ¢å¤å®ƒ
+        // Èç¹ûÓĞ±£´æµÄtoken£¬Ò²»Ö¸´Ëü
         if (token) {
           localStorage.setItem('token', token);
         }
       } else {
-        // å·²è¿‡æœŸï¼Œæ¸…é™¤
+        // ÒÑ¹ıÆÚ£¬Çå³ı
         localStorage.removeItem('nav_password_token');
       }
     } catch (e) {
@@ -1373,7 +1372,7 @@ function checkSavedPassword() {
 
 async function verifyBatchPassword() {
   if (!batchPassword.value) {
-    batchError.value = 'è¯·è¾“å…¥å¯†ç ';
+    batchError.value = 'ÇëÊäÈëÃÜÂë';
     return;
   }
   
@@ -1381,19 +1380,19 @@ async function verifyBatchPassword() {
   batchError.value = '';
   
   try {
-    // ä»…ä½¿ç”¨å¯†ç éªŒè¯ï¼Œä¸éœ€è¦ç”¨æˆ·å
+    // ½öÊ¹ÓÃÃÜÂëÑéÖ¤£¬²»ĞèÒªÓÃ»§Ãû
     const response = await verifyPassword(batchPassword.value);
     
-    // æ£€æŸ¥å¹¶ä¿å­˜ token
+    // ¼ì²é²¢±£´æ token
     if (response.data && response.data.token) {
       localStorage.setItem('token', response.data.token);
     } else {
-      throw new Error('éªŒè¯æˆåŠŸï¼Œä½†æœªæ”¶åˆ° token');
+      throw new Error('ÑéÖ¤³É¹¦£¬µ«Î´ÊÕµ½ token');
     }
     
-    // å¦‚æœé€‰æ‹©äº†è®°ä½å¯†ç ï¼Œä¿å­˜åˆ°2å°æ—¶
+    // Èç¹ûÑ¡ÔñÁË¼Ç×¡ÃÜÂë£¬±£´æµ½2Ğ¡Ê±
     if (rememberPassword.value) {
-      const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2å°æ—¶
+      const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2Ğ¡Ê±
       localStorage.setItem('nav_password_token', JSON.stringify({
         password: batchPassword.value,
         token: response.data.token,
@@ -1405,16 +1404,16 @@ async function verifyBatchPassword() {
     
     batchStep.value = 2;
   } catch (error) {
-    batchError.value = 'å¯†ç é”™è¯¯ï¼Œè¯·é‡è¯•';
-    console.error('å¯†ç éªŒè¯å¤±è´¥:', error);
+    batchError.value = 'ÃÜÂë´íÎó£¬ÇëÖØÊÔ';
+    console.error('ÃÜÂëÑéÖ¤Ê§°Ü:', error);
   } finally {
     batchLoading.value = false;
   }
 }
 
-// è¿”å›å¯†ç éªŒè¯æ­¥éª¤ï¼ˆæ¸…é™¤ä¿å­˜çš„tokenï¼‰
+// ·µ»ØÃÜÂëÑéÖ¤²½Öè£¨Çå³ı±£´æµÄtoken£©
 function handleBackToPassword() {
-  // æ¸…é™¤ä¿å­˜çš„tokenï¼Œè¦æ±‚é‡æ–°éªŒè¯
+  // Çå³ı±£´æµÄtoken£¬ÒªÇóÖØĞÂÑéÖ¤
   localStorage.removeItem('nav_password_token');
   localStorage.removeItem('token');
   batchPassword.value = '';
@@ -1422,52 +1421,52 @@ function handleBackToPassword() {
   batchStep.value = 1;
 }
 
-// æ™ºèƒ½æ ‡ç­¾æ¨èè§„åˆ™ï¼šåŸºäºåŸŸåå’Œå…³é”®è¯
+// ÖÇÄÜ±êÇ©ÍÆ¼ö¹æÔò£º»ùÓÚÓòÃûºÍ¹Ø¼ü´Ê
 const TAG_RECOMMENDATION_RULES = [
-  // å¼€å‘å·¥å…·ç±»
-  { domains: ['github.com', 'gitlab.com', 'gitee.com', 'bitbucket.org'], keywords: ['git', 'ä»£ç ', 'code'], tags: ['å¼€å‘å·¥å…·', 'ä»£ç æ‰˜ç®¡'] },
-  { domains: ['stackoverflow.com', 'stackexchange.com'], keywords: ['é—®ç­”', 'q&a'], tags: ['å¼€å‘å·¥å…·', 'é—®ç­”ç¤¾åŒº'] },
-  { domains: ['npmjs.com', 'pypi.org', 'packagist.org', 'maven.org'], keywords: ['package', 'åŒ…ç®¡ç†'], tags: ['å¼€å‘å·¥å…·', 'åŒ…ç®¡ç†'] },
-  { domains: ['docker.com', 'kubernetes.io'], keywords: ['docker', 'k8s', 'å®¹å™¨'], tags: ['å¼€å‘å·¥å…·', 'äº‘åŸç”Ÿ'] },
+  // ¿ª·¢¹¤¾ßÀà
+  { domains: ['github.com', 'gitlab.com', 'gitee.com', 'bitbucket.org'], keywords: ['git', '´úÂë', 'code'], tags: ['¿ª·¢¹¤¾ß', '´úÂëÍĞ¹Ü'] },
+  { domains: ['stackoverflow.com', 'stackexchange.com'], keywords: ['ÎÊ´ğ', 'q&a'], tags: ['¿ª·¢¹¤¾ß', 'ÎÊ´ğÉçÇø'] },
+  { domains: ['npmjs.com', 'pypi.org', 'packagist.org', 'maven.org'], keywords: ['package', '°ü¹ÜÀí'], tags: ['¿ª·¢¹¤¾ß', '°ü¹ÜÀí'] },
+  { domains: ['docker.com', 'kubernetes.io'], keywords: ['docker', 'k8s', 'ÈİÆ÷'], tags: ['¿ª·¢¹¤¾ß', 'ÔÆÔ­Éú'] },
   
-  // æœç´¢å¼•æ“ç±»
-  { domains: ['google.com', 'bing.com', 'baidu.com', 'sogou.com', 'so.com', 'duckduckgo.com', 'yahoo.com'], keywords: ['æœç´¢', 'search'], tags: ['æœç´¢å¼•æ“'] },
+  // ËÑË÷ÒıÇæÀà
+  { domains: ['google.com', 'bing.com', 'baidu.com', 'sogou.com', 'so.com', 'duckduckgo.com', 'yahoo.com'], keywords: ['ËÑË÷', 'search'], tags: ['ËÑË÷ÒıÇæ'] },
   
-  // è§†é¢‘å¨±ä¹ç±»
-  { domains: ['youtube.com', 'bilibili.com', 'youku.com', 'iqiyi.com', 'tencent.com/v'], keywords: ['è§†é¢‘', 'video', 'å½±è§†'], tags: ['è§†é¢‘', 'å¨±ä¹'] },
-  { domains: ['netflix.com', 'primevideo.com', 'disneyplus.com'], keywords: ['æµåª’ä½“', 'streaming'], tags: ['è§†é¢‘', 'å¨±ä¹', 'æµåª’ä½“'] },
+  // ÊÓÆµÓéÀÖÀà
+  { domains: ['youtube.com', 'bilibili.com', 'youku.com', 'iqiyi.com', 'tencent.com/v'], keywords: ['ÊÓÆµ', 'video', 'Ó°ÊÓ'], tags: ['ÊÓÆµ', 'ÓéÀÖ'] },
+  { domains: ['netflix.com', 'primevideo.com', 'disneyplus.com'], keywords: ['Á÷Ã½Ìå', 'streaming'], tags: ['ÊÓÆµ', 'ÓéÀÖ', 'Á÷Ã½Ìå'] },
   
-  // ç¤¾äº¤åª’ä½“ç±»
-  { domains: ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'linkedin.com'], keywords: ['ç¤¾äº¤', 'social'], tags: ['ç¤¾äº¤åª’ä½“'] },
-  { domains: ['weibo.com', 'douban.com'], keywords: ['å¾®åš', 'ç¤¾åŒº'], tags: ['ç¤¾äº¤åª’ä½“', 'ç¤¾åŒº'] },
+  // Éç½»Ã½ÌåÀà
+  { domains: ['twitter.com', 'x.com', 'facebook.com', 'instagram.com', 'linkedin.com'], keywords: ['Éç½»', 'social'], tags: ['Éç½»Ã½Ìå'] },
+  { domains: ['weibo.com', 'douban.com'], keywords: ['Î¢²©', 'ÉçÇø'], tags: ['Éç½»Ã½Ìå', 'ÉçÇø'] },
   
-  // å­¦ä¹ æ•™è‚²ç±»
-  { domains: ['coursera.org', 'udemy.com', 'edx.org', 'khanacademy.org'], keywords: ['è¯¾ç¨‹', 'course', 'å­¦ä¹ '], tags: ['å­¦ä¹ ', 'æ•™è‚²'] },
-  { domains: ['zhihu.com', 'quora.com'], keywords: ['çŸ¥è¯†', 'é—®ç­”'], tags: ['é—®ç­”ç¤¾åŒº', 'å­¦ä¹ '] },
-  { domains: ['medium.com', 'dev.to', 'csdn.net', 'cnblogs.com', 'juejin.cn'], keywords: ['åšå®¢', 'blog', 'æŠ€æœ¯'], tags: ['æŠ€æœ¯åšå®¢', 'å­¦ä¹ '] },
+  // Ñ§Ï°½ÌÓıÀà
+  { domains: ['coursera.org', 'udemy.com', 'edx.org', 'khanacademy.org'], keywords: ['¿Î³Ì', 'course', 'Ñ§Ï°'], tags: ['Ñ§Ï°', '½ÌÓı'] },
+  { domains: ['zhihu.com', 'quora.com'], keywords: ['ÖªÊ¶', 'ÎÊ´ğ'], tags: ['ÎÊ´ğÉçÇø', 'Ñ§Ï°'] },
+  { domains: ['medium.com', 'dev.to', 'csdn.net', 'cnblogs.com', 'juejin.cn'], keywords: ['²©¿Í', 'blog', '¼¼Êõ'], tags: ['¼¼Êõ²©¿Í', 'Ñ§Ï°'] },
   
-  // è®¾è®¡åˆ›ä½œç±»
-  { domains: ['figma.com', 'sketch.com', 'adobe.com'], keywords: ['è®¾è®¡', 'design', 'ui'], tags: ['è®¾è®¡å·¥å…·', 'åˆ›ä½œ'] },
-  { domains: ['dribbble.com', 'behance.net'], keywords: ['çµæ„Ÿ', 'inspiration'], tags: ['è®¾è®¡', 'çµæ„Ÿ'] },
+  // Éè¼Æ´´×÷Àà
+  { domains: ['figma.com', 'sketch.com', 'adobe.com'], keywords: ['Éè¼Æ', 'design', 'ui'], tags: ['Éè¼Æ¹¤¾ß', '´´×÷'] },
+  { domains: ['dribbble.com', 'behance.net'], keywords: ['Áé¸Ğ', 'inspiration'], tags: ['Éè¼Æ', 'Áé¸Ğ'] },
   
-  // äº‘æœåŠ¡ç±»
-  { domains: ['aws.amazon.com', 'cloud.google.com', 'azure.microsoft.com', 'aliyun.com', 'tencent.com/cloud'], keywords: ['äº‘è®¡ç®—', 'cloud'], tags: ['äº‘æœåŠ¡'] },
+  // ÔÆ·şÎñÀà
+  { domains: ['aws.amazon.com', 'cloud.google.com', 'azure.microsoft.com', 'aliyun.com', 'tencent.com/cloud'], keywords: ['ÔÆ¼ÆËã', 'cloud'], tags: ['ÔÆ·şÎñ'] },
   
-  // é‚®ç®±ç±»
-  { domains: ['gmail.com', 'outlook.com', 'qq.com/mail', '163.com', '126.com'], keywords: ['é‚®ç®±', 'email', 'mail'], tags: ['é‚®ç®±'] },
+  // ÓÊÏäÀà
+  { domains: ['gmail.com', 'outlook.com', 'qq.com/mail', '163.com', '126.com'], keywords: ['ÓÊÏä', 'email', 'mail'], tags: ['ÓÊÏä'] },
   
-  // å·¥å…·ç±»
-  { domains: ['notion.so', 'evernote.com', 'onenote.com'], keywords: ['ç¬”è®°', 'note'], tags: ['æ•ˆç‡å·¥å…·', 'ç¬”è®°'] },
-  { domains: ['trello.com', 'asana.com', 'jira.atlassian.com'], keywords: ['é¡¹ç›®ç®¡ç†', 'project'], tags: ['æ•ˆç‡å·¥å…·', 'é¡¹ç›®ç®¡ç†'] },
+  // ¹¤¾ßÀà
+  { domains: ['notion.so', 'evernote.com', 'onenote.com'], keywords: ['±Ê¼Ç', 'note'], tags: ['Ğ§ÂÊ¹¤¾ß', '±Ê¼Ç'] },
+  { domains: ['trello.com', 'asana.com', 'jira.atlassian.com'], keywords: ['ÏîÄ¿¹ÜÀí', 'project'], tags: ['Ğ§ÂÊ¹¤¾ß', 'ÏîÄ¿¹ÜÀí'] },
   
-  // AIå·¥å…·ç±»
-  { domains: ['openai.com', 'chat.openai.com', 'claude.ai', 'bard.google.com'], keywords: ['ai', 'äººå·¥æ™ºèƒ½', 'gpt'], tags: ['AIå·¥å…·'] },
+  // AI¹¤¾ßÀà
+  { domains: ['openai.com', 'chat.openai.com', 'claude.ai', 'bard.google.com'], keywords: ['ai', 'ÈË¹¤ÖÇÄÜ', 'gpt'], tags: ['AI¹¤¾ß'] },
   
-  // ç¼–ç¨‹å­¦ä¹ ç±»
-  { domains: ['leetcode.com', 'leetcode.cn', 'codewars.com', 'hackerrank.com'], keywords: ['ç®—æ³•', 'algorithm', 'åˆ·é¢˜'], tags: ['ç¼–ç¨‹å­¦ä¹ ', 'ç®—æ³•'] },
+  // ±à³ÌÑ§Ï°Àà
+  { domains: ['leetcode.com', 'leetcode.cn', 'codewars.com', 'hackerrank.com'], keywords: ['Ëã·¨', 'algorithm', 'Ë¢Ìâ'], tags: ['±à³ÌÑ§Ï°', 'Ëã·¨'] },
 ];
 
-// æ™ºèƒ½æ¨èæ ‡ç­¾
+// ÖÇÄÜÍÆ¼ö±êÇ©
 function recommendTags(url, title) {
   const recommendedTagNames = new Set();
   
@@ -1476,11 +1475,11 @@ function recommendTags(url, title) {
     const domain = urlObj.hostname.toLowerCase().replace('www.', '');
     const titleLower = (title || '').toLowerCase();
     
-    // éå†æ¨èè§„åˆ™
+    // ±éÀúÍÆ¼ö¹æÔò
     for (const rule of TAG_RECOMMENDATION_RULES) {
       let matched = false;
       
-      // æ£€æŸ¥åŸŸååŒ¹é…
+      // ¼ì²éÓòÃûÆ¥Åä
       if (rule.domains) {
         for (const ruleDomain of rule.domains) {
           if (domain.includes(ruleDomain) || ruleDomain.includes(domain)) {
@@ -1490,7 +1489,7 @@ function recommendTags(url, title) {
         }
       }
       
-      // æ£€æŸ¥å…³é”®è¯åŒ¹é…
+      // ¼ì²é¹Ø¼ü´ÊÆ¥Åä
       if (!matched && rule.keywords && title) {
         for (const keyword of rule.keywords) {
           if (titleLower.includes(keyword.toLowerCase())) {
@@ -1500,16 +1499,16 @@ function recommendTags(url, title) {
         }
       }
       
-      // å¦‚æœåŒ¹é…ï¼Œæ·»åŠ æ¨èæ ‡ç­¾
+      // Èç¹ûÆ¥Åä£¬Ìí¼ÓÍÆ¼ö±êÇ©
       if (matched) {
         rule.tags.forEach(tag => recommendedTagNames.add(tag));
       }
     }
   } catch (e) {
-    console.warn('æ¨èæ ‡ç­¾å¤±è´¥:', e);
+    console.warn('ÍÆ¼ö±êÇ©Ê§°Ü:', e);
   }
   
-  // å°†æ¨èçš„æ ‡ç­¾åç§°è½¬æ¢ä¸ºæ ‡ç­¾ID
+  // ½«ÍÆ¼öµÄ±êÇ©Ãû³Æ×ª»»Îª±êÇ©ID
   const recommendedTagIds = [];
   for (const tagName of recommendedTagNames) {
     const tag = allTags.value.find(t => t.name === tagName);
@@ -1528,7 +1527,7 @@ async function parseUrls() {
     .filter(url => url.length > 0);
   
   if (urls.length === 0) {
-    batchError.value = 'è¯·è¾“å…¥è‡³å°‘ä¸€ä¸ªç½‘å€';
+    batchError.value = 'ÇëÊäÈëÖÁÉÙÒ»¸öÍøÖ·';
     return;
   }
   
@@ -1538,24 +1537,24 @@ async function parseUrls() {
   try {
     const response = await batchParseUrls(urls);
     parsedCards.value = response.data.data.map(card => {
-      // ä¸ºæ¯ä¸ªå¡ç‰‡æ™ºèƒ½æ¨èæ ‡ç­¾
+      // ÎªÃ¿¸ö¿¨Æ¬ÖÇÄÜÍÆ¼ö±êÇ©
       const recommendedTagIds = recommendTags(card.url, card.title);
       return {
         ...card,
-        selected: true, // é»˜è®¤å…¨é€‰
-        tagIds: recommendedTagIds, // è‡ªåŠ¨å¡«å……æ¨èæ ‡ç­¾
-        recommendedTagIds: recommendedTagIds // ä¿å­˜æ¨èçš„æ ‡ç­¾ï¼Œç”¨äºUIæ˜¾ç¤º
+        selected: true, // Ä¬ÈÏÈ«Ñ¡
+        tagIds: recommendedTagIds, // ×Ô¶¯Ìî³äÍÆ¼ö±êÇ©
+        recommendedTagIds: recommendedTagIds // ±£´æÍÆ¼öµÄ±êÇ©£¬ÓÃÓÚUIÏÔÊ¾
       };
     });
     batchStep.value = 3;
   } catch (error) {
-    batchError.value = error.response?.data?.error || 'è§£æå¤±è´¥ï¼Œè¯·é‡è¯•';
+    batchError.value = error.response?.data?.error || '½âÎöÊ§°Ü£¬ÇëÖØÊÔ';
   } finally {
     batchLoading.value = false;
   }
 }
 
-// åˆ‡æ¢æ‰¹é‡å¡ç‰‡çš„æ ‡ç­¾
+// ÇĞ»»ÅúÁ¿¿¨Æ¬µÄ±êÇ©
 function toggleBatchCardTag(card, tagId) {
   if (!card.tagIds) {
     card.tagIds = [];
@@ -1568,7 +1567,7 @@ function toggleBatchCardTag(card, tagId) {
   }
 }
 
-// è·å–éæ¨èçš„å…¶ä»–æ ‡ç­¾
+// »ñÈ¡·ÇÍÆ¼öµÄÆäËû±êÇ©
 function getOtherTags(card) {
   if (!card.recommendedTagIds || card.recommendedTagIds.length === 0) {
     return allTags.value;
@@ -1580,7 +1579,7 @@ async function addSelectedCards() {
   const selected = parsedCards.value.filter(card => card.selected);
   
   if (selected.length === 0) {
-    batchError.value = 'è¯·è‡³å°‘é€‰æ‹©ä¸€ä¸ªç½‘ç«™';
+    batchError.value = 'ÇëÖÁÉÙÑ¡ÔñÒ»¸öÍøÕ¾';
     return;
   }
   
@@ -1593,7 +1592,7 @@ async function addSelectedCards() {
       url: card.url,
       logo: card.logo,
       description: card.description,
-      tagIds: card.tagIds || [] // åŒ…å«æ ‡ç­¾
+      tagIds: card.tagIds || [] // °üº¬±êÇ©
     }));
     
     await batchAddCards(
@@ -1602,18 +1601,18 @@ async function addSelectedCards() {
       cardsToAdd
     );
     
-    // æ·»åŠ æˆåŠŸï¼Œå…³é—­å¼¹çª—å¹¶åˆ·æ–°å¡ç‰‡åˆ—è¡¨
-    alert(`æˆåŠŸæ·»åŠ  ${selected.length} ä¸ªç½‘ç«™ï¼`);
+    // Ìí¼Ó³É¹¦£¬¹Ø±Õµ¯´°²¢Ë¢ĞÂ¿¨Æ¬ÁĞ±í
+    alert(`³É¹¦Ìí¼Ó ${selected.length} ¸öÍøÕ¾£¡`);
     closeBatchAdd();
     await loadCards();
   } catch (error) {
-    batchError.value = error.response?.data?.error || 'æ·»åŠ å¤±è´¥ï¼Œè¯·é‡è¯•';
+    batchError.value = error.response?.data?.error || 'Ìí¼ÓÊ§°Ü£¬ÇëÖØÊÔ';
   } finally {
     batchLoading.value = false;
   }
 }
 
-// åˆ‡æ¢èƒŒæ™¯å£çº¸
+// ÇĞ»»±³¾°±ÚÖ½
 async function changeBackground() {
   if (bgLoading.value) return;
   
@@ -1623,7 +1622,7 @@ async function changeBackground() {
     const response = await getRandomWallpaper();
     const wallpaperUrl = response.data.url;
     
-    // æ›´æ–°èƒŒæ™¯ - ç›´æ¥æ›´æ–°æˆ–åˆ›å»º <style> æ ‡ç­¾ï¼Œä½¿ç”¨ !important è¦†ç›–
+    // ¸üĞÂ±³¾° - Ö±½Ó¸üĞÂ»ò´´½¨ <style> ±êÇ©£¬Ê¹ÓÃ !important ¸²¸Ç
     let bgStyle = document.getElementById('dynamic-bg-style');
     if (!bgStyle) {
       bgStyle = document.createElement('style');
@@ -1632,32 +1631,32 @@ async function changeBackground() {
     }
     bgStyle.textContent = `.home-container { background-image: url(${wallpaperUrl}) !important; }`;
     
-    // ä¿å­˜åˆ°localStorageï¼Œä¸‹æ¬¡åˆ·æ–°æ—¶è‡ªåŠ¨åº”ç”¨
+    // ±£´æµ½localStorage£¬ÏÂ´ÎË¢ĞÂÊ±×Ô¶¯Ó¦ÓÃ
     localStorage.setItem('nav_background', wallpaperUrl);
   } catch (error) {
-    console.error('è·å–å£çº¸å¤±è´¥:', error);
-    alert('è·å–å£çº¸å¤±è´¥ï¼Œè¯·ç¨åé‡è¯•');
+    console.error('»ñÈ¡±ÚÖ½Ê§°Ü:', error);
+    alert('»ñÈ¡±ÚÖ½Ê§°Ü£¬ÇëÉÔºóÖØÊÔ');
   } finally {
     bgLoading.value = false;
   }
 }
 
-// ========== ç¼–è¾‘æ¨¡å¼ç›¸å…³å‡½æ•° ==========
+// ========== ±à¼­Ä£Ê½Ïà¹Øº¯Êı ==========
 
-// è¿›å…¥ç¼–è¾‘æ¨¡å¼
+// ½øÈë±à¼­Ä£Ê½
 async function enterEditMode() {
-  // æ£€æŸ¥æ˜¯å¦æœ‰ä¿å­˜çš„å¯†ç token
+  // ¼ì²éÊÇ·ñÓĞ±£´æµÄÃÜÂëtoken
   const savedData = localStorage.getItem('nav_password_token');
   if (savedData) {
     try {
       const { password, expiry, token } = JSON.parse(savedData);
       if (Date.now() < expiry && token) {
-        // tokenæœªè¿‡æœŸï¼Œæ¢å¤tokenå¹¶ç›´æ¥è¿›å…¥ç¼–è¾‘æ¨¡å¼
+        // tokenÎ´¹ıÆÚ£¬»Ö¸´token²¢Ö±½Ó½øÈë±à¼­Ä£Ê½
         localStorage.setItem('token', token);
         editMode.value = true;
         return;
       } else {
-        // å·²è¿‡æœŸï¼Œæ¸…é™¤
+        // ÒÑ¹ıÆÚ£¬Çå³ı
         localStorage.removeItem('nav_password_token');
       }
     } catch (e) {
@@ -1665,12 +1664,12 @@ async function enterEditMode() {
     }
   }
   
-  // æ²¡æœ‰æœ‰æ•ˆtokenï¼Œæ˜¾ç¤ºå¯†ç éªŒè¯å¼¹çª—
+  // Ã»ÓĞÓĞĞ§token£¬ÏÔÊ¾ÃÜÂëÑéÖ¤µ¯´°
   showEditPasswordModal.value = true;
   editPassword.value = '';
   editError.value = '';
   
-  // æ£€æŸ¥æ˜¯å¦æœ‰ä¿å­˜çš„å¯†ç å¹¶è‡ªåŠ¨å¡«å……
+  // ¼ì²éÊÇ·ñÓĞ±£´æµÄÃÜÂë²¢×Ô¶¯Ìî³ä
   if (savedData) {
     try {
       const { password, expiry } = JSON.parse(savedData);
@@ -1679,15 +1678,15 @@ async function enterEditMode() {
         rememberEditPassword.value = true;
       }
     } catch (e) {
-      // å¿½ç•¥é”™è¯¯
+      // ºöÂÔ´íÎó
     }
   }
 }
 
-// éªŒè¯å¯†ç å¹¶è¿›å…¥ç¼–è¾‘æ¨¡å¼
+// ÑéÖ¤ÃÜÂë²¢½øÈë±à¼­Ä£Ê½
 async function verifyEditPassword() {
   if (!editPassword.value) {
-    editError.value = 'è¯·è¾“å…¥å¯†ç ';
+    editError.value = 'ÇëÊäÈëÃÜÂë';
     return;
   }
   
@@ -1695,13 +1694,13 @@ async function verifyEditPassword() {
   editError.value = '';
   
   try {
-    // ä»…ä½¿ç”¨å¯†ç éªŒè¯ï¼Œä¸éœ€è¦ç”¨æˆ·å
+    // ½öÊ¹ÓÃÃÜÂëÑéÖ¤£¬²»ĞèÒªÓÃ»§Ãû
     const res = await verifyPassword(editPassword.value);
     localStorage.setItem('token', res.data.token);
     
-    // å¦‚æœé€‰æ‹©äº†è®°ä½å¯†ç ï¼Œä¿å­˜åˆ°2å°æ—¶
+    // Èç¹ûÑ¡ÔñÁË¼Ç×¡ÃÜÂë£¬±£´æµ½2Ğ¡Ê±
     if (rememberEditPassword.value) {
-      const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2å°æ—¶
+      const expiry = Date.now() + 2 * 60 * 60 * 1000; // 2Ğ¡Ê±
       localStorage.setItem('nav_password_token', JSON.stringify({
         password: editPassword.value,
         token: res.data.token,
@@ -1711,17 +1710,17 @@ async function verifyEditPassword() {
       localStorage.removeItem('nav_password_token');
     }
     
-    // è¿›å…¥ç¼–è¾‘æ¨¡å¼
+    // ½øÈë±à¼­Ä£Ê½
     editMode.value = true;
     showEditPasswordModal.value = false;
     editLoading.value = false;
   } catch (error) {
-    editError.value = 'å¯†ç é”™è¯¯';
+    editError.value = 'ÃÜÂë´íÎó';
     editLoading.value = false;
   }
 }
 
-// é€€å‡ºç¼–è¾‘æ¨¡å¼
+// ÍË³ö±à¼­Ä£Ê½
 function exitEditMode() {
   editMode.value = false;
   selectedCards.value = [];
@@ -1730,40 +1729,40 @@ function exitEditMode() {
   targetSubMenuId.value = null;
 }
 
-// å¤„ç†å®¹å™¨ç‚¹å‡»äº‹ä»¶ï¼Œç‚¹å‡»ç©ºç™½é€€å‡ºç¼–è¾‘æ¨¡å¼
+// ´¦ÀíÈİÆ÷µã»÷ÊÂ¼ş£¬µã»÷¿Õ°×ÍË³ö±à¼­Ä£Ê½
 function handleContainerClick(event) {
-  // åªåœ¨ç¼–è¾‘æ¨¡å¼ä¸‹ç”Ÿæ•ˆ
+  // Ö»ÔÚ±à¼­Ä£Ê½ÏÂÉúĞ§
   if (!editMode.value) return;
   
-  // å¦‚æœç‚¹å‡»çš„æ˜¯å®¹å™¨æœ¬èº«ï¼ˆç©ºç™½åŒºåŸŸï¼‰ï¼Œåˆ™é€€å‡ºç¼–è¾‘æ¨¡å¼
+  // Èç¹ûµã»÷µÄÊÇÈİÆ÷±¾Éí£¨¿Õ°×ÇøÓò£©£¬ÔòÍË³ö±à¼­Ä£Ê½
   if (event.target.classList.contains('home-container')) {
     exitEditMode();
   }
 }
 
-// ========== æ‰¹é‡ç§»åŠ¨ç›¸å…³å‡½æ•° ==========
+// ========== ÅúÁ¿ÒÆ¶¯Ïà¹Øº¯Êı ==========
 
-// å–æ¶ˆç§»åŠ¨
+// È¡ÏûÒÆ¶¯
 function cancelMove() {
   showMovePanel.value = false;
   targetMenuId.value = null;
   targetSubMenuId.value = null;
 }
 
-// åˆ‡æ¢å¡ç‰‡é€‰ä¸­çŠ¶æ€
+// ÇĞ»»¿¨Æ¬Ñ¡ÖĞ×´Ì¬
 function toggleCardSelection(card) {
   const index = selectedCards.value.findIndex(c => c.id === card.id);
   if (index > -1) {
-    // å–æ¶ˆé€‰ä¸­
+    // È¡ÏûÑ¡ÖĞ
     selectedCards.value.splice(index, 1);
-    // å¦‚æœæ²¡æœ‰é€‰ä¸­çš„å¡ç‰‡äº†ï¼Œå…³é—­é¢æ¿
+    // Èç¹ûÃ»ÓĞÑ¡ÖĞµÄ¿¨Æ¬ÁË£¬¹Ø±ÕÃæ°å
     if (selectedCards.value.length === 0) {
       showMovePanel.value = false;
     }
   } else {
-    // é€‰ä¸­
+    // Ñ¡ÖĞ
     selectedCards.value.push(card);
-    // è‡ªåŠ¨æ‰“å¼€ç§»åŠ¨é¢æ¿
+    // ×Ô¶¯´ò¿ªÒÆ¶¯Ãæ°å
     if (!showMovePanel.value) {
       showMovePanel.value = true;
       targetMenuId.value = activeMenu.value?.id || null;
@@ -1773,7 +1772,7 @@ function toggleCardSelection(card) {
 }
 
 
-// æ˜¾ç¤º Toast æç¤º
+// ÏÔÊ¾ Toast ÌáÊ¾
 function showToastMessage(message, duration = 2000) {
   toastMessage.value = message;
   showToast.value = true;
@@ -1782,7 +1781,7 @@ function showToastMessage(message, duration = 2000) {
   }, duration);
 }
 
-// ç§»åŠ¨å¡ç‰‡åˆ°æŒ‡å®šåˆ†ç±»
+// ÒÆ¶¯¿¨Æ¬µ½Ö¸¶¨·ÖÀà
 async function moveCardToCategory(menuId, subMenuId) {
   if (selectedCards.value.length === 0) return;
   
@@ -1794,7 +1793,7 @@ async function moveCardToCategory(menuId, subMenuId) {
       sub_menu_id: subMenuId
     }));
     
-    // æ‰¹é‡æ›´æ–°
+    // ÅúÁ¿¸üĞÂ
     for (const update of updates) {
       const card = selectedCards.value.find(c => c.id === update.id);
       await updateCard(update.id, {
@@ -1806,13 +1805,13 @@ async function moveCardToCategory(menuId, subMenuId) {
     
     const count = selectedCards.value.length;
     
-    // åˆ¤æ–­æ˜¯å¦ç§»åŠ¨åˆ°å½“å‰åˆ†ç±»
+    // ÅĞ¶ÏÊÇ·ñÒÆ¶¯µ½µ±Ç°·ÖÀà
     const isMovingToCurrentCategory = 
       menuId === activeMenu.value?.id && 
       subMenuId === activeSubMenu.value?.id;
     
     if (isMovingToCurrentCategory) {
-      // ç§»åŠ¨åˆ°å½“å‰åˆ†ç±»ï¼Œæ›´æ–°å¡ç‰‡çš„åˆ†ç±»ä¿¡æ¯
+      // ÒÆ¶¯µ½µ±Ç°·ÖÀà£¬¸üĞÂ¿¨Æ¬µÄ·ÖÀàĞÅÏ¢
       movedCardIds.forEach(cardId => {
         const index = cards.value.findIndex(c => c.id === cardId);
         if (index > -1) {
@@ -1823,7 +1822,7 @@ async function moveCardToCategory(menuId, subMenuId) {
           };
         }
         
-        // æ›´æ–°å…¨å±€æœç´¢åˆ—è¡¨
+        // ¸üĞÂÈ«¾ÖËÑË÷ÁĞ±í
         const allIndex = allCards.value.findIndex(c => c.id === cardId);
         if (allIndex > -1) {
           allCards.value[allIndex] = {
@@ -1834,10 +1833,10 @@ async function moveCardToCategory(menuId, subMenuId) {
         }
       });
     } else {
-      // ç§»åŠ¨åˆ°å…¶ä»–åˆ†ç±»ï¼Œä»å½“å‰åˆ—è¡¨ä¸­ç§»é™¤
+      // ÒÆ¶¯µ½ÆäËû·ÖÀà£¬´Óµ±Ç°ÁĞ±íÖĞÒÆ³ı
       cards.value = cards.value.filter(c => !movedCardIds.includes(c.id));
       
-      // æ›´æ–°å…¨å±€æœç´¢åˆ—è¡¨ä¸­çš„åˆ†ç±»ä¿¡æ¯
+      // ¸üĞÂÈ«¾ÖËÑË÷ÁĞ±íÖĞµÄ·ÖÀàĞÅÏ¢
       movedCardIds.forEach(cardId => {
         const allIndex = allCards.value.findIndex(c => c.id === cardId);
         if (allIndex > -1) {
@@ -1850,19 +1849,19 @@ async function moveCardToCategory(menuId, subMenuId) {
       });
     }
     
-    showToastMessage(`å·²ç§»åŠ¨ ${count} ä¸ªå¡ç‰‡ï¼`);
+    showToastMessage(`ÒÑÒÆ¶¯ ${count} ¸ö¿¨Æ¬£¡`);
     
-    // æ¸…ç©ºé€‰ä¸­åˆ—è¡¨
+    // Çå¿ÕÑ¡ÖĞÁĞ±í
     selectedCards.value = [];
     showMovePanel.value = false;
   } catch (error) {
-    showToastMessage(`ç§»åŠ¨å¤±è´¥ï¼š${error.response?.data?.error || error.message}`);
+    showToastMessage(`ÒÆ¶¯Ê§°Ü£º${error.response?.data?.error || error.message}`);
   }
 }
 
-// å¡ç‰‡é‡æ–°æ’åºå¤„ç†ï¼ˆæ‹–æ‹½å®Œæˆåè‡ªåŠ¨ä¿å­˜ï¼‰
+// ¿¨Æ¬ÖØĞÂÅÅĞò´¦Àí£¨ÍÏ×§Íê³Éºó×Ô¶¯±£´æ£©
 async function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
-  // è‡ªåŠ¨ä¿å­˜ï¼ŒåŒ…å«åˆ†ç±»ä¿¡æ¯
+  // ×Ô¶¯±£´æ£¬°üº¬·ÖÀàĞÅÏ¢
   const updates = cardIds.map((cardId, index) => ({
     id: cardId,
     order: index,
@@ -1872,16 +1871,16 @@ async function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
   
   try {
     await batchUpdateCards(updates);
-    // é™é»˜ä¿å­˜ï¼Œä¸å¼¹å‡ºæç¤º
-    // æ›´æ–°ç¼“å­˜çš„å¡ç‰‡æ•°æ®
+    // ¾²Ä¬±£´æ£¬²»µ¯³öÌáÊ¾
+    // ¸üĞÂ»º´æµÄ¿¨Æ¬Êı¾İ
     if (editMode.value) {
       await loadAllCards();
     } else {
       await loadCards();
     }
   } catch (error) {
-    alert('ä¿å­˜å¤±è´¥ï¼š' + (error.response?.data?.error || error.message));
-    // ä¿å­˜å¤±è´¥æ—¶é‡æ–°åŠ è½½ï¼Œæ¢å¤åŸå§‹é¡ºåº
+    alert('±£´æÊ§°Ü£º' + (error.response?.data?.error || error.message));
+    // ±£´æÊ§°ÜÊ±ÖØĞÂ¼ÓÔØ£¬»Ö¸´Ô­Ê¼Ë³Ğò
     if (editMode.value) {
       await loadAllCards();
     } else {
@@ -1890,37 +1889,37 @@ async function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
   }
 }
 
-// åˆ é™¤å¡ç‰‡
+// É¾³ı¿¨Æ¬
 async function handleDeleteCard(card) {
-  if (!confirm(`ç¡®å®šè¦åˆ é™¤ã€Œ${card.title}ã€å—ï¼Ÿ`)) return;
+  if (!confirm(`È·¶¨ÒªÉ¾³ı¡¸${card.title}¡¹Âğ£¿`)) return;
   try {
     await deleteCard(card.id);
     
-    // ç«‹å³ä»å½“å‰æ˜¾ç¤ºçš„å¡ç‰‡åˆ—è¡¨ä¸­ç§»é™¤
+    // Á¢¼´´Óµ±Ç°ÏÔÊ¾µÄ¿¨Æ¬ÁĞ±íÖĞÒÆ³ı
     const index = cards.value.findIndex(c => c.id === card.id);
     if (index > -1) {
       cards.value.splice(index, 1);
     }
     
-    // åŒæ—¶æ›´æ–°æœç´¢ç”¨çš„æ‰€æœ‰å¡ç‰‡åˆ—è¡¨
+    // Í¬Ê±¸üĞÂËÑË÷ÓÃµÄËùÓĞ¿¨Æ¬ÁĞ±í
     const allIndex = allCards.value.findIndex(c => c.id === card.id);
     if (allIndex > -1) {
       allCards.value.splice(allIndex, 1);
     }
     
-    // å¦‚æœæœ‰é€‰ä¸­çš„å¡ç‰‡ï¼Œä¹Ÿè¦ç§»é™¤
+    // Èç¹ûÓĞÑ¡ÖĞµÄ¿¨Æ¬£¬Ò²ÒªÒÆ³ı
     const selectedIndex = selectedCards.value.findIndex(c => c.id === card.id);
     if (selectedIndex > -1) {
       selectedCards.value.splice(selectedIndex, 1);
     }
     
-    showToastMessage('åˆ é™¤æˆåŠŸ');
+    showToastMessage('É¾³ı³É¹¦');
   } catch (error) {
-    alert('åˆ é™¤å¤±è´¥ï¼š' + (error.response?.data?.error || error.message));
+    alert('É¾³ıÊ§°Ü£º' + (error.response?.data?.error || error.message));
   }
 }
 
-// ç¼–è¾‘å¡ç‰‡
+// ±à¼­¿¨Æ¬
 function handleEditCard(card) {
   editingCard.value = card;
   cardEditForm.value = {
@@ -1934,7 +1933,7 @@ function handleEditCard(card) {
   showEditCardModal.value = true;
 }
 
-// å…³é—­å¡ç‰‡ç¼–è¾‘æ¨¡æ€æ¡†
+// ¹Ø±Õ¿¨Æ¬±à¼­Ä£Ì¬¿ò
 function closeEditCardModal() {
   showEditCardModal.value = false;
   editingCard.value = null;
@@ -1948,7 +1947,7 @@ function closeEditCardModal() {
   editError.value = '';
 }
 
-// æ ‡ç­¾ç›¸å…³è¾…åŠ©æ–¹æ³•
+// ±êÇ©Ïà¹Ø¸¨Öú·½·¨
 function getTagById(tagId) {
   return allTags.value.find(t => t.id === tagId);
 }
@@ -1970,14 +1969,14 @@ const availableTagsForEdit = computed(() => {
   return allTags.value.filter(tag => !cardEditForm.value.tagIds.includes(tag.id));
 });
 
-// ä¿å­˜å¡ç‰‡ç¼–è¾‘
+// ±£´æ¿¨Æ¬±à¼­
 async function saveCardEdit() {
   if (!cardEditForm.value.title.trim()) {
-    editError.value = 'è¯·è¾“å…¥æ ‡é¢˜';
+    editError.value = 'ÇëÊäÈë±êÌâ';
     return;
   }
   if (!cardEditForm.value.url.trim()) {
-    editError.value = 'è¯·è¾“å…¥ç½‘å€';
+    editError.value = 'ÇëÊäÈëÍøÖ·';
     return;
   }
   
@@ -1994,7 +1993,7 @@ async function saveCardEdit() {
       tagIds: cardEditForm.value.tagIds
     });
     
-    // ç«‹å³æ›´æ–°å½“å‰æ˜¾ç¤ºçš„å¡ç‰‡åˆ—è¡¨
+    // Á¢¼´¸üĞÂµ±Ç°ÏÔÊ¾µÄ¿¨Æ¬ÁĞ±í
     const updatedTags = cardEditForm.value.tagIds.map(id => allTags.value.find(t => t.id === id)).filter(Boolean);
     const index = cards.value.findIndex(c => c.id === editingCard.value.id);
     if (index > -1) {
@@ -2008,7 +2007,7 @@ async function saveCardEdit() {
       };
     }
     
-    // åŒæ—¶æ›´æ–°æœç´¢ç”¨çš„æ‰€æœ‰å¡ç‰‡åˆ—è¡¨
+    // Í¬Ê±¸üĞÂËÑË÷ÓÃµÄËùÓĞ¿¨Æ¬ÁĞ±í
     const allIndex = allCards.value.findIndex(c => c.id === editingCard.value.id);
     if (allIndex > -1) {
       allCards.value[allIndex] = {
@@ -2021,7 +2020,7 @@ async function saveCardEdit() {
       };
     }
     
-    // å¦‚æœå¡ç‰‡åœ¨é€‰ä¸­åˆ—è¡¨ä¸­ï¼Œä¹Ÿè¦æ›´æ–°
+    // Èç¹û¿¨Æ¬ÔÚÑ¡ÖĞÁĞ±íÖĞ£¬Ò²Òª¸üĞÂ
     const selectedIndex = selectedCards.value.findIndex(c => c.id === editingCard.value.id);
     if (selectedIndex > -1) {
       selectedCards.value[selectedIndex] = {
@@ -2034,10 +2033,10 @@ async function saveCardEdit() {
       };
     }
     
-    showToastMessage('ä¿®æ”¹æˆåŠŸ');
+    showToastMessage('ĞŞ¸Ä³É¹¦');
     closeEditCardModal();
   } catch (error) {
-    editError.value = 'ä¿®æ”¹å¤±è´¥ï¼š' + (error.response?.data?.error || error.message);
+    editError.value = 'ĞŞ¸ÄÊ§°Ü£º' + (error.response?.data?.error || error.message);
   } finally {
     editLoading.value = false;
   }
@@ -2051,11 +2050,11 @@ async function saveCardEdit() {
   left: 0;
   width: 100vw;
   z-index: 200;
-  /* background: rgba(0,0,0,0.6); /* å¯æ ¹æ®éœ€è¦è°ƒæ•´ */
-  /* backdrop-filter: blur(8px);  /*  æ¯›ç»ç’ƒæ•ˆæœ */
+  /* background: rgba(0,0,0,0.6); /* ¿É¸ù¾İĞèÒªµ÷Õû */
+  /* backdrop-filter: blur(8px);  /*  Ã«²£Á§Ğ§¹û */
 }
 
-/* æœç´¢å¼•æ“ä¸‹æ‹‰é€‰æ‹©å™¨ */
+/* ËÑË÷ÒıÇæÏÂÀ­Ñ¡ÔñÆ÷ */
 .search-engine-dropdown {
   position: relative;
   margin-right: 8px;
@@ -2199,7 +2198,7 @@ async function saveCardEdit() {
   transform: scale(1.1);
 }
 
-/* ä¸‹æ‹‰èœå•åŠ¨ç”» */
+/* ÏÂÀ­²Ëµ¥¶¯»­ */
 .dropdown-enter-active,
 .dropdown-leave-active {
   transition: all 0.2s ease;
@@ -2324,7 +2323,7 @@ async function saveCardEdit() {
   max-width: 640px;
 }
 
-/* è¿·ä½ æ ‡ç­¾æ  */
+/* ÃÔÄã±êÇ©À¸ */
 .mini-tag-bar {
   display: flex;
   align-items: center;
@@ -2410,7 +2409,7 @@ async function saveCardEdit() {
   color: white;
 }
 
-/* æ ‡ç­¾é€‰æ‹©æµ®å±‚ */
+/* ±êÇ©Ñ¡Ôñ¸¡²ã */
 .tag-panel-overlay {
   position: fixed;
   top: 0;
@@ -2508,7 +2507,7 @@ async function saveCardEdit() {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
-/* æµ®å±‚åŠ¨ç”» */
+/* ¸¡²ã¶¯»­ */
 .tag-panel-enter-active,
 .tag-panel-leave-active {
   transition: all 0.3s ease;
@@ -2619,7 +2618,7 @@ async function saveCardEdit() {
   transform: translateY(-1px);
 }
 
-/* å¼¹çª—æ ·å¼ */
+/* µ¯´°ÑùÊ½ */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -2882,7 +2881,7 @@ async function saveCardEdit() {
   }
 }
 
-/* æµ®åŠ¨æ“ä½œæŒ‰é’® */
+/* ¸¡¶¯²Ù×÷°´Å¥ */
 .fab-container {
   position: fixed;
   right: 30px;
@@ -2985,7 +2984,7 @@ async function saveCardEdit() {
   opacity: 0;
 }
 
-/* æ‰¹é‡æ·»åŠ å¼¹çª— */
+/* ÅúÁ¿Ìí¼Óµ¯´° */
 .batch-modal {
   width: 700px;
   max-height: 80vh;
@@ -3037,7 +3036,7 @@ async function saveCardEdit() {
   justify-content: flex-end;
 }
 
-/* å¡ç‰‡ç¼–è¾‘è¡¨å• */
+/* ¿¨Æ¬±à¼­±íµ¥ */
 .edit-card-form {
   display: flex;
   flex-direction: column;
@@ -3056,7 +3055,7 @@ async function saveCardEdit() {
   color: #374151;
 }
 
-/* æ ‡ç­¾é€‰æ‹©åŒºåŸŸ */
+/* ±êÇ©Ñ¡ÔñÇøÓò */
 .tag-select-area {
   display: flex;
   flex-direction: column;
@@ -3165,7 +3164,7 @@ async function saveCardEdit() {
   cursor: not-allowed;
 }
 
-/* é¢„è§ˆåˆ—è¡¨ */
+/* Ô¤ÀÀÁĞ±í */
 .batch-preview-list {
   max-height: 400px;
   overflow-y: auto;
@@ -3246,7 +3245,7 @@ async function saveCardEdit() {
   margin: 4px 0 0 0;
 }
 
-/* å¯ç¼–è¾‘å­—æ®µæ ·å¼ */
+/* ¿É±à¼­×Ö¶ÎÑùÊ½ */
 .batch-edit-field {
   display: flex;
   align-items: center;
@@ -3286,7 +3285,7 @@ async function saveCardEdit() {
   line-height: 1.4;
 }
 
-/* æ‰¹é‡æ ‡ç­¾é€‰æ‹©å™¨ */
+/* ÅúÁ¿±êÇ©Ñ¡ÔñÆ÷ */
 .batch-tags-selector {
   flex: 1;
   display: flex;
@@ -3300,7 +3299,7 @@ async function saveCardEdit() {
   overflow-y: auto;
 }
 
-/* æ¨èæ ‡ç­¾åŒºåŸŸ */
+/* ÍÆ¼ö±êÇ©ÇøÓò */
 .recommended-tags-section {
   display: flex;
   flex-direction: column;
@@ -3332,7 +3331,7 @@ async function saveCardEdit() {
   gap: 8px;
 }
 
-/* å…¶ä»–æ ‡ç­¾åŒºåŸŸ */
+/* ÆäËû±êÇ©ÇøÓò */
 .other-tags-section {
   display: flex;
   flex-direction: column;
@@ -3400,7 +3399,7 @@ async function saveCardEdit() {
   box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3);
 }
 
-/* è®°ä½å¯†ç å¤é€‰æ¡† */
+/* ¼Ç×¡ÃÜÂë¸´Ñ¡¿ò */
 .remember-password-wrapper {
   margin-bottom: 16px;
 }
@@ -3426,7 +3425,7 @@ async function saveCardEdit() {
   }
 }
 
-/* ========== ç¼–è¾‘æ¨¡å¼æŒ‰é’®æ ·å¼ ==========  */
+/* ========== ±à¼­Ä£Ê½°´Å¥ÑùÊ½ ==========  */
 
 .edit-mode-btn,
 .exit-edit-btn {
@@ -3498,7 +3497,7 @@ async function saveCardEdit() {
   font-weight: bold;
 }
 
-/* ========== Toast æç¤ºæ ·å¼ ========== */
+/* ========== Toast ÌáÊ¾ÑùÊ½ ========== */
 
 .move-target-panel {
   position: fixed;
@@ -3621,7 +3620,7 @@ async function saveCardEdit() {
   }
 }
 
-/* ========== Toast æç¤ºæ ·å¼ ========== */
+/* ========== Toast ÌáÊ¾ÑùÊ½ ========== */
 
 .toast-notification {
   position: fixed;
@@ -3655,7 +3654,7 @@ async function saveCardEdit() {
   transform: translateX(-50%) translateY(-20px);
 }
 
-/* ========== ç¼–è¾‘æ¨¡å¼åˆ†ç±»è§†å›¾æ ·å¼ ========== */
+/* ========== ±à¼­Ä£Ê½·ÖÀàÊÓÍ¼ÑùÊ½ ========== */
 
 .categories-view {
   width: 100%;
@@ -3705,10 +3704,10 @@ async function saveCardEdit() {
   text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
 }
 
-/* ç©ºåˆ†ç±»æç¤º */
+/* ¿Õ·ÖÀàÌáÊ¾ */
 .category-section:has(.card-grid:empty)::after,
 .sub-category-section:has(.card-grid:empty)::after {
-  content: 'æ‹–åŠ¨å¡ç‰‡åˆ°æ­¤å¤„';
+  content: 'ÍÏ¶¯¿¨Æ¬µ½´Ë´¦';
   display: block;
   text-align: center;
   padding: 30px;
