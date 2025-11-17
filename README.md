@@ -87,29 +87,7 @@ INSTALL_DIR=/opt/Con-Nav-Item bash <(curl -Ls https://raw.githubusercontent.com/
 
 > 💡 **提示**：卸载脚本会自动备份数据到 `~/Con-Nav-Item_uninstall_backup_*` 目录，包括数据库、上传文件和配置文件
 
-### 方式二：Serv00 平台一键部署
-
-**一键安装：**
-```bash
-# 使用默认域名 (username.serv00.net)
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
-
-# 指定自定义域名
-DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
-```
-
-**重置应用：**
-```bash
-# 完全重置（会备份数据）
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
-
-# 指定域名重置
-DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
-```
-
-> 💡 **提示**：重置脚本会备份当前数据，然后删除旧文件并重新安装
-
-### 方式三：Docker 部署
+### 方式二：Docker 部署
 
 #### 快速部署
 
@@ -234,20 +212,27 @@ docker pull ghcr.io/zczy-k/con-nav-item:latest
 
 ### 方式三：Serv00 / CT8 / Hostuno 部署
 
-**默认域名安装：**
-```bash
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
-```
+支持 Serv00、CT8、Hostuno 等免费主机平台。
 
-**自定义域名：**
+**一键安装：**
 ```bash
+# 使用默认域名 (username.serv00.net)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
+
+# 指定自定义域名
 DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
 ```
 
-**重置脚本：**
+**重置应用：**
 ```bash
+# 完全重置（会备份数据）
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
+
+# 指定域名重置
+DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
 ```
+
+> 💡 **提示**：重置脚本会备份当前数据，然后删除旧文件并重新安装
 
 ### 方式四：源码部署
 
