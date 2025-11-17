@@ -6,7 +6,7 @@
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Vue](https://img.shields.io/badge/Vue.js-3-brightgreen.svg)](https://vuejs.org/)
 
-[在线演示](https://navitem.vvvv.ee) · [部署文档](DEPLOY_SERV00.md) · [备份文档](BACKUP.md) · [问题反馈](https://github.com/zczy-k/Con-Nav-Item/issues)
+[在线演示](https://navitem.vvvv.ee) · [问题反馈](https://github.com/zczy-k/Con-Nav-Item/issues) · [安全政策](SECURITY.md)
 
 </div>
 
@@ -309,21 +309,13 @@ npm start
 
 ## 💾 备份与恢复
 
-项目内置完善的备份系统，支持本地备份、WebDAV云备份和GitHub备份。
+项目内置完善的备份系统，支持本地备份、WebDAV云备份和自动备份。
 
-### 快速备份
-```bash
-# Serv00 用户使用备份管理工具
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/backup-manager.sh)
-```
-
-### 后台备份
+### 后台备份管理
 登录后台管理 → 备份管理：
 - **本地备份**: 创建、恢复、下载、删除本地备份
 - **WebDAV备份**: 配置并备份到云端（坚果云、Nextcloud等）
 - **自动备份**: 配置定时备份和增量备份策略
-
-详细说明: [BACKUP.md](BACKUP.md) | [自动备份策略](BACKUP_STRATEGY.md)
 
 ## 🧩 浏览器扩展
 
@@ -364,8 +356,7 @@ Con-Nav-Item/
 ├── config/                 # 配置目录
 ├── scripts/                # 部署脚本
 │   ├── install-linux.sh   # Linux一键部署
-│   ├── install-serv00.sh  # Serv00部署
-│   └── backup-manager.sh  # 备份管理
+│   └── install-serv00.sh  # Serv00部署
 ├── browser-extension/      # 浏览器扩展
 ├── Dockerfile              # Docker构建
 └── docker-compose.yml      # Docker Compose配置
@@ -390,8 +381,6 @@ npm run build:prod   # 构建并复制到public目录
 # 手动构建
 cd web && npm run build:prod && cd ..
 ```
-
-详细说明: [DEV_WORKFLOW.md](DEV_WORKFLOW.md)
 
 ## 🔧 工具脚本
 
@@ -428,11 +417,9 @@ docker exec -it Con-Nav-Item node check-password.js reset-env
 
 ## 📚 文档
 
-- [Serv00 部署文档](DEPLOY_SERV00.md)
-- [备份与恢复指南](BACKUP.md)
-- [自动备份策略](BACKUP_STRATEGY.md)
-- [开发工作流程](DEV_WORKFLOW.md)
 - [浏览器扩展说明](browser-extension/README.md)
+- [自定义搜索引擎功能](docs/custom-search-engine.md)
+- [安全政策](SECURITY.md)
 
 ## 🐛 问题反馈
 
