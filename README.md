@@ -138,7 +138,7 @@ docker run -d \
   -v $(pwd)/database:/app/database \
   -v $(pwd)/backups:/app/backups \
   -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD=your_secure_password \
+  -e ADMIN_PASSWORD=123456 \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
@@ -597,6 +597,7 @@ limitations under the License.
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
+
 
 
 
