@@ -324,9 +324,18 @@
           <div v-if="batchStep === 3" class="batch-step">
             <p class="batch-tip">请选择需要添加的网站：</p>
             <div class="batch-preview-list">
-              <div v-for="(item, index) in parsedCards" :key="index" class="batch-preview-item">
+              <div v-for="(item, index) in parsedCards" :key="index" class="batch-preview-item" :class="{ 'is-duplicate': item.isDuplicate }">
                 <input type="checkbox" v-model="item.selected" :id="`card-${index}`" />
                 <div class="batch-card-preview">
+                  <!-- 重复标记徽章 -->
+                  <div v-if="item.isDuplicate" class="duplicate-badge">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                      <line x1="12" y1="9" x2="12" y2="13"></line>
+                      <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                    </svg>
+                    <span>重复</span>
+                  </div>
                   <img :src="item.logo" :alt="item.title" class="batch-card-logo" @error="e => e.target.src = '/default-favicon.png'" />
                   <div class="batch-card-info">
                     <div class="batch-edit-field">
@@ -390,6 +399,10 @@
                     </div>
                     <p class="batch-card-url">{{ item.url }}</p>
                     <p v-if="!item.success" class="batch-card-warning">⚠️ {{ item.error }}</p>
+                    <!-- 重复提示信息 -->
+                    <p v-if="item.isDuplicate && item.duplicateOf" class="batch-card-duplicate-info">
+                      ⚠️ 与已存在的卡片重复：<strong>{{ item.duplicateOf.title }}</strong>
+                    </p>
                   </div>
                 </div>
               </div>
@@ -673,6 +686,7 @@ import { ref, onMounted, onBeforeMount, computed, defineAsyncComponent, onUnmoun
 import { getMenus, getCards, getAds, getFriends, verifyPassword, batchParseUrls, batchAddCards, getRandomWallpaper, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags } from '../api';
 import MenuBar from '../components/MenuBar.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
+import { isDuplicateCard } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const menus = ref([]);
@@ -1634,17 +1648,39 @@ async function parseUrls() {
   batchError.value = '';
   
   try {
+    // 1. 解析 URL
     const response = await batchParseUrls(urls);
+    
+    // 2. 获取所有现有卡片，用于重复检测
+    const existingCardsRes = await getCards(activeMenu.value.id, activeSubMenu.value?.id);
+    const existingCards = existingCardsRes.data;
+    
+    // 3. 检测重复并标记
     parsedCards.value = response.data.data.map(card => {
       // 为每个卡片智能推荐标签
       const recommendedTagIds = recommendTags(card.url, card.title);
+      
+      // 检测与现有卡片重复
+      const duplicateCard = existingCards.find(existing => 
+        isDuplicateCard({ title: card.title, url: card.url }, existing)
+      );
+      
+      const isDuplicate = !!duplicateCard;
+      
       return {
         ...card,
-        selected: true, // 默认全选
-        tagIds: recommendedTagIds, // 自动填充推荐标签
-        recommendedTagIds: recommendedTagIds // 保存推荐的标签，用于UI显示
+        selected: !isDuplicate, // 重复的默认不选中
+        isDuplicate: isDuplicate, // 标记是否重复
+        duplicateOf: duplicateCard ? {
+          id: duplicateCard.id,
+          title: duplicateCard.title,
+          url: duplicateCard.url
+        } : null,
+        tagIds: recommendedTagIds,
+        recommendedTagIds: recommendedTagIds
       };
     });
+    
     batchStep.value = 3;
   } catch (error) {
     batchError.value = error.response?.data?.error || '解析失败，请重试';
@@ -3296,6 +3332,18 @@ async function saveCardEdit() {
   gap: 12px;
 }
 
+/* 重复卡片样式 */
+.batch-preview-item.is-duplicate .batch-card-preview {
+  background: #fef2f2;
+  border: 2px solid #fca5a5;
+  position: relative;
+}
+
+.batch-preview-item.is-duplicate .batch-card-preview:hover {
+  background: #fee2e2;
+  border-color: #f87171;
+}
+
 .batch-preview-item input[type="checkbox"] {
   margin-top: 8px;
   width: 18px;
@@ -3318,6 +3366,27 @@ async function saveCardEdit() {
 .batch-card-preview:hover {
   background: #f3f4f6;
   border-color: #667eea;
+}
+
+/* 重复徽章 */
+.duplicate-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: #dc2626;
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 6px;
+  box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.duplicate-badge svg {
+  stroke-width: 2.5;
 }
 
 .batch-card-logo {
@@ -3361,6 +3430,23 @@ async function saveCardEdit() {
   font-size: 12px;
   color: #dc2626;
   margin: 4px 0 0 0;
+}
+
+/* 重复信息 */
+.batch-card-duplicate-info {
+  font-size: 13px;
+  color: #dc2626;
+  margin: 8px 0 0 0;
+  padding: 8px;
+  background: #fee2e2;
+  border: 1px solid #fca5a5;
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.batch-card-duplicate-info strong {
+  font-weight: 600;
+  color: #b91c1c;
 }
 
 /* 可编辑字段样式 */

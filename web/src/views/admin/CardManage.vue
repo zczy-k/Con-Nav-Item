@@ -96,6 +96,105 @@
         </div>
       </div>
     </div>
+    
+    <!-- 重复检测对话框 -->
+    <div v-if="showDuplicateModal" class="modal-overlay" @click="closeDuplicateModal">
+      <div class="modal-content duplicate-modal" @click.stop>
+        <div class="modal-header">
+          <div class="header-with-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+              <line x1="12" y1="9" x2="12" y2="13"></line>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+            <h3>检测到重复卡片</h3>
+          </div>
+          <button class="close-btn" @click="closeDuplicateModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="duplicate-warning">
+            <p class="warning-text">您要添加的卡片与以下现有卡片重复：</p>
+          </div>
+          
+          <div class="duplicate-comparison">
+            <!-- 现有卡片 -->
+            <div class="card-info-box existing">
+              <div class="box-header">
+                <span class="box-label">现有卡片</span>
+              </div>
+              <div class="card-details">
+                <div class="detail-row">
+                  <span class="detail-label">标题：</span>
+                  <span class="detail-value">{{ duplicateInfo?.title }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">网址：</span>
+                  <span class="detail-value url">{{ duplicateInfo?.url }}</span>
+                </div>
+                <div class="detail-row" v-if="duplicateInfo?.logo_url">
+                  <span class="detail-label">Logo：</span>
+                  <span class="detail-value url">{{ duplicateInfo?.logo_url }}</span>
+                </div>
+              </div>
+            </div>
+            
+            <!-- 箭头 -->
+            <div class="arrow-divider">
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
+                <path d="M5 12h14M12 5l7 7-7 7"/>
+              </svg>
+            </div>
+            
+            <!-- 待添加卡片 -->
+            <div class="card-info-box pending">
+              <div class="box-header">
+                <span class="box-label">待添加卡片</span>
+              </div>
+              <div class="card-details">
+                <div class="detail-row">
+                  <span class="detail-label">标题：</span>
+                  <span class="detail-value">{{ pendingCard?.title }}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="detail-label">网址：</span>
+                  <span class="detail-value url">{{ pendingCard?.url }}</span>
+                </div>
+                <div class="detail-row" v-if="pendingCard?.logo_url">
+                  <span class="detail-label">Logo：</span>
+                  <span class="detail-value url">{{ pendingCard?.logo_url }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="duplicate-actions-info">
+            <p>请选择如何处理：</p>
+          </div>
+        </div>
+        <div class="modal-footer duplicate-footer">
+          <button class="btn btn-secondary" @click="skipDuplicate">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+            跳过
+          </button>
+          <button class="btn btn-warning" @click="replaceDuplicate">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
+              <path d="M21 3v5h-5"></path>
+            </svg>
+            替换
+          </button>
+          <button class="btn btn-primary" @click="editAndAdd">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+            </svg>
+            编辑后添加
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -109,6 +208,7 @@ import {
   deleteCard as apiDeleteCard,
   getTags
 } from '../../api';
+import { isDuplicateCard } from '../../utils/urlNormalizer';
 
 const menus = ref([]);
 const cards = ref([]);
@@ -121,6 +221,11 @@ const allTags = ref([]);
 const showTagModal = ref(false);
 const currentEditCard = ref(null);
 const selectedTagIds = ref([]);
+
+// 重复检测相关状态
+const showDuplicateModal = ref(false);
+const duplicateInfo = ref(null);
+const pendingCard = ref(null);
 
 const currentSubMenus = computed(() => {
   if (!selectedMenuId.value) return [];
@@ -164,17 +269,36 @@ async function loadCards() {
 
 async function addCard() {
   if (!newCardTitle.value || !newCardUrl.value) return;
-  await apiAddCard({ 
-    menu_id: selectedMenuId.value, 
-    sub_menu_id: selectedSubMenuId.value || null,
-    title: newCardTitle.value, 
-    url: newCardUrl.value, 
-    logo_url: newCardLogo.value 
-  });
-  newCardTitle.value = '';
-  newCardUrl.value = '';
-  newCardLogo.value = '';
-  loadCards();
+  
+  // 检测重复
+  const duplicate = cards.value.find(card => 
+    isDuplicateCard(
+      { title: newCardTitle.value, url: newCardUrl.value },
+      card
+    )
+  );
+  
+  if (duplicate) {
+    // 发现重复，显示对话框
+    duplicateInfo.value = duplicate;
+    pendingCard.value = {
+      menu_id: selectedMenuId.value,
+      sub_menu_id: selectedSubMenuId.value || null,
+      title: newCardTitle.value,
+      url: newCardUrl.value,
+      logo_url: newCardLogo.value
+    };
+    showDuplicateModal.value = true;
+  } else {
+    // 没有重复，直接添加
+    await performAddCard({
+      menu_id: selectedMenuId.value,
+      sub_menu_id: selectedSubMenuId.value || null,
+      title: newCardTitle.value,
+      url: newCardUrl.value,
+      logo_url: newCardLogo.value
+    });
+  }
 }
 
 async function updateCard(card) {
@@ -233,6 +357,56 @@ async function saveCardTags() {
   
   closeTagSelector();
   loadCards();
+}
+
+// 执行添加卡片操作
+async function performAddCard(cardData) {
+  await apiAddCard(cardData);
+  newCardTitle.value = '';
+  newCardUrl.value = '';
+  newCardLogo.value = '';
+  loadCards();
+}
+
+// 关闭重复对话框
+function closeDuplicateModal() {
+  showDuplicateModal.value = false;
+  duplicateInfo.value = null;
+  pendingCard.value = null;
+}
+
+// 跳过添加
+function skipDuplicate() {
+  closeDuplicateModal();
+  // 清空输入
+  newCardTitle.value = '';
+  newCardUrl.value = '';
+  newCardLogo.value = '';
+}
+
+// 替换现有卡片
+async function replaceDuplicate() {
+  if (!pendingCard.value || !duplicateInfo.value) return;
+  
+  // 删除旧卡片，添加新卡片
+  await apiDeleteCard(duplicateInfo.value.id);
+  await performAddCard(pendingCard.value);
+  closeDuplicateModal();
+}
+
+// 编辑后添加
+function editAndAdd() {
+  if (!pendingCard.value) return;
+  
+  // 将待添加的卡片信息填充回输入框
+  newCardTitle.value = pendingCard.value.title;
+  newCardUrl.value = pendingCard.value.url;
+  newCardLogo.value = pendingCard.value.logo_url || '';
+  
+  closeDuplicateModal();
+  
+  // 提示用户修改
+  alert('请修改卡片信息后再次点击“添加卡片”按钮');
 }
 </script>
 
@@ -596,6 +770,135 @@ async function saveCardTags() {
   background: #5568d3;
 }
 
+.btn-warning {
+  background: #f59e0b;
+  color: white;
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+/* 重复对话框样式 */
+.duplicate-modal {
+  max-width: 700px;
+}
+
+.header-with-icon {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.duplicate-warning {
+  background: #fef2f2;
+  border: 1px solid #fca5a5;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+}
+
+.warning-text {
+  margin: 0;
+  color: #dc2626;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.duplicate-comparison {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.card-info-box {
+  flex: 1;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid;
+}
+
+.card-info-box.existing {
+  border-color: #93c5fd;
+}
+
+.card-info-box.pending {
+  border-color: #a78bfa;
+}
+
+.box-header {
+  padding: 8px 12px;
+  font-weight: 600;
+  font-size: 13px;
+  color: white;
+}
+
+.card-info-box.existing .box-header {
+  background: #3b82f6;
+}
+
+.card-info-box.pending .box-header {
+  background: #8b5cf6;
+}
+
+.card-details {
+  padding: 12px;
+  background: #f9fafb;
+}
+
+.detail-row {
+  display: flex;
+  margin-bottom: 8px;
+  font-size: 13px;
+}
+
+.detail-row:last-child {
+  margin-bottom: 0;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: #6b7280;
+  min-width: 50px;
+}
+
+.detail-value {
+  color: #374151;
+  word-break: break-all;
+  flex: 1;
+}
+
+.detail-value.url {
+  color: #3b82f6;
+  font-size: 12px;
+}
+
+.arrow-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.duplicate-actions-info {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 12px 16px;
+}
+
+.duplicate-actions-info p {
+  margin: 0;
+  color: #15803d;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.duplicate-footer {
+  justify-content: space-between;
+}
+
 @media (max-width: 768px) {
   .card-manage {
     width: 94%;
@@ -638,6 +941,26 @@ async function saveCardTags() {
   .card-table th:nth-child(7),
   .card-table td:nth-child(7) {
     width: auto;
+  }
+  
+  /* 重复对话框移动端适配 */
+  .duplicate-comparison {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .arrow-divider {
+    transform: rotate(90deg);
+  }
+  
+  .duplicate-footer {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .duplicate-footer .btn {
+    width: 100%;
+    justify-content: center;
   }
 }
 </style> 
