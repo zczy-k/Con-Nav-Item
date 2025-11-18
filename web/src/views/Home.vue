@@ -1012,7 +1012,8 @@ async function deleteCustomEngine(engine) {
 }
 
 const filteredCards = computed(() => {
-  let result = cards.value;
+  // 当有搜索关键词时，从所有卡片中搜索；否则只显示当前菜单的卡片
+  let result = searchQuery.value ? allCards.value : cards.value;
   
   // 先应用标签筛选
   if (selectedTagId.value) {
