@@ -44,14 +44,14 @@
 ## 📸 界面预览
 
 <div align="center">
-  <img width="1859" height="890" alt="image" src="https://github.com/user-attachments/assets/819633a6-2c05-4ab0-ae37-ad928703ef50" width="800" alt="首页预览" />
+  <img width="1859" height="890" alt="image" src="https://github.com/user-attachments/assets/819633a6-2c05-4ab0-ae37-ad928703ef50" />
   <p><i>首页导航界面</i></p>
-  
   <img width="1900" height="891" alt="image" src="https://github.com/user-attachments/assets/7c909f50-8d9b-4287-a3be-98c9c0061b86" />
- width="800" alt="后台管理" />
   <p><i>后台管理界面</i></p>
   <img width="1909" height="842" alt="image" src="https://github.com/user-attachments/assets/71067bec-66c0-46b0-a54c-27d59c121d5d" />
+  <p><i>后台管理界面</i></p>
   <img width="1830" height="878" alt="image" src="https://github.com/user-attachments/assets/c2d01a7a-b2ef-4ce6-b3a5-838f2df64dae" />
+  <p><i>前端编辑界面</i></p>
 
 
 </div>
@@ -576,6 +576,7 @@ https://github.com     ↔️  https://github.com/home    ❌ 不是重复
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
+
 
 
 
