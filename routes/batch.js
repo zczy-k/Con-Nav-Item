@@ -124,29 +124,43 @@ router.post('/add', auth, (req, res) => {
     const skippedCards = [];
     
     cards.forEach(card => {
-      const isDuplicate = existingCards.some(existing => 
+      // 检查与现有卡片重复
+      const duplicateExisting = existingCards.find(existing => 
         isDuplicateCard({ title: card.title, url: card.url }, existing)
       );
       
-      if (isDuplicate) {
+      if (duplicateExisting) {
         skippedCards.push({
           title: card.title,
           url: card.url,
-          reason: '与现有卡片重复'
+          logo: card.logo,
+          description: card.description,
+          reason: '与现有卡片重复',
+          duplicateOf: {
+            id: duplicateExisting.id,
+            title: duplicateExisting.title,
+            url: duplicateExisting.url
+          }
         });
       } else {
         // 检查是否与当前批次中的其他卡片重复
-        const isDuplicateInBatch = uniqueCards.some(unique => 
+        const duplicateInBatch = uniqueCards.find(unique => 
           isDuplicateCard({ title: card.title, url: card.url }, { title: unique.title, url: unique.url })
         );
         
-        if (!isDuplicateInBatch) {
+        if (!duplicateInBatch) {
           uniqueCards.push(card);
         } else {
           skippedCards.push({
             title: card.title,
             url: card.url,
-            reason: '在当前批次中重复'
+            logo: card.logo,
+            description: card.description,
+            reason: '在当前批次中重复',
+            duplicateOf: {
+              title: duplicateInBatch.title,
+              url: duplicateInBatch.url
+            }
           });
         }
       }

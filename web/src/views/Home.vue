@@ -1694,14 +1694,33 @@ async function addSelectedCards() {
       tagIds: card.tagIds || [] // 包含标签
     }));
     
-    await batchAddCards(
+    const response = await batchAddCards(
       activeMenu.value.id,
       activeSubMenu.value?.id || null,
       cardsToAdd
     );
     
-    // 添加成功，关闭弹窗并刷新卡片列表
-    alert(`成功添加 ${selected.length} 个网站！`);
+    // 构建结果消息
+    const added = response.data.added || 0;
+    const skipped = response.data.skipped || 0;
+    const skippedCards = response.data.skippedCards || [];
+    
+    let message = '';
+    
+    if (added > 0 && skipped === 0) {
+      // 全部成功
+      message = `✅ 成功添加 ${added} 个网站！`;
+    } else if (added > 0 && skipped > 0) {
+      // 部分成功
+      message = `✅ 成功添加 ${added} 个网站\n\u26a0️ 跳过 ${skipped} 个重复的网站\n\n重复的网站：\n${skippedCards.map((card, i) => `${i + 1}. ${card.title} (${card.reason})`).join('\n')}`;
+    } else {
+      // 全部跳过
+      message = `\u26a0️ 所有网站都是重复的，未添加任何卡片\n\n重复的网站：\n${skippedCards.map((card, i) => `${i + 1}. ${card.title}\n   与现有卡片“${card.duplicateOf?.title || ''}”重复`).join('\n')}`;
+    }
+    
+    alert(message);
+    
+    // 关闭弹窗并刷新卡片列表
     closeBatchAdd();
     await loadCards();
   } catch (error) {
