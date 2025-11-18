@@ -672,6 +672,7 @@
 import { ref, onMounted, onBeforeMount, computed, defineAsyncComponent, onUnmounted } from 'vue';
 import { getMenus, getCards, getAds, getFriends, verifyPassword, batchParseUrls, batchAddCards, getRandomWallpaper, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags } from '../api';
 import MenuBar from '../components/MenuBar.vue';
+import { filterCardsWithPinyin } from '../utils/pinyin';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const menus = ref([]);
@@ -1020,24 +1021,9 @@ const filteredCards = computed(() => {
     );
   }
   
-  // 再应用搜索筛选
+  // 再应用搜索筛选（支持拼音搜索）
   if (searchQuery.value) {
-    const searchQueryLower = searchQuery.value.toLowerCase();
-    // 在当前结果集中搜索（包括标签名称）
-    result = result.filter(card => {
-      // 匹配标题、URL、描述
-      const matchBasicInfo = 
-        card.title.toLowerCase().includes(searchQueryLower) ||
-        card.url.toLowerCase().includes(searchQueryLower) ||
-        (card.desc && card.desc.toLowerCase().includes(searchQueryLower));
-      
-      // 匹配标签名称
-      const matchTags = card.tags && card.tags.some(tag => 
-        tag.name.toLowerCase().includes(searchQueryLower)
-      );
-      
-      return matchBasicInfo || matchTags;
-    });
+    result = filterCardsWithPinyin(result, searchQuery.value);
   }
   
   return result;
