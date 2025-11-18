@@ -1164,6 +1164,41 @@ onMounted(async () => {
   // 检查是否有保存的密码token
   checkSavedPassword();
   
+  // 检查 URL 参数，看是否需要自动打开批量添加
+  const urlParams = new URLSearchParams(window.location.search);
+  const batchAddParam = urlParams.get('batchAdd');
+  const urlsParam = urlParams.get('urls');
+  
+  if (batchAddParam === 'true' && urlsParam) {
+    // 清理 URL 参数，避免刷新时重复执行
+    window.history.replaceState({}, document.title, window.location.pathname);
+    
+    // 稍微延迟一下，确保菜单已经加载
+    setTimeout(() => {
+      // 自动打开批量添加弹窗
+      openBatchAddModal();
+      
+      // 再等待一下，确保弹窗已打开且已跳过密码验证步骤
+      setTimeout(() => {
+        // 如果已经在第二步，则自动填充 URLs
+        if (batchStep.value === 2) {
+          batchUrls.value = decodeURIComponent(urlsParam);
+        } else {
+          // 如果还在第一步，等待用户验证后填充
+          const checkAndFill = setInterval(() => {
+            if (batchStep.value === 2) {
+              batchUrls.value = decodeURIComponent(urlsParam);
+              clearInterval(checkAndFill);
+            }
+          }, 100);
+          
+          // 最多等待 30 秒
+          setTimeout(() => clearInterval(checkAndFill), 30000);
+        }
+      }, 300);
+    }, 500);
+  }
+  
   document.addEventListener('click', closeFabMenu);
   document.addEventListener('click', closeEngineDropdown);
 });

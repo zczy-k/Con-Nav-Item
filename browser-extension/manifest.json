@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "description": "将新标签页替换为你的个人导航站，支持自定义导航站地址。",
   "permissions": [
-    "storage"
+    "storage",
+    "tabs"
   ],
   "host_permissions": [
     "http://*/",
