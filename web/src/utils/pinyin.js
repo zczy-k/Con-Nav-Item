@@ -23,11 +23,11 @@ export function getPinyinInfo(text) {
       type: 'array'
     }).join('').toLowerCase();
     
-    // 获取拼音首字母
+    // 获取拼音首字母（移除空格）
     const firstLetters = pinyin(text, { 
       pattern: 'first',
       toneType: 'none'
-    }).toLowerCase();
+    }).replace(/\s+/g, '').toLowerCase();
     
     return {
       full: fullPinyin,
