@@ -275,27 +275,35 @@ EOFSCRIPT
     # 清理临时脚本
     rm -f "${WORKDIR}/update_logos_temp.js"
     
+    # 获取 devil 分配的 TCP 端口
+    yellow "获取 devil 分配的端口...\n"
+    ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
+    
+    if [ -z "$ASSIGNED_PORT" ]; then
+        red "错误: 未找到分配的 TCP 端口\n"
+        yellow "请运行: devil port add tcp random\n"
+        exit 1
+    fi
+    
+    green "✓ 使用端口: ${ASSIGNED_PORT}\n"
+    
     # 生成安全的 .env 文件
-    if [ ! -f "${WORKDIR}/.env" ]; then
-        yellow "生成安全配置文件...\n"
-        
-        # 生成随机JWT密钥
-        JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
-        
-        cat > "${WORKDIR}/.env" <<EOF
-PORT=3000
+    yellow "生成安全配置文件...\n"
+    
+    # 生成随机JWT密钥
+    JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
+    
+    cat > "${WORKDIR}/.env" <<EOF
+PORT=${ASSIGNED_PORT}
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=123456
 NODE_ENV=production
 JWT_SECRET=${JWT_SECRET}
 EOF
-        
-        chmod 600 "${WORKDIR}/.env"
-        green "✓ 安全配置文件已创建\n"
-        yellow "⚠️  默认密码为 123456，请登录后立即修改！\n"
-    else
-        green "✓ 配置文件已存在，跳过生成\n"
-    fi
+    
+    chmod 600 "${WORKDIR}/.env"
+    green "✓ 安全配置文件已创建 (PORT=${ASSIGNED_PORT})\n"
+    yellow "⚠️  默认密码为 123456，请登录后立即修改！\n"
     
     # 重启应用
     devil www restart "${CURRENT_DOMAIN}" > /dev/null 2>&1

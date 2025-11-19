@@ -134,7 +134,10 @@ app.use(globalErrorHandler);
 if (require.main === module) {
   db.initPromise
     .then(() => {
-      app.listen(PORT);
+      // 绑定到 127.0.0.1 以兼容 Serv00 等平台
+      app.listen(PORT, '127.0.0.1', () => {
+        console.log(`✓ Server running on http://127.0.0.1:${PORT}`);
+      });
     })
     .catch(err => {
       console.error('✗ Failed to start server due to database initialization error:', err);
