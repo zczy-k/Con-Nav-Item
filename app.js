@@ -27,6 +27,14 @@ const CACHE_TTL = 60000; // 1分钟缓存
 
 const PORT = process.env.PORT || 3000;
 
+// 调试信息
+console.log('=== DEBUG INFO ===');
+console.log('process.env.PORT:', process.env.PORT);
+console.log('PORT:', PORT);
+console.log('require.main:', require.main ? require.main.filename : 'undefined');
+console.log('module.parent:', module.parent ? module.parent.filename : 'undefined');
+console.log('==================');
+
 // 安全中间件
 app.use(helmetConfig);
 app.use(cors({
@@ -151,11 +159,19 @@ db.initPromise
     // 只有被 start-with-https.js require 时不启动（它会自己管理 HTTP/HTTPS）
     const isStartWithHttps = require.main && require.main.filename && require.main.filename.includes('start-with-https');
     
+    console.log('=== STARTUP DEBUG ===');
+    console.log('isStartWithHttps:', isStartWithHttps);
+    console.log('Will start server:', !isStartWithHttps);
+    console.log('=====================');
+    
     if (!isStartWithHttps) {
       // 不指定 IP，兼容各种环境（Passenger/PM2/直接运行）
       app.listen(PORT, () => {
         console.log(`✓ Server running on port ${PORT}`);
+        console.log(`✓ Listening on all interfaces (0.0.0.0:${PORT})`);
       });
+    } else {
+      console.log('⚠ Skipping app.listen() - will be handled by start-with-https.js');
     }
   })
   .catch(err => {
