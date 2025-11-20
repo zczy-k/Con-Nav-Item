@@ -45,7 +45,17 @@ app.use('/api', generalLimiter);
 
 // 缓存中间件（仅对GET请求）
 app.use((req, res, next) => {
-  if (req.method === 'GET' && req.path.startsWith('/api/')) {
+  // 排除不应该缓存的路径
+  const noCachePaths = [
+    '/api/backup',      // 备份相关 API
+    '/api/users/profile' // 用户信息
+  ];
+  
+  const shouldCache = req.method === 'GET' && 
+                      req.path.startsWith('/api/') && 
+                      !noCachePaths.some(path => req.path.startsWith(path));
+  
+  if (shouldCache) {
     const cacheKey = req.originalUrl;
     const cached = cache.get(cacheKey);
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
