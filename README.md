@@ -241,6 +241,10 @@ DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/
 
 > 💡 **提示**：重置脚本会备份当前数据，然后删除旧文件并重新安装
 
+**常见问题**：
+- 如果遇到前端无法显示的问题，请查看 [Serv00 前端修复说明](SERV00_FRONTEND_FIX.md)
+- 如果遇到 524 超时错误，请查看 [Serv00 部署修复说明](SERV00_FIX.md)
+
 ### 方式四：源码部署
 
 ```bash

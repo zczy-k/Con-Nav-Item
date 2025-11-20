@@ -145,10 +145,31 @@ install_application() {
     rm -f "${WORKDIR}/Con-Nav-Item.zip"
     
     # 前端静态文件已经在 public 目录中，不需要额外处理
-    if [ -d "${WORKDIR}/public" ]; then
+    if [ -d "${WORKDIR}/public" ] && [ -f "${WORKDIR}/public/index.html" ]; then
         green "前端文件已就绪\n"
+        # 验证关键文件
+        if [ -d "${WORKDIR}/public/assets" ]; then
+            ASSET_COUNT=$(ls -1 "${WORKDIR}/public/assets"/*.js 2>/dev/null | wc -l)
+            green "  ✔ 找到 ${ASSET_COUNT} 个前端 JS 文件\n"
+        else
+            yellow "  ⚠ 警告: public/assets 目录不存在\n"
+        fi
     else
-        red "警告: public 目录不存在，请检查代码仓库\n"
+        red "错误: public 目录或 index.html 不存在\n"
+        yellow "尝试重新下载前端文件...\n"
+        
+        # 重新下载并解压
+        curl -L https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip -o "${WORKDIR}/temp.zip"
+        unzip -o "${WORKDIR}/temp.zip" "Con-Nav-Item-main/public/*" -d "${WORKDIR}" >/dev/null 2>&1
+        
+        if [ -d "${WORKDIR}/Con-Nav-Item-main/public" ]; then
+            cp -r "${WORKDIR}/Con-Nav-Item-main/public" "${WORKDIR}/"
+            rm -rf "${WORKDIR}/Con-Nav-Item-main" "${WORKDIR}/temp.zip"
+            green "  ✔ 前端文件已重新下载\n"
+        else
+            red "  ✗ 无法下载前端文件，请手动检查\n"
+            exit 1
+        fi
     fi
     
     # app.js 已统一，无需额外配置
@@ -305,13 +326,34 @@ show_info() {
     green "=========================================="
     echo ""
     
+    # 等待应用启动
+    yellow "等待应用启动...\n"
+    sleep 5
+    
+    # 验证部署
+    yellow "验证部署状态...\n"
+    
+    # 检查进程
+    if ps aux | grep -v grep | grep node20 | grep -q app.js; then
+        green "  ✔ Node.js 进程运行正常\n"
+    else
+        yellow "  ⚠ Node.js 进程未找到，可能正在启动\n"
+    fi
+    
+    # 检查前端文件
+    if [ -f "${WORKDIR}/public/index.html" ]; then
+        green "  ✔ 前端文件存在\n"
+    else
+        red "  ✗ 前端文件缺失\n"
+    fi
+    
+    # 测试访问
     if [[ -z "$DOMAIN" ]]; then
-        if curl -o /dev/null -s -w "%{http_code}\n" https://${CURRENT_DOMAIN} | grep -q 200; then
-            green "✓ 导航站已成功安装\n"
+        HTTP_CODE=$(curl -o /dev/null -s -w "%{http_code}\n" https://${CURRENT_DOMAIN} 2>/dev/null || echo "000")
+        if [ "$HTTP_CODE" = "200" ]; then
+            green "  ✔ 网站访问正常 (HTTP $HTTP_CODE)\n"
         else
-            red "✗ 站点 ${CURRENT_DOMAIN} 无法访问"
-            yellow "请稍等片刻后再次尝试，或查看日志排查问题"
-            echo ""
+            yellow "  ⚠ 网站访问异常 (HTTP $HTTP_CODE)，请稍等片刻后重试\n"
         fi
     else
         ip_address=$(devil vhost list | awk '$2 ~ /web/ {print $1}')
@@ -321,6 +363,11 @@ show_info() {
         purple "并在 Cloudflare 开启代理（小黄云）\n"
     fi
     
+    echo ""
+    green "=========================================="
+    green "  访问信息"
+    green "=========================================="
+    echo ""
     echo -e "${green}站点地址：${purple}https://${CURRENT_DOMAIN}${re}"
     echo -e "${green}后台管理：${purple}https://${CURRENT_DOMAIN}/admin${re}"
     echo -e "${green}管理账号：${purple}admin${re}"
@@ -328,10 +375,27 @@ show_info() {
     echo ""
     red "⚠️  请登录后立即修改密码！"
     echo ""
-    echo -e "${yellow}项目地址：${re}${purple}https://github.com/zczy-k/Con-Nav-Item${re}"
-    echo -e "${yellow}部署文档：${re}${purple}查看 DEPLOY_SERV00.md${re}"
+    green "=========================================="
+    green "  故障排查"
+    green "=========================================="
+    echo ""
+    yellow "如果遇到问题，请运行以下命令检查：\n"
+    echo "  # 检查进程"
+    echo "  ps aux | grep node20"
+    echo ""
+    echo "  # 检查前端文件"
+    echo "  ls -la ${WORKDIR}/public/"
+    echo ""
+    echo "  # 重启应用"
+    echo "  devil www restart ${CURRENT_DOMAIN}"
+    echo ""
+    echo "  # 查看详细文档"
+    echo "  https://github.com/zczy-k/Con-Nav-Item/blob/main/SERV00_FRONTEND_FIX.md"
     echo ""
     green "=========================================="
+    echo ""
+    echo -e "${yellow}项目地址：${re}${purple}https://github.com/zczy-k/Con-Nav-Item${re}"
+    echo ""
 }
 
 # 主函数

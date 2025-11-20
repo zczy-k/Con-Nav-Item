@@ -63,17 +63,26 @@ app.use((req, res, next) => {
 
 // uploads 目录已废弃，不再需要静态资源服务
 
+// 根据环境选择静态文件目录
+// 开发环境使用 web/dist，生产环境（如 serv00）使用 public
+const fs = require('fs');
+const staticDir = fs.existsSync(path.join(__dirname, 'web/dist/index.html')) 
+  ? path.join(__dirname, 'web/dist')
+  : path.join(__dirname, 'public');
+
+console.log(`✓ Using static files from: ${staticDir}`);
+
 // PWA 相关文件的 MIME 类型设置
 app.get('/manifest.json', (req, res) => {
   res.type('application/manifest+json');
-  res.sendFile(path.join(__dirname, 'web/dist', 'manifest.json'));
+  res.sendFile(path.join(staticDir, 'manifest.json'));
 });
 app.get('/sw.js', (req, res) => {
   res.type('application/javascript');
-  res.sendFile(path.join(__dirname, 'web/dist', 'sw.js'));
+  res.sendFile(path.join(staticDir, 'sw.js'));
 });
 
-app.use(express.static(path.join(__dirname, 'web/dist'), {
+app.use(express.static(staticDir, {
   maxAge: '1d',
   etag: true,
   lastModified: true
@@ -88,7 +97,7 @@ app.use((req, res, next) => {
     !req.path.match(/\.(js|css|png|jpg|jpeg|gif|svg|webp|ico|woff|woff2|ttf|eot|json|txt)$/i)
   ) {
     // 返回 index.html，让 Vue Router 处理路由
-    res.sendFile(path.join(__dirname, 'web/dist', 'index.html'));
+    res.sendFile(path.join(staticDir, 'index.html'));
   } else {
     next();
   }
