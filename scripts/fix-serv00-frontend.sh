@@ -61,6 +61,32 @@ else
     exit 1
 fi
 
+# 2.5. 确保 .env 中有正确的 PORT
+yellow "2.5. 配置端口..."
+ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
+
+if [ -n "$ASSIGNED_PORT" ]; then
+    # 检查 .env 是否存在
+    if [ -f ".env" ]; then
+        # 删除旧的 PORT 行
+        grep -v "^PORT=" .env > .env.tmp && mv .env.tmp .env
+        # 添加新的 PORT
+        echo "PORT=${ASSIGNED_PORT}" >> .env
+        green "   ✓ 端口已配置: ${ASSIGNED_PORT}"
+    else
+        # 创建新的 .env
+        cat > .env <<EOF
+ADMIN_USERNAME=admin
+ADMIN_PASSWORD=123456
+NODE_ENV=production
+PORT=${ASSIGNED_PORT}
+EOF
+        green "   ✓ .env 文件已创建，端口: ${ASSIGNED_PORT}"
+    fi
+else
+    yellow "   ⚠ 未找到 TCP 端口，Passenger 会自动管理"
+fi
+
 # 3. 检查 public 目录
 yellow "3. 检查 public 目录..."
 if [ -d "public" ] && [ -f "public/index.html" ]; then

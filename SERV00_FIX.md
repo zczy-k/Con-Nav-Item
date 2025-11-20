@@ -2,58 +2,68 @@
 
 ## 🔧 修复内容
 
-本次修复解决了在 Serv00 服务器上部署时出现 **524 超时错误** 的问题。
+本次修复解决了在 Serv00 服务器上部署时出现的问题。
 
 ### 问题原因
 
-1. **端口配置错误**：脚本硬编码 `PORT=3000`，但 Serv00 需要使用 devil 分配的随机端口
-2. **监听地址错误**：`app.listen(PORT)` 默认绑定 `0.0.0.0`，在 Serv00 上会导致 `EPERM: operation not permitted` 错误
+1. **监听地址错误**：`app.listen(PORT, '127.0.0.1')` 在 Passenger 环境下无法工作
+   - Serv00 使用 Phusion Passenger 管理 Node.js 应用
+   - Passenger 需要应用监听所有接口（不指定 IP）
+   - 绑定到 `127.0.0.1` 导致 Passenger 无法连接，出现 524 错误
+
+2. **静态文件目录**：`web/dist` 目录在 Git 仓库中被忽略
+   - 应使用预构建的 `public` 目录
 
 ### 修复内容
 
-#### 1. 修改 `app.js` (第 137-140 行)
+#### 1. 修改 `app.js` - 移除 IP 绑定
 
 **修改前：**
 ```javascript
-app.listen(PORT);
-```
-
-**修改后：**
-```javascript
-// 绑定到 127.0.0.1 以兼容 Serv00 等平台
 app.listen(PORT, '127.0.0.1', () => {
   console.log(`✓ Server running on http://127.0.0.1:${PORT}`);
 });
 ```
 
-#### 2. 修改 `scripts/install-serv00.sh` (第 278-306 行)
-
-**修改前：**
-```bash
-cat > "${WORKDIR}/.env" <<EOF
-PORT=3000
-ADMIN_USERNAME=admin
-...
-EOF
+**修改后：**
+```javascript
+// 不指定 IP，让 Passenger 管理（兼容 Serv00）
+app.listen(PORT, () => {
+  console.log(`✓ Server running on port ${PORT}`);
+});
 ```
 
-**修改后：**
+#### 2. 修改 `app.js` - 智能选择静态文件目录
+
+```javascript
+// 根据环境选择静态文件目录
+const fs = require('fs');
+const staticDir = fs.existsSync(path.join(__dirname, 'web/dist/index.html')) 
+  ? path.join(__dirname, 'web/dist')
+  : path.join(__dirname, 'public');
+
+console.log(`✓ Using static files from: ${staticDir}`);
+```
+
+#### 3. 修改 `scripts/install-serv00.sh` - 自动获取端口
+
 ```bash
 # 获取 devil 分配的 TCP 端口
 ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
 
 if [ -z "$ASSIGNED_PORT" ]; then
-    red "错误: 未找到分配的 TCP 端口\n"
-    yellow "请运行: devil port add tcp random\n"
-    exit 1
+    # 如果没有端口，尝试添加
+    devil port add tcp random
+    ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
 fi
 
-green "✓ 使用端口: ${ASSIGNED_PORT}\n"
-
+# 创建 .env 文件，包含 PORT
 cat > "${WORKDIR}/.env" <<EOF
-PORT=${ASSIGNED_PORT}
 ADMIN_USERNAME=admin
-...
+ADMIN_PASSWORD=123456
+NODE_ENV=production
+JWT_SECRET=${JWT_SECRET}
+PORT=${ASSIGNED_PORT}
 EOF
 ```
 

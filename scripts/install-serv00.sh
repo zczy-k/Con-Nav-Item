@@ -302,13 +302,37 @@ EOFSCRIPT
     # 生成随机JWT密钥
     JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
     
-    # 注意：不要在 .env 中设置 PORT，让 Serv00/Passenger 自动分配
+    # 获取 devil 分配的 TCP 端口
+    ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
+    
+    if [ -z "$ASSIGNED_PORT" ]; then
+        yellow "  ⚠ 未找到分配的 TCP 端口，尝试添加...\n"
+        devil port add tcp random > /dev/null 2>&1
+        sleep 2
+        ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
+        
+        if [ -z "$ASSIGNED_PORT" ]; then
+            red "  ✗ 无法获取 TCP 端口\n"
+            yellow "  提示：Serv00 会自动管理端口，应用仍可能正常工作\n"
+        else
+            green "  ✔ 已添加 TCP 端口: ${ASSIGNED_PORT}\n"
+        fi
+    else
+        green "  ✔ 使用 TCP 端口: ${ASSIGNED_PORT}\n"
+    fi
+    
+    # 创建 .env 文件，包含 PORT（如果获取到）
     cat > "${WORKDIR}/.env" <<EOF
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=123456
 NODE_ENV=production
 JWT_SECRET=${JWT_SECRET}
 EOF
+    
+    # 如果获取到端口，添加到 .env
+    if [ -n "$ASSIGNED_PORT" ]; then
+        echo "PORT=${ASSIGNED_PORT}" >> "${WORKDIR}/.env"
+    fi
     
     chmod 600 "${WORKDIR}/.env"
     green "✓ 安全配置文件已创建\n"
