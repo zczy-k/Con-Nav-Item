@@ -148,13 +148,10 @@ db.initPromise
     console.log('✓ Database initialized');
     
     // 检查是否需要启动服务器
-    // 1. 直接运行：require.main === module
-    // 2. 被 passenger.js require：需要启动
-    // 3. 被 start-with-https.js require：不需要启动（它会自己管理）
-    const isPassenger = require.main && require.main.filename && require.main.filename.includes('passenger.js');
-    const isDirectRun = require.main === module;
+    // 只有被 start-with-https.js require 时不启动（它会自己管理 HTTP/HTTPS）
+    const isStartWithHttps = require.main && require.main.filename && require.main.filename.includes('start-with-https');
     
-    if (isDirectRun || isPassenger) {
+    if (!isStartWithHttps) {
       // 不指定 IP，兼容各种环境（Passenger/PM2/直接运行）
       app.listen(PORT, () => {
         console.log(`✓ Server running on port ${PORT}`);
