@@ -124,33 +124,24 @@ watch(() => props.cards, (newCards, oldCards) => {
   }
 }, { deep: true, immediate: false });
 
-// 触发动画
-let isFirstLoad = true; // 首次加载标记
+// 触发动画（极简版：只在首次加载时有轻微淡入）
+let isFirstLoad = true;
 
 function triggerAnimation() {
-  // 首次加载使用快速淡入，提升性能
+  // 首次加载：极快淡入（100ms）
   if (isFirstLoad) {
-    animationType.value = 'fadeIn';
-    animationClass.value = 'animate-fadeIn-fast';
+    animationType.value = 'instant';
+    animationClass.value = 'animate-instant';
     isFirstLoad = false;
     
-    // 动画结束后清除类名
     setTimeout(() => {
       animationClass.value = '';
-    }, 400); // 首次加载动画更短
+    }, 150);
     return;
   }
   
-  // 后续切换使用随机动画
-  const animations = ['slideUp', 'radial', 'fadeIn', 'slideLeft', 'slideRight', 'convergeIn', 'flipIn'];
-  const randomIndex = Math.floor(Math.random() * animations.length);
-  animationType.value = animations[randomIndex];
-  animationClass.value = `animate-${animationType.value}`;
-  
-  // 动画结束后清除类名
-  setTimeout(() => {
-    animationClass.value = '';
-  }, 1200);
+  // 后续切换：无动画，立即显示
+  animationClass.value = '';
 }
 
 // 获取卡片样式（用于延迟动画 + 随机渐变色）
@@ -171,7 +162,7 @@ function getCardStyle(index) {
   
   if (animationType.value === 'slideUp') {
     // 从下往上：按索引顺序延迟
-    style.animationDelay = `${index * 0.05}s`;
+    style.animationDelay = `${index * 0.02}s`;
   } else if (animationType.value === 'radial') {
     // 从中心扩散：根据距离中心的位置计算延迟
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 8);
@@ -179,21 +170,21 @@ function getCardStyle(index) {
     const col = index % cols;
     const centerCol = Math.floor(cols / 2);
     const distance = Math.abs(col - centerCol) + row;
-    style.animationDelay = `${distance * 0.08}s`;
+    style.animationDelay = `${distance * 0.03}s`;
   } else if (animationType.value === 'fadeIn') {
     // 淡入动画：随机延迟
-    style.animationDelay = `${Math.random() * 0.5}s`;
+    style.animationDelay = `${Math.random() * 0.2}s`;
   } else if (animationType.value === 'slideLeft') {
     // 从左往右：按行延迟
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 8);
     const row = Math.floor(index / cols);
-    style.animationDelay = `${row * 0.1}s`;
+    style.animationDelay = `${row * 0.04}s`;
   } else if (animationType.value === 'slideRight') {
     // 从右往左：按行延迟（反向）
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 8);
     const row = Math.floor(index / cols);
     const col = index % cols;
-    style.animationDelay = `${(row + (cols - col - 1) * 0.02) * 0.08}s`;
+    style.animationDelay = `${(row + (cols - col - 1) * 0.01) * 0.03}s`;
   } else if (animationType.value === 'convergeIn') {
     // 从两边往中间靠拢：根据列的位置计算延迟
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 8);
@@ -201,13 +192,13 @@ function getCardStyle(index) {
     const centerCol = Math.floor(cols / 2);
     const distanceFromCenter = Math.abs(col - centerCol);
     // 边缘的元素先出现，中间的最后出现
-    style.animationDelay = `${(cols - distanceFromCenter - 1) * 0.08}s`;
+    style.animationDelay = `${(cols - distanceFromCenter - 1) * 0.03}s`;
   } else if (animationType.value === 'flipIn') {
     // 翻转入场：按对角线延迟
     const cols = window.innerWidth <= 768 ? 3 : (window.innerWidth <= 1200 ? 4 : 8);
     const row = Math.floor(index / cols);
     const col = index % cols;
-    style.animationDelay = `${(row + col) * 0.06}s`;
+    style.animationDelay = `${(row + col) * 0.02}s`;
   }
   
   return style;
@@ -489,9 +480,7 @@ const gradients = [
 /* 动画样式 */
 /* 从下往上滑入动画 */
 .animate-slideUp .link-item {
-  animation: slideUpIn 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateY(30px);
+  animation: slideUpIn 0.3s ease-out;
 }
 
 @keyframes slideUpIn {
@@ -507,9 +496,7 @@ const gradients = [
 
 /* 从中心扩散动画 */
 .animate-radial .link-item {
-  animation: radialIn 0.5s ease-out forwards;
-  opacity: 0;
-  transform: scale(0.3);
+  animation: radialIn 0.3s ease-out;
 }
 
 @keyframes radialIn {
@@ -529,8 +516,7 @@ const gradients = [
 
 /* 淡入动画 */
 .animate-fadeIn .link-item {
-  animation: fadeIn 0.6s ease-out forwards;
-  opacity: 0;
+  animation: fadeIn 0.3s ease-out;
 }
 
 @keyframes fadeIn {
@@ -546,9 +532,7 @@ const gradients = [
 
 /* 从左滑入动画 */
 .animate-slideLeft .link-item {
-  animation: slideLeftIn 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateX(-50px);
+  animation: slideLeftIn 0.3s ease-out;
 }
 
 @keyframes slideLeftIn {
@@ -564,9 +548,7 @@ const gradients = [
 
 /* 从右滑入动画 */
 .animate-slideRight .link-item {
-  animation: slideRightIn 0.6s ease-out forwards;
-  opacity: 0;
-  transform: translateX(50px);
+  animation: slideRightIn 0.3s ease-out;
 }
 
 @keyframes slideRightIn {
@@ -582,8 +564,7 @@ const gradients = [
 
 /* 从两边往中间靠拢动画 */
 .animate-convergeIn .link-item {
-  animation: convergeIn 0.7s ease-out forwards;
-  opacity: 0;
+  animation: convergeIn 0.3s ease-out;
 }
 
 .animate-convergeIn .link-item:nth-child(8n+1),
@@ -647,9 +628,7 @@ const gradients = [
 
 /* 翻转入场动画 */
 .animate-flipIn .link-item {
-  animation: flipIn 0.7s ease-out forwards;
-  opacity: 0;
-  transform: rotateY(-90deg);
+  animation: flipIn 0.3s ease-out;
 }
 
 @keyframes flipIn {
@@ -789,17 +768,22 @@ const gradients = [
   background: rgba(239, 68, 68, 0.9);
 }
 
-/* 快速淡入动画（首次加载优化） */
-.animate-fadeIn-fast .link-item {
-  animation: fastFadeIn 0.3s ease-out forwards;
+/* 极速显示动画（首次加载） */
+.animate-instant .link-item {
+  animation: instantShow 0.1s ease-out forwards;
 }
 
-@keyframes fastFadeIn {
+@keyframes instantShow {
   from {
-    opacity: 0;
+    opacity: 0.7;
   }
   to {
     opacity: 1;
   }
+}
+
+/* 默认状态：立即可见 */
+.link-item {
+  opacity: 1;
 }
 </style>

@@ -1,0 +1,465 @@
+﻿
+.container {
+  max-width: 70rem;
+  margin: 0 auto;
+  margin-top: 2vh;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 15px;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 1200px) {
+  .container {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+@media (max-width: 768px) {
+  .container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+@media (max-width: 480px) {
+  .container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+.link-item {
+  /* background 由 JS 动态设置 */
+  backdrop-filter: blur(8px) saturate(120%);
+  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  border-radius: 16px;
+  padding: 0;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+  text-align: center;
+  min-height: 85px;
+  height: 85px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 苹果风格光晕效果 */
+.link-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.3),
+    transparent
+  );
+  transition: left 0.5s;
+}
+
+.link-item:hover::before {
+  left: 100%;
+}
+
+.link-item:hover {
+  filter: brightness(1.08);
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: 
+    0 4px 16px rgba(0, 0, 0, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.5);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.link-item:active {
+  transform: translateY(-2px) scale(0.98);
+  transition: all 0.1s;
+}
+.link-item a {
+  /* margin-top: 8px; */
+  text-decoration: none;
+  color: #ffffff;
+  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+/* 在编辑模式下，拖拽手柄不应该阻止按钮点击 */
+.edit-mode .link-item a.drag-handle {
+  pointer-events: none;
+}
+
+.edit-mode .link-item .link-icon,
+.edit-mode .link-item .link-text {
+  pointer-events: auto;
+}
+.link-icon {
+  width: 28px;
+  height: 28px;
+  margin: 4px auto;
+  object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.link-item:hover .link-icon {
+  transform: scale(1.15);
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.4));
+}
+.link-text {
+  padding-right: 4px;
+  padding-left: 4px;
+  font-size: 13px;
+  font-weight: normal;
+  text-align: center;
+  word-break: break-all;
+  max-width: 100%;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.2;
+  min-height: 1.5em;
+  letter-spacing: -0.01em;
+  color: #ffffff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+/* 动画样式 */
+/* 从下往上滑入动画 */
+.animate-slideUp .link-item {
+  animation: slideUpIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateY(30px);
+}
+
+@keyframes slideUpIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 从中心扩散动画 */
+.animate-radial .link-item {
+  animation: radialIn 0.5s ease-out forwards;
+  opacity: 0;
+  transform: scale(0.3);
+}
+
+@keyframes radialIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 淡入动画 */
+.animate-fadeIn .link-item {
+  animation: fadeIn 0.6s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 从左滑入动画 */
+.animate-slideLeft .link-item {
+  animation: slideLeftIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateX(-50px);
+}
+
+@keyframes slideLeftIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 从右滑入动画 */
+.animate-slideRight .link-item {
+  animation: slideRightIn 0.6s ease-out forwards;
+  opacity: 0;
+  transform: translateX(50px);
+}
+
+@keyframes slideRightIn {
+  0% {
+    opacity: 0;
+    transform: translateX(50px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 从两边往中间靠拢动画 */
+.animate-convergeIn .link-item {
+  animation: convergeIn 0.7s ease-out forwards;
+  opacity: 0;
+}
+
+.animate-convergeIn .link-item:nth-child(8n+1),
+.animate-convergeIn .link-item:nth-child(8n+8) {
+  /* 最边缘的列（第1列和第8列） */
+  transform: translateX(-100px);
+}
+
+.animate-convergeIn .link-item:nth-child(8n+2),
+.animate-convergeIn .link-item:nth-child(8n+7) {
+  /* 次边缘的列（第2列和第7列） */
+  transform: translateX(-60px);
+}
+
+.animate-convergeIn .link-item:nth-child(8n+3),
+.animate-convergeIn .link-item:nth-child(8n+6) {
+  /* 第3列和第6列 */
+  transform: translateX(-30px);
+}
+
+.animate-convergeIn .link-item:nth-child(8n+4),
+.animate-convergeIn .link-item:nth-child(8n+5) {
+  /* 中间的列（第4列和第5列） */
+  transform: translateY(-30px);
+}
+
+/* 在中等屏幕上（4列布局） */
+@media (max-width: 1200px) and (min-width: 769px) {
+  .animate-convergeIn .link-item:nth-child(4n+1),
+  .animate-convergeIn .link-item:nth-child(4n+4) {
+    transform: translateX(-60px);
+  }
+  
+  .animate-convergeIn .link-item:nth-child(4n+2),
+  .animate-convergeIn .link-item:nth-child(4n+3) {
+    transform: translateY(-30px);
+  }
+}
+
+/* 在小屏幕上（3列布局） */
+@media (max-width: 768px) {
+  .animate-convergeIn .link-item:nth-child(3n+1),
+  .animate-convergeIn .link-item:nth-child(3n+3) {
+    transform: translateX(-50px);
+  }
+  
+  .animate-convergeIn .link-item:nth-child(3n+2) {
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes convergeIn {
+  0% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+}
+
+/* 翻转入场动画 */
+.animate-flipIn .link-item {
+  animation: flipIn 0.7s ease-out forwards;
+  opacity: 0;
+  transform: rotateY(-90deg);
+}
+
+@keyframes flipIn {
+  0% {
+    opacity: 0;
+    transform: rotateY(-90deg);
+  }
+  50% {
+    opacity: 1;
+    transform: rotateY(-45deg);
+  }
+  100% {
+    opacity: 1;
+    transform: rotateY(0deg);
+  }
+}
+
+/* 优化过渡效果 */
+.container:not(.animate-slideUp):not(.animate-radial):not(.animate-fadeIn) .link-item {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+/* 响应式动画调整 */
+@media (max-width: 768px) {
+  .animate-slideUp .link-item {
+    animation-duration: 0.4s;
+  }
+  
+  .animate-radial .link-item {
+    animation-duration: 0.4s;
+  }
+}
+
+/* 减少动画延迟在移动设备上 */
+@media (max-width: 480px) {
+  .animate-slideUp .link-item {
+    animation-delay: 0s !important;
+  }
+  
+  .animate-radial .link-item {
+    animation-delay: 0s !important;
+  }
+}
+
+/* 为移动设备提供更快的动画 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-slideUp .link-item,
+  .animate-radial .link-item {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 拖拽相关样式 */
+.edit-mode .link-item.draggable {
+  cursor: move;
+  cursor: grab;
+}
+
+.edit-mode .link-item.draggable:active {
+  cursor: grabbing;
+}
+
+.sortable-ghost {
+  opacity: 0.5;
+  background-color: rgba(255, 255, 255, 0.5);
+}
+
+.sortable-chosen {
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+}
+
+.sortable-drag {
+  opacity: 0.8;
+  transform: rotate(2deg);
+}
+
+/* 编辑模式下的视觉提示 */
+.edit-mode .link-item {
+  border: 2px dashed transparent;
+  transition: all 0.2s;
+  position: relative;
+}
+
+.edit-mode .link-item:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+}
+
+.card-btns {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.card-checkbox {
+  width: 18px;
+  height: 18px;
+  cursor: pointer;
+  accent-color: #667eea;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.card-btn {
+  width: 20px;
+  height: 20px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 11;
+  pointer-events: auto;
+}
+
+.card-btn:hover {
+  transform: scale(1.1);
+}
+
+.edit-btn:hover {
+  background: rgba(59, 130, 246, 0.9);
+}
+
+.del-btn:hover {
+  background: rgba(239, 68, 68, 0.9);
+}
+
+/* 快速淡入动画（首次加载优化） */
+.animate-fadeIn-fast .link-item {
+  animation: fastFadeIn 0.3s ease-out forwards;
+}
+
+@keyframes fastFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+

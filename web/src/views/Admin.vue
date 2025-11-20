@@ -661,26 +661,26 @@ function closeSider() {
 
 <styl
 e scoped>
-/* 页面切换过渡动画 */
-.fade-enter-active,
+/* 极速页面切换（几乎无动画） */
+.fade-enter-active {
+  transition: opacity 0.08s ease-out;
+}
+
 .fade-leave-active {
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.05s ease-in;
 }
 
 .fade-enter-from {
   opacity: 0;
-  transform: translateY(10px);
 }
 
 .fade-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
 }
 
 .fade-enter-to,
 .fade-leave-from {
   opacity: 1;
-  transform: translateY(0);
 }
 
 /* 优化内容区域性能 */
