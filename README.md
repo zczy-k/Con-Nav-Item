@@ -56,6 +56,7 @@
 
 ### Serv00 / CT8 / Hostuno
 
+**安装**：
 ```bash
 # 使用默认域名
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
@@ -64,8 +65,18 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scrip
 DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
 ```
 
+**重置**（会备份数据）：
+```bash
+# 使用默认域名
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
+
+# 指定自定义域名
+DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
+```
+
 ### Linux 服务器
 
+**安装**：
 ```bash
 # 一键安装（自动安装 Node.js 20 + PM2）
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-linux.sh)
@@ -74,8 +85,26 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scrip
 INSTALL_DIR=/opt/Con-Nav-Item bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-linux.sh)
 ```
 
+**卸载**（会备份数据）：
+```bash
+# 默认安装目录
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/uninstall-linux.sh)
+
+# 自定义安装目录
+INSTALL_DIR=/opt/Con-Nav-Item bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/uninstall-linux.sh)
+```
+
+**管理命令**：
+```bash
+pm2 status                # 查看运行状态
+pm2 logs Con-Nav-Item     # 查看日志
+pm2 restart Con-Nav-Item  # 重启应用
+pm2 stop Con-Nav-Item     # 停止应用
+```
+
 ### Docker
 
+**快速启动**：
 ```bash
 docker run -d \
   --name Con-Nav-Item \
@@ -88,8 +117,7 @@ docker run -d \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
 
-或使用 Docker Compose：
-
+**使用 Docker Compose**：
 ```yaml
 version: '3'
 services:
@@ -105,6 +133,25 @@ services:
       - ./database:/app/database
       - ./backups:/app/backups
     restart: unless-stopped
+```
+
+启动：`docker-compose up -d`
+
+**管理命令**：
+```bash
+docker ps                      # 查看容器状态
+docker logs -f Con-Nav-Item    # 查看日志
+docker restart Con-Nav-Item    # 重启容器
+docker stop Con-Nav-Item       # 停止容器
+docker rm -f Con-Nav-Item      # 删除容器
+```
+
+**更新到最新版本**：
+```bash
+docker stop Con-Nav-Item
+docker rm Con-Nav-Item
+docker pull ghcr.io/zczy-k/con-nav-item:latest
+# 然后重新运行 docker run 命令
 ```
 
 ### 源码部署
