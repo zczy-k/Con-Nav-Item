@@ -142,30 +142,21 @@ app.use(notFoundHandler);
 // 全局错误处理（必须是最后一个中间件）
 app.use(globalErrorHandler);
 
-// 如果直接运行此文件，启动 HTTP 服务器
-if (require.main === module) {
-  db.initPromise
-    .then(() => {
-      // 检查 PORT 是否为管道/Socket (非数字)
-      const isSocket = isNaN(PORT);
-      
-      if (isSocket) {
-        // 如果是 Socket，直接监听，不指定 IP
-        app.listen(PORT, () => {
-          console.log(`✓ Server running on Socket: ${PORT}`);
-        });
-      } else {
-        // 如果是端口，绑定到 127.0.0.1 (Serv00 要求)
-        app.listen(PORT, '127.0.0.1', () => {
-          console.log(`✓ Server running on http://127.0.0.1:${PORT}`);
-        });
-      }
-    })
-    .catch(err => {
-      console.error('✗ Failed to start server due to database initialization error:', err);
-      process.exit(1);
+// 初始化数据库并启动服务器
+// 注意：在 Serv00/Passenger 环境下，不要绑定到 127.0.0.1，让 Passenger 管理
+db.initPromise
+  .then(() => {
+    console.log('✓ Database initialized');
+    
+    // 直接监听，不指定 IP（兼容 Passenger）
+    app.listen(PORT, () => {
+      console.log(`✓ Server running on port ${PORT}`);
     });
-}
+  })
+  .catch(err => {
+    console.error('✗ Failed to start server due to database initialization error:', err);
+    process.exit(1);
+  });
 
-// 导出 app 以供其他模块使用（如 HTTPS 启动脚本）
+// 导出 app 以供其他模块使用
 module.exports = app;
