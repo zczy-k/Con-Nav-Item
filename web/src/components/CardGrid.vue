@@ -1,5 +1,5 @@
 ﻿<template>
-  <div ref="cardGridRef" class="container card-grid" :class="[animationClass, { 'edit-mode': editMode }]">
+  <div ref="cardGridRef" class="container card-grid" :class="{ 'edit-mode': editMode }">
     <div v-for="(card, index) in cards" :key="card.id"
          class="link-item" 
          :class="{ 'draggable': editMode }"
@@ -42,8 +42,7 @@ const emit = defineEmits(['cardsReordered', 'editCard', 'deleteCard', 'toggleCar
 const cardGridRef = ref(null);
 let sortableInstance = null;
 
-// 动画状态
-const animationClass = ref('');
+// 动画已完全禁用
 
 // 初始化拖拽功能
 function initSortable() {
@@ -123,23 +122,9 @@ watch(() => props.cards, (newCards, oldCards) => {
   }
 }, { deep: true, immediate: false });
 
-// 触发动画（极简版：只在首次加载时有轻微淡入）
-let isFirstLoad = true;
-
+// 完全禁用所有动画
 function triggerAnimation() {
-  // 首次加载：极快淡入（100ms）
-  if (isFirstLoad) {
-    animationClass.value = 'animate-instant';
-    isFirstLoad = false;
-    
-    setTimeout(() => {
-      animationClass.value = '';
-    }, 150);
-    return;
-  }
-  
-  // 后续切换：无动画，立即显示
-  animationClass.value = '';
+  // 无动画，立即显示
 }
 
 // 获取卡片样式（只有渐变色，无动画延迟）
@@ -423,7 +408,7 @@ const gradients = [
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 }
 
-/* 所有旧动画已移除，只保留极简的首次加载动画 */
+/* 所有动画已完全移除 */
 
 /* 拖拽相关样式 */
 .edit-mode .link-item.draggable {
@@ -509,22 +494,8 @@ const gradients = [
   background: rgba(239, 68, 68, 0.9);
 }
 
-/* 极速显示动画（首次加载） */
-.animate-instant .link-item {
-  animation: instantShow 0.1s ease-out forwards;
-}
-
-@keyframes instantShow {
-  from {
-    opacity: 0.7;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-/* 默认状态：立即可见 */
+/* 卡片默认立即可见，无任何动画 */
 .link-item {
-  opacity: 1;
+  opacity: 1 !important;
 }
 </style>
