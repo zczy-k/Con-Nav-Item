@@ -25,7 +25,7 @@ function copyRecursive(src, dest) {
 }
 
 export default defineConfig({
-  // Force rebuild: 202511120855
+  // Force rebuild: 202511211700
   plugins: [
     vue(),
     {

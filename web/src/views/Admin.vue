@@ -62,9 +62,7 @@
       </div>
       <div class="admin-content">
         <transition name="fade" mode="out-in">
-          <keep-alive>
-            <component :is="currentComponent" :key="page" />
-          </keep-alive>
+          <component :is="currentComponent" :key="page" />
         </transition>
       </div>
       <footer class="admin-footer">
