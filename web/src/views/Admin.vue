@@ -178,9 +178,11 @@ async function fetchLastLoginInfo() {
     const res = await fetch('/api/users/me', { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } });
     if (res.ok) {
       const data = await res.json();
+      console.log('用户信息API返回:', data); // 调试日志
       lastLoginTime.value = data.last_login_time || '';
       lastLoginIp.value = data.last_login_ip || '';
       currentUsername.value = data.username || 'admin'; // 更新当前用户名
+      console.log('当前用户名已更新为:', currentUsername.value); // 调试日志
     }
   } catch (error) {
     console.error('获取用户信息失败:', error);
