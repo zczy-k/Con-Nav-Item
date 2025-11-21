@@ -30,6 +30,7 @@ router.get('/me', authMiddleware, (req, res) => {
       return res.status(404).json({ message: '用户不存在' });
     }
     res.json({
+      username: user.username,
       last_login_time: user.last_login_time,
       last_login_ip: user.last_login_ip
     });
