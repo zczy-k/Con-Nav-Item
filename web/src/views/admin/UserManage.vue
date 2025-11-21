@@ -75,7 +75,7 @@ onMounted(async () => {
 async function loadUserProfile() {
   try {
     const response = await getUserProfile();
-    userInfo.value = response.data;
+    userInfo.value = response.data.data || response.data;
   } catch (error) {
     console.error('获取用户信息失败:', error);
   }

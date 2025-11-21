@@ -62,7 +62,7 @@
       </div>
       <div class="admin-content">
         <transition name="fade" mode="out-in">
-          <component :is="currentComponent" :key="page" />
+          <component :is="currentComponent" :key="page" v-bind="currentComponentProps" />
         </transition>
       </div>
       <footer class="admin-footer">
@@ -139,18 +139,19 @@ const componentMap = {
 
 // 当前组件
 const currentComponent = computed(() => {
-  const component = componentMap[page.value];
+  return componentMap[page.value];
+});
+
+// 当前组件的props
+const currentComponentProps = computed(() => {
   if (page.value === 'welcome') {
     return {
-      ...component,
-      props: {
-        lastLoginTime: lastLoginTime.value,
-        lastLoginIp: lastLoginIp.value,
-        currentUsername: currentUsername.value
-      }
+      lastLoginTime: lastLoginTime.value,
+      lastLoginIp: lastLoginIp.value,
+      currentUsername: currentUsername.value
     };
   }
-  return component;
+  return {};
 });
 const lastLoginTime = ref('');
 const lastLoginIp = ref('');
