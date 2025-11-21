@@ -75,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, defineComponent } from 'vue';
 import { login } from '../api';
 import MenuManage from './admin/MenuManage.vue';
 import CardManage from './admin/CardManage.vue';
@@ -85,30 +85,44 @@ import AdManage from './admin/AdManage.vue';
 import FriendLinkManage from './admin/FriendLinkManage.vue';
 import UserManage from './admin/UserManage.vue';
 import BackupManage from './admin/BackupManage.vue';
-import { defineAsyncComponent, h } from 'vue';
 
 // 欢迎页面组件
-const WelcomePage = {
+const WelcomePage = defineComponent({
   name: 'WelcomePage',
-  props: ['lastLoginTime', 'lastLoginIp', 'currentUsername'],
-  setup(props) {
-    return () => h('div', { class: 'welcome-page' }, [
-      h('h2', { class: 'welcome-title' }, `欢迎您，${props.currentUsername || 'admin'}！`),
-      h('div', { class: 'welcome-cards' }, [
-        h('div', { class: 'welcome-card' }, [
-          h('div', { class: 'welcome-icon time-icon', innerHTML: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#1abc9c" stroke-width="2"/><path d="M12 6v6l4 2" stroke="#1abc9c" stroke-width="2" stroke-linecap="round"/></svg>' }),
-          h('div', { class: 'welcome-label' }, '上次登录时间'),
-          h('div', { class: 'welcome-value' }, props.lastLoginTime || '--')
-        ]),
-        h('div', { class: 'welcome-card' }, [
-          h('div', { class: 'welcome-icon ip-icon', innerHTML: '<svg width="32" height="32" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="#1abc9c" stroke-width="2"/><path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" stroke="#1abc9c" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="#1abc9c"/></svg>' }),
-          h('div', { class: 'welcome-label' }, '上次登录IP'),
-          h('div', { class: 'welcome-value' }, props.lastLoginIp || '--')
-        ])
-      ])
-    ]);
-  }
-};
+  props: {
+    lastLoginTime: String,
+    lastLoginIp: String,
+    currentUsername: String
+  },
+  template: `
+    <div class="welcome-page">
+      <h2 class="welcome-title">欢迎您，{{ currentUsername || 'admin' }}！</h2>
+      <div class="welcome-cards">
+        <div class="welcome-card">
+          <div class="welcome-icon time-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#1abc9c" stroke-width="2"/>
+              <path d="M12 6v6l4 2" stroke="#1abc9c" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="welcome-label">上次登录时间</div>
+          <div class="welcome-value">{{ lastLoginTime || '--' }}</div>
+        </div>
+        <div class="welcome-card">
+          <div class="welcome-icon ip-icon">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="10" stroke="#1abc9c" stroke-width="2"/>
+              <path d="M12 8a4 4 0 1 1 0 8 4 4 0 0 1 0-8z" stroke="#1abc9c" stroke-width="2"/>
+              <circle cx="12" cy="12" r="2" fill="#1abc9c"/>
+            </svg>
+          </div>
+          <div class="welcome-label">上次登录IP</div>
+          <div class="welcome-value">{{ lastLoginIp || '--' }}</div>
+        </div>
+      </div>
+    </div>
+  `
+});
 
 const page = ref('welcome');
 
