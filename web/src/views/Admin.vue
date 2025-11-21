@@ -203,6 +203,8 @@ async function handleLogin() {
       isLoggedIn.value = true;
       lastLoginTime.value = response.data.lastLoginTime || '';
       lastLoginIp.value = response.data.lastLoginIp || '';
+      // 登录成功后立即获取用户信息
+      await fetchLastLoginInfo();
     }
   } catch (error) {
     loginError.value = error.response?.data?.message || '登录失败，请检查用户名和密码';
