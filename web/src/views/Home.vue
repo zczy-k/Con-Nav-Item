@@ -586,6 +586,114 @@
       </div>
     </div>
     
+    <!-- 搜索结果弹窗 -->
+    <div v-if="showSearchResults" class="modal-overlay" @click="closeSearchResults">
+      <div class="modal-content search-results-modal" @click.stop>
+        <div class="modal-header">
+          <h3>搜索结果：{{ searchResults.query }}</h3>
+          <button @click="closeSearchResults" class="close-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M18 6L6 18M6 6l12 12"></path>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body search-results-body">
+          <!-- 加载状态 -->
+          <div v-if="searchResults.loading" class="search-loading">
+            <div class="loading-spinner"></div>
+            <p>正在搜索...</p>
+          </div>
+          
+          <!-- 搜索结果 -->
+          <div v-else-if="!searchResults.error">
+            <!-- 站内卡片结果 -->
+            <div v-if="searchResults.cards && searchResults.cards.length > 0" class="search-section">
+              <div class="search-section-header">
+                <span class="search-section-icon">⭐</span>
+                <h4>站内卡片 ({{ searchResults.cards.length }})</h4>
+              </div>
+              <div class="search-results-list">
+                <a 
+                  v-for="card in searchResults.cards" 
+                  :key="'card-' + card.id"
+                  :href="card.url"
+                  target="_blank"
+                  class="search-result-item"
+                  @click="closeSearchResults"
+                >
+                  <img 
+                    :src="card.logo_url || '/default-favicon.png'" 
+                    :alt="card.title"
+                    class="search-result-icon"
+                    @error="e => e.target.src = '/default-favicon.png'"
+                  />
+                  <div class="search-result-info">
+                    <div class="search-result-title">{{ card.title }}</div>
+                    <div class="search-result-desc">{{ card.desc || card.url }}</div>
+                    <div class="search-result-meta">📁 {{ card.menuName }}</div>
+                  </div>
+                </a>
+              </div>
+            </div>
+            
+            <!-- 浏览器书签结果 -->
+            <div v-if="searchResults.bookmarks && searchResults.bookmarks.length > 0" class="search-section">
+              <div class="search-section-header">
+                <span class="search-section-icon">📑</span>
+                <h4>浏览器书签 ({{ searchResults.bookmarks.length }})</h4>
+              </div>
+              <div class="search-results-list">
+                <a 
+                  v-for="bookmark in searchResults.bookmarks" 
+                  :key="'bookmark-' + bookmark.id"
+                  :href="bookmark.url"
+                  target="_blank"
+                  class="search-result-item"
+                  @click="closeSearchResults"
+                >
+                  <img 
+                    :src="`https://api.xinac.net/icon/?url=${bookmark.url}&sz=64`" 
+                    :alt="bookmark.title"
+                    class="search-result-icon"
+                    @error="e => e.target.src = '/default-favicon.png'"
+                  />
+                  <div class="search-result-info">
+                    <div class="search-result-title">{{ bookmark.title || bookmark.url }}</div>
+                    <div class="search-result-desc">{{ bookmark.url }}</div>
+                    <div class="search-result-meta" v-if="bookmark.folder">📁 {{ bookmark.folder }}</div>
+                  </div>
+                </a>
+              </div>
+            </div>
+            
+            <!-- 无结果提示 -->
+            <div v-if="(!searchResults.cards || searchResults.cards.length === 0) && (!searchResults.bookmarks || searchResults.bookmarks.length === 0)" class="search-no-results">
+              <div class="no-results-icon">😔</div>
+              <p class="no-results-text">未找到匹配的卡片或书签</p>
+              <div class="no-results-tips">
+                <p>💡 建议：</p>
+                <ul>
+                  <li>检查拼写是否正确</li>
+                  <li>尝试使用其他关键词</li>
+                  <li>使用外部搜索引擎搜索</li>
+                </ul>
+              </div>
+            </div>
+            
+            <!-- 扩展提示（非扩展环境） -->
+            <div v-if="!isInExtension() && searchResults.cards && searchResults.cards.length > 0" class="extension-tip">
+              💡 提示：安装浏览器扩展可以同时搜索您的书签
+            </div>
+          </div>
+          
+          <!-- 错误提示 -->
+          <div v-else class="search-error">
+            <p>{{ searchResults.error }}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    
     <!-- 添加搜索引擎弹窗 -->
     <div v-if="showAddEngineModal" class="modal-overlay">
       <div class="modal-content" @click.stop>
@@ -1384,32 +1492,147 @@ function getCategoryCards(menuId, subMenuId) {
   return allCategoryCards.value[key] || [];
 }
 
+// ============================================
+// 书签搜索相关功能
+// ============================================
+
+// 检测是否在扩展环境中运行
+function isInExtension() {
+  try {
+    return window.parent !== window && 
+           window.parent.chrome && 
+           window.parent.chrome.runtime;
+  } catch (e) {
+    return false;
+  }
+}
+
+// 通过扩展搜索书签
+async function searchBookmarksViaExtension(query) {
+  return new Promise((resolve) => {
+    // 设置超时
+    const timeout = setTimeout(() => {
+      window.removeEventListener('message', handler);
+      resolve([]);
+    }, 3000);
+    
+    // 监听扩展返回的结果
+    const handler = (event) => {
+      if (event.data && event.data.type === 'BOOKMARKS_RESULT') {
+        clearTimeout(timeout);
+        window.removeEventListener('message', handler);
+        resolve(event.data.bookmarks || []);
+      }
+    };
+    
+    window.addEventListener('message', handler);
+    
+    // 发送消息给扩展
+    try {
+      window.parent.postMessage({
+        type: 'SEARCH_BOOKMARKS',
+        query: query
+      }, '*');
+    } catch (e) {
+      clearTimeout(timeout);
+      window.removeEventListener('message', handler);
+      resolve([]);
+    }
+  });
+}
+
+// 搜索站内卡片（使用拼音搜索）
+async function searchCards(query) {
+  const results = [];
+  const queryLower = query.toLowerCase();
+  
+  // 遍历所有菜单搜索卡片
+  for (const menu of menus.value) {
+    try {
+      const res = await getCards(menu.id);
+      const matchedCards = res.data.filter(card => {
+        // 使用拼音搜索工具
+        return filterCardsWithPinyin([card], query).length > 0;
+      });
+      
+      results.push(...matchedCards.map(card => ({
+        ...card,
+        menuId: menu.id,
+        menuName: menu.name
+      })));
+    } catch (e) {
+      console.error(`搜索菜单 ${menu.name} 失败:`, e);
+    }
+  }
+  
+  return results;
+}
+
+// 搜索结果状态
+const showSearchResults = ref(false);
+const searchResults = ref({
+  cards: [],
+  bookmarks: [],
+  query: ''
+});
+
+// 关闭搜索结果
+function closeSearchResults() {
+  showSearchResults.value = false;
+  searchResults.value = {
+    cards: [],
+    bookmarks: [],
+    query: ''
+  };
+}
+
+// 处理搜索
 async function handleSearch() {
   if (!searchQuery.value.trim()) return;
+  
   if (selectedEngine.value.name === 'site') {
-    // 站内搜索：遍历所有菜单，查找所有卡片
-    let found = false;
-    for (const menu of menus.value) {
-      const res = await getCards(menu.id);
-      const match = res.data.find(card =>
-        card.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        card.url.toLowerCase().includes(searchQuery.value.toLowerCase())
-      );
-      if (match) {
-        activeMenu.value = menu;
-        cards.value = res.data;
-        setTimeout(() => {
-          const el = document.querySelector(`[data-card-id='${match.id}']`);
-          if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
-        }, 100);
-        found = true;
-        break;
+    // 站内搜索模式：搜索卡片 + 书签
+    const query = searchQuery.value.trim();
+    
+    // 显示加载状态
+    showSearchResults.value = true;
+    searchResults.value = {
+      cards: [],
+      bookmarks: [],
+      query: query,
+      loading: true
+    };
+    
+    try {
+      // 并行搜索卡片和书签
+      const [cardResults, bookmarkResults] = await Promise.all([
+        searchCards(query),
+        isInExtension() ? searchBookmarksViaExtension(query) : Promise.resolve([])
+      ]);
+      
+      searchResults.value = {
+        cards: cardResults,
+        bookmarks: bookmarkResults,
+        query: query,
+        loading: false
+      };
+      
+      // 如果没有结果，显示提示
+      if (cardResults.length === 0 && bookmarkResults.length === 0) {
+        showToastMessage('未找到匹配的内容');
       }
-    }
-    if (!found) {
-      alert('未找到相关内容');
+    } catch (error) {
+      console.error('搜索失败:', error);
+      searchResults.value = {
+        cards: [],
+        bookmarks: [],
+        query: query,
+        loading: false,
+        error: '搜索失败，请重试'
+      };
     }
   } else {
+    // 外部搜索引擎
     const url = selectedEngine.value.url(searchQuery.value);
     window.open(url, '_blank');
   }
@@ -3951,4 +4174,224 @@ async function saveCardEdit() {
 }
 
 /* 骨架屏已移除 */
+
+/* ============================================
+   搜索结果弹窗样式
+   ============================================ */
+.search-results-modal {
+  max-width: 800px;
+  max-height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.search-results-body {
+  overflow-y: auto;
+  max-height: calc(80vh - 80px);
+}
+
+.search-loading {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  margin: 0 auto 20px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.search-section {
+  margin-bottom: 30px;
+}
+
+.search-section:last-child {
+  margin-bottom: 0;
+}
+
+.search-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #e1e4e8;
+}
+
+.search-section-icon {
+  font-size: 20px;
+}
+
+.search-section-header h4 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #333;
+}
+
+.search-results-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  padding: 12px 15px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  text-decoration: none;
+  color: inherit;
+  transition: all 0.2s;
+  border: 1px solid transparent;
+}
+
+.search-result-item:hover {
+  background: #e9ecef;
+  border-color: #667eea;
+  transform: translateX(5px);
+}
+
+.search-result-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.search-result-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-result-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-result-desc {
+  font-size: 13px;
+  color: #666;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 4px;
+}
+
+.search-result-meta {
+  font-size: 12px;
+  color: #999;
+}
+
+.search-no-results {
+  text-align: center;
+  padding: 60px 20px;
+}
+
+.no-results-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+}
+
+.no-results-text {
+  font-size: 18px;
+  color: #666;
+  margin-bottom: 30px;
+}
+
+.no-results-tips {
+  text-align: left;
+  max-width: 400px;
+  margin: 0 auto;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.no-results-tips p {
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.no-results-tips ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.no-results-tips li {
+  padding: 5px 0;
+  color: #666;
+  font-size: 14px;
+}
+
+.no-results-tips li::before {
+  content: "• ";
+  color: #667eea;
+  font-weight: bold;
+  margin-right: 8px;
+}
+
+.extension-tip {
+  margin-top: 20px;
+  padding: 15px;
+  background: #fff3cd;
+  border: 1px solid #ffc107;
+  border-radius: 8px;
+  color: #856404;
+  font-size: 14px;
+  text-align: center;
+}
+
+.search-error {
+  text-align: center;
+  padding: 60px 20px;
+  color: #dc2626;
+  font-size: 16px;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .search-results-modal {
+    max-width: 95%;
+    max-height: 90vh;
+  }
+  
+  .search-result-item {
+    padding: 10px;
+  }
+  
+  .search-result-icon {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .search-result-title {
+    font-size: 14px;
+  }
+  
+  .search-result-desc {
+    font-size: 12px;
+  }
+}
 </style>

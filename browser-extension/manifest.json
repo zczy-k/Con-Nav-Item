@@ -5,7 +5,8 @@
   "description": "将新标签页替换为你的个人导航站，支持自定义导航站地址。",
   "permissions": [
     "storage",
-    "tabs"
+    "tabs",
+    "bookmarks"
   ],
   "host_permissions": [
     "http://*/",
