@@ -1544,7 +1544,6 @@ async function searchBookmarksViaExtension(query) {
 // 搜索站内卡片（使用拼音搜索）
 async function searchCards(query) {
   const results = [];
-  const queryLower = query.toLowerCase();
   
   // 遍历所有菜单搜索卡片
   for (const menu of menus.value) {
@@ -1586,55 +1585,55 @@ function closeSearchResults() {
   };
 }
 
-// 处理搜索
+// 处理搜索 - 优先匹配卡片和书签
 async function handleSearch() {
   if (!searchQuery.value.trim()) return;
   
-  if (selectedEngine.value.name === 'site') {
-    // 站内搜索模式：搜索卡片 + 书签
-    const query = searchQuery.value.trim();
+  const query = searchQuery.value.trim();
+  
+  // 显示加载状态
+  showSearchResults.value = true;
+  searchResults.value = {
+    cards: [],
+    bookmarks: [],
+    query: query,
+    loading: true
+  };
+  
+  try {
+    // 并行搜索卡片和书签
+    const [cardResults, bookmarkResults] = await Promise.all([
+      searchCards(query),
+      isInExtension() ? searchBookmarksViaExtension(query) : Promise.resolve([])
+    ]);
     
-    // 显示加载状态
-    showSearchResults.value = true;
     searchResults.value = {
-      cards: [],
-      bookmarks: [],
+      cards: cardResults,
+      bookmarks: bookmarkResults,
       query: query,
-      loading: true
+      loading: false
     };
     
-    try {
-      // 并行搜索卡片和书签
-      const [cardResults, bookmarkResults] = await Promise.all([
-        searchCards(query),
-        isInExtension() ? searchBookmarksViaExtension(query) : Promise.resolve([])
-      ]);
-      
-      searchResults.value = {
-        cards: cardResults,
-        bookmarks: bookmarkResults,
-        query: query,
-        loading: false
-      };
-      
-      // 如果没有结果，显示提示
-      if (cardResults.length === 0 && bookmarkResults.length === 0) {
-        showToastMessage('未找到匹配的内容');
-      }
-    } catch (error) {
-      console.error('搜索失败:', error);
-      searchResults.value = {
-        cards: [],
-        bookmarks: [],
-        query: query,
-        loading: false,
-        error: '搜索失败，请重试'
-      };
+    // 如果有匹配结果，显示搜索结果弹窗
+    if (cardResults.length > 0 || bookmarkResults.length > 0) {
+      // 显示搜索结果
+      return;
     }
-  } else {
-    // 外部搜索引擎
-    const url = selectedEngine.value.url(searchQuery.value);
-    window.open(url, '_blank');
+    
+    // 如果没有匹配结果，使用外部搜索引擎
+    showSearchResults.value = false;
+    if (selectedEngine.value) {
+      const url = selectedEngine.value.url(query);
+      window.open(url, '_blank');
+    }
+  } catch (error) {
+    console.error('搜索失败:', error);
+    showSearchResults.value = false;
+    // 降级到外部搜索引擎
+    if (selectedEngine.value) {
+      const url = selectedEngine.value.url(query);
+      window.open(url, '_blank');
+    }
   }
 }
 
