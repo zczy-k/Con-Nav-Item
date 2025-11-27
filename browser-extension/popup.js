@@ -433,26 +433,34 @@ document.getElementById('confirmBookmark').addEventListener('click', async funct
     try {
         // 获取选中的书签
         const bookmarksToImport = Array.from(selectedBookmarks).map(index => allBookmarks[index]);
+        console.log('[扩展] 准备导入书签数量:', bookmarksToImport.length);
 
         // 创建新标签页
         const tab = await chrome.tabs.create({ url: `${navUrl}/bookmarks` });
+        console.log('[扩展] 已创建标签页:', tab.id);
         
         // 等待页面加载完成后注入数据
         chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
             if (tabId === tab.id && info.status === 'complete') {
+                console.log('[扩展] 页面加载完成，开始注入数据...');
+                
                 // 直接注入数据到sessionStorage
                 chrome.scripting.executeScript({
                     target: { tabId: tabId },
                     func: (data) => {
+                        console.log('[注入脚本] 收到数据:', data.length, '个书签');
                         sessionStorage.setItem('pendingBookmarks', JSON.stringify(data));
+                        console.log('[注入脚本] 已写入sessionStorage');
                         // 触发自定义事件通知页面
                         window.dispatchEvent(new CustomEvent('bookmarksReady'));
+                        console.log('[注入脚本] 已触发bookmarksReady事件');
                     },
                     args: [bookmarksToImport]
                 }).then(() => {
-                    console.log('书签数据已注入');
+                    console.log('[扩展] 书签数据注入成功');
                 }).catch((err) => {
-                    console.error('注入失败:', err);
+                    console.error('[扩展] 注入失败:', err);
+                    alert('注入失败: ' + err.message);
                 });
                 
                 chrome.tabs.onUpdated.removeListener(listener);
@@ -461,7 +469,7 @@ document.getElementById('confirmBookmark').addEventListener('click', async funct
         
         window.close();
     } catch (error) {
-        console.error('准备导入失败:', error);
+        console.error('[扩展] 准备导入失败:', error);
         alert('准备导入失败: ' + error.message);
     }
 });

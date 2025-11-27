@@ -244,25 +244,34 @@ function cancelImport() {
 }
 
 function loadBookmarksFromSession() {
+  console.log('[BookmarkManager] 尝试从sessionStorage加载书签...');
   const sessionData = sessionStorage.getItem('pendingBookmarks');
+  console.log('[BookmarkManager] sessionStorage数据:', sessionData ? `${sessionData.length}字符` : 'null');
+  
   if (sessionData) {
     try {
       const bookmarks = JSON.parse(sessionData);
+      console.log('[BookmarkManager] 解析到书签数量:', bookmarks.length);
+      
       if (Array.isArray(bookmarks) && bookmarks.length > 0) {
         pendingBookmarks.value = bookmarks.map(b => ({
           ...b,
           status: '',
           targetMenuId: suggestCategory(b.url)
         }));
+        console.log('[BookmarkManager] 书签加载成功:', pendingBookmarks.value.length);
         sessionStorage.removeItem('pendingBookmarks');
       }
     } catch (e) {
-      console.error('解析书签数据失败:', e);
+      console.error('[BookmarkManager] 解析书签数据失败:', e);
     }
+  } else {
+    console.log('[BookmarkManager] 没有找到待导入的书签数据');
   }
 }
 
 onMounted(async () => {
+  console.log('[BookmarkManager] 组件已挂载');
   await loadMenus();
   
   // 从sessionStorage加载书签
@@ -270,8 +279,17 @@ onMounted(async () => {
   
   // 监听自定义事件（扩展注入数据后触发）
   window.addEventListener('bookmarksReady', () => {
+    console.log('[BookmarkManager] 收到bookmarksReady事件');
     loadBookmarksFromSession();
   });
+  
+  // 延迟重试（防止注入时机问题）
+  setTimeout(() => {
+    if (pendingBookmarks.value.length === 0) {
+      console.log('[BookmarkManager] 1秒后重试加载...');
+      loadBookmarksFromSession();
+    }
+  }, 1000);
 });
 </script>
 
