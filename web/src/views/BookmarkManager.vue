@@ -3,156 +3,137 @@
     <div class="header">
       <div class="header-left">
         <router-link to="/" class="back-btn">← 返回首页</router-link>
-        <h1>📚 书签管理</h1>
-        <span class="bookmark-total">共 {{ total }} 个书签</span>
-      </div>
-      <div class="header-right">
-        <input v-model="searchQuery" type="text" placeholder="搜索书签..." class="search-input" @input="debouncedSearch" />
-        <select v-model="selectedFolder" class="folder-select" @change="loadBookmarks">
-          <option value="">全部文件夹</option>
-          <option v-for="folder in folders" :key="folder" :value="folder">{{ folder }}</option>
-        </select>
+        <h1>📚 书签导入</h1>
       </div>
     </div>
 
-    <div class="toolbar" v-if="selectedIds.length > 0">
-      <span>已选择 {{ selectedIds.length }} 项</span>
-      <button @click="batchDelete" class="btn btn-danger">删除选中</button>
-      <button @click="showConvertModal = true" class="btn btn-primary">转为卡片</button>
-      <button @click="clearSelection" class="btn btn-secondary">取消选择</button>
-    </div>
-
-    <div class="bookmark-list" v-if="!loading">
-      <div v-for="bookmark in bookmarks" :key="bookmark.id" class="bookmark-item" :class="{ selected: selectedIds.includes(bookmark.id) }">
-        <input type="checkbox" :checked="selectedIds.includes(bookmark.id)" @change="toggleSelect(bookmark.id)" />
-        <img :src="bookmark.logo_url || '/default-favicon.png'" class="favicon" @error="e => e.target.src = '/default-favicon.png'" />
-        <div class="bookmark-info">
-          <a :href="bookmark.url" target="_blank" class="bookmark-title">{{ bookmark.title }}</a>
-          <span class="bookmark-folder" v-if="bookmark.folder">📁 {{ bookmark.folder }}</span>
-          <span class="bookmark-url">{{ bookmark.url }}</span>
-        </div>
-        <div class="bookmark-actions">
-          <button @click="editBookmark(bookmark)" class="btn-icon" title="编辑">✏️</button>
-          <button @click="deleteOne(bookmark.id)" class="btn-icon" title="删除">🗑️</button>
+    <!-- 待导入书签预处理 -->
+    <div v-if="pendingBookmarks.length > 0" class="import-panel">
+      <div class="import-header">
+        <h2>待导入书签 ({{ pendingBookmarks.length }})</h2>
+        <div class="import-actions">
+          <button @click="checkAllUrls" class="btn btn-check" :disabled="checking">
+            {{ checking ? `检测中 ${checkProgress}/${pendingBookmarks.length}` : '🔍 检测链接有效性' }}
+          </button>
         </div>
       </div>
-      <div v-if="bookmarks.length === 0" class="empty-state">
-        <p>暂无书签</p>
-        <p class="hint">使用浏览器扩展导入书签</p>
+
+      <!-- 检测结果统计 -->
+      <div v-if="checkCompleted" class="check-summary">
+        <span class="status-tag valid" @click="filterStatus = 'valid'">✅ 有效 {{ statusCounts.valid }}</span>
+        <span class="status-tag timeout" @click="filterStatus = 'timeout'">⚠️ 超时 {{ statusCounts.timeout }}</span>
+        <span class="status-tag invalid" @click="filterStatus = 'invalid'">❌ 失效 {{ statusCounts.invalid }}</span>
+        <span class="status-tag duplicate" @click="filterStatus = 'duplicate'">🔄 重复 {{ statusCounts.duplicate }}</span>
+        <span class="status-tag" @click="filterStatus = ''">全部</span>
+      </div>
+
+      <!-- 批量操作 -->
+      <div class="batch-toolbar">
+        <button @click="selectAllValid" class="btn btn-sm">全选有效</button>
+        <button @click="selectAll" class="btn btn-sm">全选</button>
+        <button @click="clearSelection" class="btn btn-sm">清除选择</button>
+        <span class="selected-count">已选 {{ selectedIds.length }} 项</span>
+      </div>
+
+      <!-- 书签列表 -->
+      <div class="bookmark-list">
+        <div v-for="(bookmark, index) in filteredBookmarks" :key="index" 
+             class="bookmark-item" 
+             :class="[bookmark.status, { selected: selectedIds.includes(index) }]">
+          <input type="checkbox" :checked="selectedIds.includes(index)" @change="toggleSelect(index)" />
+          <div class="status-icon">
+            <span v-if="bookmark.status === 'valid'">✅</span>
+            <span v-else-if="bookmark.status === 'invalid'">❌</span>
+            <span v-else-if="bookmark.status === 'timeout'">⚠️</span>
+            <span v-else-if="bookmark.status === 'duplicate'">🔄</span>
+            <span v-else>⏳</span>
+          </div>
+          <div class="bookmark-info">
+            <div class="bookmark-title">{{ bookmark.title }}</div>
+            <div class="bookmark-url">{{ bookmark.url }}</div>
+            <div class="bookmark-folder" v-if="bookmark.folder">📁 {{ bookmark.folder }}</div>
+          </div>
+          <div class="bookmark-category">
+            <select v-model="bookmark.targetMenuId" class="category-select">
+              <option value="">选择分类</option>
+              <option v-for="menu in menus" :key="menu.id" :value="menu.id">{{ menu.name }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- 导入操作 -->
+      <div class="import-footer">
+        <button @click="cancelImport" class="btn btn-secondary">取消</button>
+        <button @click="doImport" class="btn btn-primary" :disabled="selectedIds.length === 0 || importing">
+          {{ importing ? '导入中...' : `导入选中 (${selectedIds.length})` }}
+        </button>
       </div>
     </div>
 
-    <div v-else class="loading">加载中...</div>
-
-    <div class="pagination" v-if="totalPages > 1">
-      <button @click="changePage(page - 1)" :disabled="page <= 1">上一页</button>
-      <span>{{ page }} / {{ totalPages }}</span>
-      <button @click="changePage(page + 1)" :disabled="page >= totalPages">下一页</button>
-    </div>
-
-    <!-- 转换为卡片弹窗 -->
-    <div v-if="showConvertModal" class="modal-overlay" @click.self="showConvertModal = false">
-      <div class="modal-content">
-        <h3>转换为卡片</h3>
-        <p>选择目标分类：</p>
-        <select v-model="targetMenuId" class="folder-select">
-          <option value="">请选择分类</option>
-          <option v-for="menu in menus" :key="menu.id" :value="menu.id">{{ menu.name }}</option>
-        </select>
-        <select v-if="targetMenuId && getSubMenus(targetMenuId).length" v-model="targetSubMenuId" class="folder-select">
-          <option value="">不选择子分类</option>
-          <option v-for="sub in getSubMenus(targetMenuId)" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
-        </select>
-        <div class="modal-actions">
-          <button @click="showConvertModal = false" class="btn btn-secondary">取消</button>
-          <button @click="convertToCard" class="btn btn-primary" :disabled="!targetMenuId">确认转换</button>
-        </div>
-      </div>
-    </div>
-
-    <!-- 编辑弹窗 -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="showEditModal = false">
-      <div class="modal-content">
-        <h3>编辑书签</h3>
-        <div class="form-group">
-          <label>标题</label>
-          <input v-model="editForm.title" type="text" />
-        </div>
-        <div class="form-group">
-          <label>网址</label>
-          <input v-model="editForm.url" type="url" />
-        </div>
-        <div class="form-group">
-          <label>文件夹</label>
-          <input v-model="editForm.folder" type="text" />
-        </div>
-        <div class="modal-actions">
-          <button @click="showEditModal = false" class="btn btn-secondary">取消</button>
-          <button @click="saveEdit" class="btn btn-primary">保存</button>
-        </div>
-      </div>
+    <!-- 无待导入数据 -->
+    <div v-else class="empty-state">
+      <p>📭 暂无待导入的书签</p>
+      <p class="hint">请使用浏览器扩展选择书签后导入</p>
+      <router-link to="/" class="btn btn-primary">返回首页</router-link>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue';
-import { getBookmarks, getBookmarkFolders, deleteBookmark, batchDeleteBookmarks, bookmarkToCard, updateBookmark, getMenus } from '../api';
+import { ref, computed, onMounted } from 'vue';
+import { getMenus, batchCheckUrls, batchAddCards } from '../api';
 
-const bookmarks = ref([]);
-const folders = ref([]);
+const pendingBookmarks = ref([]);
 const menus = ref([]);
-const loading = ref(true);
-const searchQuery = ref('');
-const selectedFolder = ref('');
-const page = ref(1);
-const pageSize = 50;
-const total = ref(0);
 const selectedIds = ref([]);
+const checking = ref(false);
+const checkProgress = ref(0);
+const checkCompleted = ref(false);
+const filterStatus = ref('');
+const importing = ref(false);
 
-const showConvertModal = ref(false);
-const targetMenuId = ref('');
-const targetSubMenuId = ref('');
-
-const showEditModal = ref(false);
-const editForm = ref({ id: null, title: '', url: '', folder: '' });
-
-const totalPages = computed(() => Math.ceil(total.value / pageSize));
-
-let searchTimeout = null;
-const debouncedSearch = () => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    page.value = 1;
-    loadBookmarks();
-  }, 300);
+// 智能分类规则
+const categoryRules = {
+  'github.com': '开发工具',
+  'gitlab.com': '开发工具',
+  'stackoverflow.com': '开发工具',
+  'youtube.com': '视频',
+  'bilibili.com': '视频',
+  'twitter.com': '社交',
+  'facebook.com': '社交',
+  'weibo.com': '社交',
+  'zhihu.com': '社区',
+  'reddit.com': '社区',
+  'amazon.com': '购物',
+  'taobao.com': '购物',
+  'jd.com': '购物'
 };
 
-async function loadBookmarks() {
-  loading.value = true;
-  try {
-    const res = await getBookmarks({
-      page: page.value,
-      pageSize,
-      folder: selectedFolder.value || undefined,
-      search: searchQuery.value || undefined
-    });
-    bookmarks.value = res.data.data;
-    total.value = res.data.total;
-  } catch (e) {
-    console.error('加载书签失败:', e);
-  } finally {
-    loading.value = false;
-  }
-}
+const statusCounts = computed(() => {
+  const counts = { valid: 0, invalid: 0, timeout: 0, duplicate: 0, pending: 0 };
+  pendingBookmarks.value.forEach(b => {
+    counts[b.status || 'pending']++;
+  });
+  return counts;
+});
 
-async function loadFolders() {
+const filteredBookmarks = computed(() => {
+  if (!filterStatus.value) return pendingBookmarks.value;
+  return pendingBookmarks.value.filter(b => b.status === filterStatus.value);
+});
+
+function suggestCategory(url) {
   try {
-    const res = await getBookmarkFolders();
-    folders.value = res.data;
-  } catch (e) {
-    console.error('加载文件夹失败:', e);
-  }
+    const hostname = new URL(url).hostname.replace('www.', '');
+    for (const [domain, category] of Object.entries(categoryRules)) {
+      if (hostname.includes(domain)) {
+        const menu = menus.value.find(m => m.name.includes(category));
+        return menu?.id || '';
+      }
+    }
+  } catch {}
+  return '';
 }
 
 async function loadMenus() {
@@ -164,121 +145,134 @@ async function loadMenus() {
   }
 }
 
-function getSubMenus(menuId) {
-  const menu = menus.value.find(m => m.id === menuId);
-  return menu?.subMenus || [];
+async function checkAllUrls() {
+  if (checking.value) return;
+  checking.value = true;
+  checkProgress.value = 0;
+
+  const urls = pendingBookmarks.value.map(b => ({
+    url: b.url,
+    title: b.title,
+    folder: b.folder
+  }));
+
+  try {
+    const res = await batchCheckUrls(urls);
+    
+    // 更新状态
+    const statusMap = {};
+    [...res.data.valid, ...res.data.invalid, ...res.data.timeout, ...res.data.duplicate].forEach(item => {
+      statusMap[item.url] = item.status;
+    });
+
+    pendingBookmarks.value.forEach(b => {
+      b.status = statusMap[b.url] || 'valid';
+    });
+
+    checkCompleted.value = true;
+  } catch (e) {
+    console.error('检测失败:', e);
+    alert('检测失败: ' + (e.response?.data?.error || e.message));
+  } finally {
+    checking.value = false;
+  }
 }
 
-function toggleSelect(id) {
-  const idx = selectedIds.value.indexOf(id);
+function toggleSelect(index) {
+  const idx = selectedIds.value.indexOf(index);
   if (idx > -1) {
     selectedIds.value.splice(idx, 1);
   } else {
-    selectedIds.value.push(id);
+    selectedIds.value.push(index);
   }
+}
+
+function selectAll() {
+  selectedIds.value = pendingBookmarks.value.map((_, i) => i);
+}
+
+function selectAllValid() {
+  selectedIds.value = pendingBookmarks.value
+    .map((b, i) => b.status === 'valid' || !b.status ? i : -1)
+    .filter(i => i >= 0);
 }
 
 function clearSelection() {
   selectedIds.value = [];
 }
 
-async function deleteOne(id) {
-  if (!confirm('确定删除这个书签吗？')) return;
-  try {
-    await deleteBookmark(id);
-    loadBookmarks();
-  } catch (e) {
-    alert('删除失败');
-  }
-}
+async function doImport() {
+  if (selectedIds.value.length === 0) return;
+  importing.value = true;
 
-async function batchDelete() {
-  if (!confirm(`确定删除选中的 ${selectedIds.value.length} 个书签吗？`)) return;
   try {
-    await batchDeleteBookmarks(selectedIds.value);
-    selectedIds.value = [];
-    loadBookmarks();
-  } catch (e) {
-    alert('删除失败');
-  }
-}
+    // 按分类分组
+    const byCategory = {};
+    selectedIds.value.forEach(idx => {
+      const b = pendingBookmarks.value[idx];
+      const menuId = b.targetMenuId || menus.value[0]?.id;
+      if (!menuId) return;
+      if (!byCategory[menuId]) byCategory[menuId] = [];
+      byCategory[menuId].push({
+        title: b.title,
+        url: b.url,
+        logo: `https://api.xinac.net/icon/?url=${new URL(b.url).origin}&sz=128`,
+        description: ''
+      });
+    });
 
-async function convertToCard() {
-  if (!targetMenuId.value) return;
-  try {
-    for (const id of selectedIds.value) {
-      await bookmarkToCard(id, targetMenuId.value, targetSubMenuId.value || null);
+    let totalAdded = 0;
+    for (const [menuId, cards] of Object.entries(byCategory)) {
+      const res = await batchAddCards(parseInt(menuId), null, cards);
+      totalAdded += res.data.added || 0;
     }
-    alert('转换成功');
-    selectedIds.value = [];
-    showConvertModal.value = false;
-    loadBookmarks();
+
+    alert(`成功导入 ${totalAdded} 个书签`);
+    
+    // 清除已导入的数据
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      await chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
+    }
+    
+    // 返回首页
+    window.location.href = '/';
   } catch (e) {
-    alert('转换失败');
+    console.error('导入失败:', e);
+    alert('导入失败: ' + (e.response?.data?.error || e.message));
+  } finally {
+    importing.value = false;
   }
 }
 
-function editBookmark(bookmark) {
-  editForm.value = { id: bookmark.id, title: bookmark.title, url: bookmark.url, folder: bookmark.folder || '' };
-  showEditModal.value = true;
-}
-
-async function saveEdit() {
-  try {
-    await updateBookmark(editForm.value.id, editForm.value);
-    showEditModal.value = false;
-    loadBookmarks();
-  } catch (e) {
-    alert('保存失败');
+function cancelImport() {
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
   }
-}
-
-function changePage(newPage) {
-  if (newPage < 1 || newPage > totalPages.value) return;
-  page.value = newPage;
-  loadBookmarks();
+  window.location.href = '/';
 }
 
 onMounted(async () => {
-  loadBookmarks();
-  loadFolders();
-  loadMenus();
+  await loadMenus();
   
-  // 检查是否有待导入的书签（从浏览器扩展传来）
-  const urlParams = new URLSearchParams(window.location.search);
-  if (urlParams.get('import') === 'pending') {
-    await handlePendingImport();
-  }
-});
-
-// 处理从浏览器扩展传来的待导入书签
-async function handlePendingImport() {
-  try {
-    // 尝试从chrome.storage获取待导入的书签
-    if (typeof chrome !== 'undefined' && chrome.storage) {
+  // 从chrome.storage获取待导入书签
+  if (typeof chrome !== 'undefined' && chrome.storage) {
+    try {
       const result = await chrome.storage.local.get(['pendingBookmarks', 'bookmarkImportTime']);
-      
       if (result.pendingBookmarks && result.pendingBookmarks.length > 0) {
-        // 检查数据是否过期（5分钟内有效）
-        const isExpired = Date.now() - (result.bookmarkImportTime || 0) > 5 * 60 * 1000;
-        
+        const isExpired = Date.now() - (result.bookmarkImportTime || 0) > 10 * 60 * 1000;
         if (!isExpired) {
-          // 确认导入
-          if (confirm(`检测到 ${result.pendingBookmarks.length} 个待导入的书签，是否立即导入？`)) {
-            await importBookmarks(result.pendingBookmarks);
-            // 清除已导入的数据
-            await chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
-          }
-        } else {
-          // 清除过期数据
-          await chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
+          pendingBookmarks.value = result.pendingBookmarks.map(b => ({
+            ...b,
+            status: '',
+            targetMenuId: suggestCategory(b.url)
+          }));
         }
       }
+    } catch (e) {
+      console.error('获取待导入书签失败:', e);
     }
-  } catch (e) {
-    console.error('处理待导入书签失败:', e);
   }
-}
+});
 </script>
 
 
@@ -293,13 +287,10 @@ async function handlePendingImport() {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
   margin-bottom: 20px;
   padding: 16px 20px;
   background: rgba(255, 255, 255, 0.95);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
 }
 
 .header-left {
@@ -314,44 +305,24 @@ async function handlePendingImport() {
   font-weight: 500;
 }
 
-.back-btn:hover {
-  text-decoration: underline;
-}
-
-h1 {
-  font-size: 20px;
-  color: #333;
+h1, h2 {
   margin: 0;
+  color: #333;
 }
 
-.bookmark-total {
-  color: #666;
-  font-size: 14px;
-}
+h1 { font-size: 20px; }
+h2 { font-size: 16px; }
 
-.header-right {
-  display: flex;
-  gap: 12px;
-}
-
-.search-input, .folder-select {
-  padding: 8px 12px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-}
-
-.search-input {
-  width: 200px;
-}
-
-.toolbar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 16px;
+.import-panel {
   background: rgba(255, 255, 255, 0.95);
-  border-radius: 8px;
+  border-radius: 12px;
+  padding: 20px;
+}
+
+.import-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   margin-bottom: 16px;
 }
 
@@ -363,26 +334,53 @@ h1 {
   font-size: 14px;
 }
 
-.btn-primary {
-  background: #667eea;
-  color: white;
+.btn-sm { padding: 4px 12px; font-size: 12px; }
+.btn-primary { background: #667eea; color: white; }
+.btn-secondary { background: #e5e7eb; color: #333; }
+.btn-check { background: #10b981; color: white; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.check-summary {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
 }
 
-.btn-danger {
-  background: #ef4444;
-  color: white;
+.status-tag {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  cursor: pointer;
+  background: #f3f4f6;
 }
 
-.btn-secondary {
-  background: #e5e7eb;
-  color: #333;
+.status-tag.valid { background: #d1fae5; color: #065f46; }
+.status-tag.invalid { background: #fee2e2; color: #991b1b; }
+.status-tag.timeout { background: #fef3c7; color: #92400e; }
+.status-tag.duplicate { background: #e0e7ff; color: #3730a3; }
+
+.batch-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.selected-count {
+  margin-left: auto;
+  color: #666;
+  font-size: 13px;
 }
 
 .bookmark-list {
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 12px;
-  padding: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  max-height: 400px;
+  overflow-y: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
 }
 
 .bookmark-item {
@@ -391,58 +389,26 @@ h1 {
   gap: 12px;
   padding: 12px;
   border-bottom: 1px solid #eee;
-  transition: background 0.2s;
 }
 
-.bookmark-item:hover {
-  background: #f9fafb;
-}
+.bookmark-item:last-child { border-bottom: none; }
+.bookmark-item.selected { background: #eff6ff; }
+.bookmark-item.invalid { background: #fef2f2; }
+.bookmark-item.duplicate { background: #f5f3ff; opacity: 0.7; }
 
-.bookmark-item.selected {
-  background: #eff6ff;
-}
+.status-icon { font-size: 16px; width: 24px; text-align: center; }
 
-.bookmark-item:last-child {
-  border-bottom: none;
-}
-
-.favicon {
-  width: 24px;
-  height: 24px;
-  border-radius: 4px;
-}
-
-.bookmark-info {
-  flex: 1;
-  min-width: 0;
-}
+.bookmark-info { flex: 1; min-width: 0; }
 
 .bookmark-title {
-  display: block;
   font-weight: 500;
   color: #333;
-  text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.bookmark-title:hover {
-  color: #667eea;
-}
-
-.bookmark-folder {
-  display: inline-block;
-  font-size: 12px;
-  color: #666;
-  background: #f3f4f6;
-  padding: 2px 6px;
-  border-radius: 4px;
-  margin-right: 8px;
 }
 
 .bookmark-url {
-  display: block;
   font-size: 12px;
   color: #999;
   overflow: hidden;
@@ -450,110 +416,38 @@ h1 {
   white-space: nowrap;
 }
 
-.bookmark-actions {
-  display: flex;
-  gap: 8px;
-}
-
-.btn-icon {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 16px;
-  padding: 4px;
-  opacity: 0.6;
-}
-
-.btn-icon:hover {
-  opacity: 1;
-}
-
-.empty-state {
-  text-align: center;
-  padding: 40px;
+.bookmark-folder {
+  font-size: 11px;
   color: #666;
+  margin-top: 2px;
 }
 
-.empty-state .hint {
-  font-size: 14px;
-  color: #999;
-}
-
-.loading {
-  text-align: center;
-  padding: 40px;
-  color: white;
-}
-
-.pagination {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: 16px;
-  margin-top: 20px;
-  color: white;
-}
-
-.pagination button {
-  padding: 8px 16px;
-  background: rgba(255, 255, 255, 0.2);
-  border: none;
-  border-radius: 6px;
-  color: white;
-  cursor: pointer;
-}
-
-.pagination button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  padding: 24px;
-  border-radius: 12px;
-  width: 400px;
-  max-width: 90%;
-}
-
-.modal-content h3 {
-  margin: 0 0 16px 0;
-}
-
-.form-group {
-  margin-bottom: 16px;
-}
-
-.form-group label {
-  display: block;
-  margin-bottom: 4px;
-  font-weight: 500;
-}
-
-.form-group input {
-  width: 100%;
-  padding: 8px 12px;
+.category-select {
+  padding: 4px 8px;
   border: 1px solid #ddd;
-  border-radius: 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  min-width: 100px;
 }
 
-.modal-actions {
+.import-footer {
   display: flex;
   justify-content: flex-end;
   gap: 12px;
   margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #eee;
 }
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 12px;
+  color: #666;
+}
+
+.empty-state p { margin: 8px 0; }
+.empty-state .hint { font-size: 14px; color: #999; }
+.empty-state .btn { margin-top: 20px; text-decoration: none; display: inline-block; }
 </style>

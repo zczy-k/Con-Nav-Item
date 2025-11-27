@@ -105,6 +105,96 @@ router.post('/parse', auth, async (req, res) => {
   res.json({ data: results });
 });
 
+// 批量检测URL有效性
+router.post('/check-urls', auth, async (req, res) => {
+  const { urls } = req.body;
+
+  if (!urls || !Array.isArray(urls) || urls.length === 0) {
+    return res.status(400).json({ error: '请提供有效的网址列表' });
+  }
+
+  // 限制单次检测数量
+  const urlsToCheck = urls.slice(0, 100);
+
+  // 获取现有卡片用于去重检测
+  const existingCards = await new Promise((resolve, reject) => {
+    db.all('SELECT id, title, url FROM cards', (err, rows) => {
+      if (err) reject(err);
+      else resolve(rows || []);
+    });
+  });
+
+  const results = {
+    valid: [],
+    invalid: [],
+    timeout: [],
+    duplicate: []
+  };
+
+  // 并发检测（限制并发数为10）
+  const checkUrl = async (urlInfo) => {
+    const { url, title, folder } = urlInfo;
+    
+    // 先检查是否重复
+    const isDuplicate = existingCards.some(card => {
+      try {
+        const existingHost = new URL(card.url).hostname.replace('www.', '');
+        const newHost = new URL(url).hostname.replace('www.', '');
+        return existingHost === newHost && new URL(card.url).pathname === new URL(url).pathname;
+      } catch {
+        return card.url === url;
+      }
+    });
+
+    if (isDuplicate) {
+      return { ...urlInfo, status: 'duplicate' };
+    }
+
+    // 检测URL有效性
+    try {
+      const response = await axios.head(url, {
+        timeout: 8000,
+        maxRedirects: 3,
+        validateStatus: (status) => status < 400,
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      });
+      return { ...urlInfo, status: 'valid', httpStatus: response.status };
+    } catch (error) {
+      if (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT') {
+        return { ...urlInfo, status: 'timeout', error: '连接超时' };
+      }
+      if (error.response) {
+        return { ...urlInfo, status: 'invalid', httpStatus: error.response.status, error: `HTTP ${error.response.status}` };
+      }
+      return { ...urlInfo, status: 'invalid', error: error.message };
+    }
+  };
+
+  // 分批并发执行
+  const batchSize = 10;
+  for (let i = 0; i < urlsToCheck.length; i += batchSize) {
+    const batch = urlsToCheck.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(checkUrl));
+    
+    batchResults.forEach(result => {
+      results[result.status].push(result);
+    });
+  }
+
+  res.json({
+    total: urlsToCheck.length,
+    ...results,
+    summary: {
+      valid: results.valid.length,
+      invalid: results.invalid.length,
+      timeout: results.timeout.length,
+      duplicate: results.duplicate.length
+    }
+  });
+});
+
 // 批量添加卡片
 router.post('/add', auth, (req, res) => {
   const { menu_id, sub_menu_id, cards } = req.body;
