@@ -80,3 +80,9 @@ export const getTagCardCount = (id) => axios.get(`${BASE}/tags/${id}/cards/count
 // 卡片去重API
 export const detectDuplicates = () => axios.get(`${BASE}/cards/detect-duplicates/all`, { headers: authHeaders() });
 export const removeDuplicates = (cardIds) => axios.post(`${BASE}/cards/remove-duplicates`, { cardIds }, { headers: authHeaders() });
+
+// 书签API
+export const getBookmarks = (params) => axios.get(`${BASE}/bookmarks`, { params, headers: authHeaders() });
+export const syncBookmarks = (bookmarks) => axios.post(`${BASE}/bookmarks/sync`, { bookmarks }, { headers: authHeaders() });
+export const deleteBookmark = (id) => axios.delete(`${BASE}/bookmarks/${id}`, { headers: authHeaders() });
+export const updateBookmark = (id, data) => axios.put(`${BASE}/bookmarks/${id}`, data, { headers: authHeaders() });

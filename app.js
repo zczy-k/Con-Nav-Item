@@ -16,6 +16,7 @@ const wallpaperRoutes = require('./routes/wallpaper');
 const searchEngineRoutes = require('./routes/searchEngine');
 const backupRoutes = require('./routes/backup');
 const tagRoutes = require('./routes/tag');
+const bookmarkRoutes = require('./routes/bookmark');
 const compression = require('compression');
 const { helmetConfig, sanitizeMiddleware, generalLimiter } = require('./middleware/security');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -50,11 +51,11 @@ app.use((req, res, next) => {
     '/api/backup',      // 备份相关 API
     '/api/users/profile' // 用户信息
   ];
-  
-  const shouldCache = req.method === 'GET' && 
-                      req.path.startsWith('/api/') && 
-                      !noCachePaths.some(path => req.path.startsWith(path));
-  
+
+  const shouldCache = req.method === 'GET' &&
+    req.path.startsWith('/api/') &&
+    !noCachePaths.some(path => req.path.startsWith(path));
+
   if (shouldCache) {
     const cacheKey = req.originalUrl;
     const cached = cache.get(cacheKey);
@@ -76,7 +77,7 @@ app.use((req, res, next) => {
 // 根据环境选择静态文件目录
 // 开发环境使用 web/dist，生产环境（如 serv00）使用 public
 const fs = require('fs');
-const staticDir = fs.existsSync(path.join(__dirname, 'web/dist/index.html')) 
+const staticDir = fs.existsSync(path.join(__dirname, 'web/dist/index.html'))
   ? path.join(__dirname, 'web/dist')
   : path.join(__dirname, 'public');
 
@@ -127,6 +128,7 @@ app.use('/api/wallpaper', wallpaperRoutes);
 app.use('/api/search-engines', searchEngineRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/bookmarks', bookmarkRoutes);
 
 // 启动定时备份任务
 try {
@@ -156,11 +158,11 @@ app.use(globalErrorHandler);
 db.initPromise
   .then(() => {
     console.log('✓ Database initialized');
-    
+
     // 检查是否需要启动服务器
     // 只有被 start-with-https.js require 时不启动（它会自己管理 HTTP/HTTPS）
     const isStartWithHttps = require.main && require.main.filename && require.main.filename.includes('start-with-https');
-    
+
     if (!isStartWithHttps) {
       // 不指定 IP，兼容各种环境（Passenger/PM2/直接运行）
       app.listen(PORT, () => {

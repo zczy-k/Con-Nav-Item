@@ -135,6 +135,17 @@ async function initializeDatabase() {
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_card_tags_card_id ON card_tags(card_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_card_tags_tag_id ON card_tags(tag_id)`);
 
+    // 书签表
+    await dbRun(`CREATE TABLE IF NOT EXISTS bookmarks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      url TEXT NOT NULL,
+      icon TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_bookmarks_title ON bookmarks(title)`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_bookmarks_url ON bookmarks(url)`);
+
     // 尝试添加登录信息列（静默处理，如果列已存在会失败）
     try {
       await dbRun(`ALTER TABLE users ADD COLUMN last_login_time TEXT`);
