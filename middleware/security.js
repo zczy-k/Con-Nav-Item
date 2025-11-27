@@ -98,7 +98,7 @@ function sanitizeInput(input) {
 }
 
 // 递归清理对象中的所有字符串
-function sanitizeObject(obj) {
+function sanitizeObject(obj, skipFields = []) {
   if (!obj || typeof obj !== 'object') return obj;
   
   const sanitized = Array.isArray(obj) ? [] : {};
@@ -106,10 +106,13 @@ function sanitizeObject(obj) {
   for (const key in obj) {
     if (obj.hasOwnProperty(key)) {
       const value = obj[key];
-      if (typeof value === 'string') {
+      // 跳过指定字段的清理
+      if (skipFields.includes(key)) {
+        sanitized[key] = value;
+      } else if (typeof value === 'string') {
         sanitized[key] = sanitizeInput(value);
       } else if (typeof value === 'object' && value !== null) {
-        sanitized[key] = sanitizeObject(value);
+        sanitized[key] = sanitizeObject(value, skipFields);
       } else {
         sanitized[key] = value;
       }
@@ -121,14 +124,17 @@ function sanitizeObject(obj) {
 
 // 输入清理中间件
 const sanitizeMiddleware = (req, res, next) => {
+  // 跳过清理的字段
+  const skipFields = [];
+  
   if (req.body) {
-    req.body = sanitizeObject(req.body);
+    req.body = sanitizeObject(req.body, skipFields);
   }
   if (req.query) {
-    req.query = sanitizeObject(req.query);
+    req.query = sanitizeObject(req.query, skipFields);
   }
   if (req.params) {
-    req.params = sanitizeObject(req.params);
+    req.params = sanitizeObject(req.params, skipFields);
   }
   next();
 };
