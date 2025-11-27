@@ -430,48 +430,22 @@ document.getElementById('cancelBookmark').addEventListener('click', function () 
 document.getElementById('confirmBookmark').addEventListener('click', async function () {
     if (selectedBookmarks.size === 0 || !navUrl) return;
 
-    const btn = this;
-    btn.disabled = true;
-    btn.textContent = '导入中...';
-
     try {
         // 获取选中的书签
         const bookmarksToImport = Array.from(selectedBookmarks).map(index => allBookmarks[index]);
 
-        // 获取token（需要先登录）
-        const token = localStorage.getItem('nav_token');
-        
-        // 发送到后端
-        const response = await fetch(`${navUrl}/api/bookmarks/import`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': token ? `Bearer ${token}` : ''
-            },
-            body: JSON.stringify({ bookmarks: bookmarksToImport })
+        // 将书签数据存储到chrome.storage，然后跳转到导航站
+        await chrome.storage.local.set({ 
+            pendingBookmarks: bookmarksToImport,
+            bookmarkImportTime: Date.now()
         });
 
-        const result = await response.json();
-
-        if (response.ok) {
-            alert(`导入成功！\n导入: ${result.imported} 个\n跳过(重复): ${result.skipped} 个`);
-            document.getElementById('bookmarkSelector').classList.remove('active');
-            selectedBookmarks.clear();
-        } else {
-            // 如果需要认证，跳转到导航站登录
-            if (response.status === 401) {
-                alert('请先登录导航站后台，然后重试');
-                chrome.tabs.create({ url: `${navUrl}/admin` });
-            } else {
-                alert('导入失败: ' + (result.error || '未知错误'));
-            }
-        }
+        // 跳转到书签管理页面，页面会自动检测并导入
+        chrome.tabs.create({ url: `${navUrl}/bookmarks?import=pending` });
+        window.close();
     } catch (error) {
-        console.error('导入书签失败:', error);
-        alert('导入失败: ' + error.message);
-    } finally {
-        btn.disabled = false;
-        updateBookmarkConfirmButton();
+        console.error('准备导入失败:', error);
+        alert('准备导入失败: ' + error.message);
     }
 });
 

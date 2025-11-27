@@ -239,11 +239,46 @@ function changePage(newPage) {
   loadBookmarks();
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadBookmarks();
   loadFolders();
   loadMenus();
+  
+  // 检查是否有待导入的书签（从浏览器扩展传来）
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('import') === 'pending') {
+    await handlePendingImport();
+  }
 });
+
+// 处理从浏览器扩展传来的待导入书签
+async function handlePendingImport() {
+  try {
+    // 尝试从chrome.storage获取待导入的书签
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+      const result = await chrome.storage.local.get(['pendingBookmarks', 'bookmarkImportTime']);
+      
+      if (result.pendingBookmarks && result.pendingBookmarks.length > 0) {
+        // 检查数据是否过期（5分钟内有效）
+        const isExpired = Date.now() - (result.bookmarkImportTime || 0) > 5 * 60 * 1000;
+        
+        if (!isExpired) {
+          // 确认导入
+          if (confirm(`检测到 ${result.pendingBookmarks.length} 个待导入的书签，是否立即导入？`)) {
+            await importBookmarks(result.pendingBookmarks);
+            // 清除已导入的数据
+            await chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
+          }
+        } else {
+          // 清除过期数据
+          await chrome.storage.local.remove(['pendingBookmarks', 'bookmarkImportTime']);
+        }
+      }
+    }
+  } catch (e) {
+    console.error('处理待导入书签失败:', e);
+  }
+}
 </script>
 
 
