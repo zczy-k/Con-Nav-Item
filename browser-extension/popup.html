@@ -291,84 +291,6 @@
             transform: none;
         }
 
-        .btn-bookmark {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: white;
-        }
-
-        .btn-bookmark:hover {
-            transform: translateY(-1px);
-            box-shadow: 0 4px 12px rgba(245, 158, 11, 0.4);
-        }
-
-        .bookmark-selector {
-            display: none;
-            background: white;
-            border-radius: 8px;
-            padding: 12px;
-            margin-top: 12px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        }
-
-        .bookmark-selector.active {
-            display: block;
-        }
-
-        .bookmark-list {
-            max-height: 300px;
-            overflow-y: auto;
-            margin-bottom: 12px;
-        }
-
-        .bookmark-folder {
-            margin-bottom: 8px;
-        }
-
-        .folder-header {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 8px;
-            background: #f3f4f6;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            color: #333;
-        }
-
-        .folder-header:hover {
-            background: #e5e7eb;
-        }
-
-        .folder-items {
-            padding-left: 20px;
-            margin-top: 4px;
-        }
-
-        .bookmark-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: background 0.2s;
-        }
-
-        .bookmark-item:hover {
-            background: #f9fafb;
-        }
-
-        .bookmark-title {
-            flex: 1;
-            font-size: 12px;
-            color: #333;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
         .footer {
             margin-top: 12px;
             padding-top: 12px;
@@ -405,36 +327,6 @@
         <button class="btn-select-tabs" id="selectTabs">📋 选择标签页批量添加</button>
     </div>
 
-    <div class="section-title">
-        📚 书签管理
-    </div>
-
-    <div class="buttons">
-        <button class="btn-bookmark" id="importBookmarks">📥 导入浏览器书签</button>
-    </div>
-
-    <!-- 书签导入界面 -->
-    <div class="bookmark-selector" id="bookmarkSelector">
-        <div class="tabs-header">
-            <div class="tabs-title">选择要导入的书签</div>
-            <div class="tabs-count" id="bookmarkCount">0 个</div>
-        </div>
-
-        <div class="tabs-actions">
-            <button class="btn-small" id="selectAllBookmarks">✔️ 全选</button>
-            <button class="btn-small" id="clearAllBookmarks">❌ 清除</button>
-        </div>
-
-        <div class="bookmark-list" id="bookmarkList">
-            <!-- 书签列表将动态生成 -->
-        </div>
-
-        <div class="tabs-footer">
-            <button class="btn-cancel" id="cancelBookmark">取消</button>
-            <button class="btn-confirm" id="confirmBookmark" disabled>导入 (0)</button>
-        </div>
-    </div>
-
     <!-- 标签页选择界面 -->
     <div class="tabs-selector" id="tabsSelector">
         <div class="tabs-header">
@@ -458,7 +350,7 @@
     </div>
 
     <div class="footer">
-        v1.1.0
+        v1.0.0
     </div>
 
     <script src="popup.js"></script>

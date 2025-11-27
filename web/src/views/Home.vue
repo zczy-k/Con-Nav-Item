@@ -94,12 +94,7 @@
         </svg>
         <span class="tag-count">{{ allTags.length }}</span>
       </button>
-      <!-- 书签导入入口 -->
-      <router-link to="/bookmarks" class="mini-bookmark-btn" title="导入书签">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-        </svg>
-      </router-link>
+
     </div>
     
     <!-- 标签选择浮层 -->
@@ -2576,31 +2571,6 @@ async function saveCardEdit() {
 .mini-tag-btn:hover .tag-count {
   background: rgba(255, 255, 255, 0.2);
   color: white;
-}
-
-/* 书签入口按钮 */
-.mini-bookmark-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1.5px solid rgba(245, 158, 11, 0.3);
-  border-radius: 16px;
-  font-size: 12px;
-  color: #f59e0b;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
-  text-decoration: none;
-}
-
-.mini-bookmark-btn:hover {
-  background: #f59e0b;
-  color: white;
-  border-color: #f59e0b;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(245, 158, 11, 0.3);
 }
 
 /* 标签选择浮层 */

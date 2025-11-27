@@ -81,14 +81,3 @@ export const getTagCardCount = (id) => axios.get(`${BASE}/tags/${id}/cards/count
 // 卡片去重API
 export const detectDuplicates = () => axios.get(`${BASE}/cards/detect-duplicates/all`, { headers: authHeaders() });
 export const removeDuplicates = (cardIds) => axios.post(`${BASE}/cards/remove-duplicates`, { cardIds }, { headers: authHeaders() });
-
-// 书签API
-export const getBookmarks = (params = {}) => axios.get(`${BASE}/bookmarks`, { params, headers: authHeaders() });
-export const getBookmarkFolders = () => axios.get(`${BASE}/bookmarks/folders`, { headers: authHeaders() });
-export const getBookmarkCount = () => axios.get(`${BASE}/bookmarks/count`);
-export const searchBookmarks = (q, limit = 5) => axios.get(`${BASE}/bookmarks/search`, { params: { q, limit } });
-export const importBookmarks = (bookmarks) => axios.post(`${BASE}/bookmarks/import`, { bookmarks }, { headers: authHeaders() });
-export const deleteBookmark = (id) => axios.delete(`${BASE}/bookmarks/${id}`, { headers: authHeaders() });
-export const batchDeleteBookmarks = (ids) => axios.post(`${BASE}/bookmarks/batch-delete`, { ids }, { headers: authHeaders() });
-export const bookmarkToCard = (id, menuId, subMenuId) => axios.post(`${BASE}/bookmarks/${id}/to-card`, { menuId, subMenuId }, { headers: authHeaders() });
-export const updateBookmark = (id, data) => axios.put(`${BASE}/bookmarks/${id}`, data, { headers: authHeaders() });

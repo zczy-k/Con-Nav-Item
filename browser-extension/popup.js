@@ -2,8 +2,6 @@
 let allTabs = [];
 let selectedTabs = new Set();
 let navUrl = '';
-let allBookmarks = [];
-let selectedBookmarks = new Set();
 
 // 加载当前设置
 chrome.storage.sync.get(['navUrl'], function (result) {
@@ -11,7 +9,6 @@ chrome.storage.sync.get(['navUrl'], function (result) {
     const openNavBtn = document.getElementById('openNav');
     const addCurrentBtn = document.getElementById('addCurrentTab');
     const selectTabsBtn = document.getElementById('selectTabs');
-    const importBookmarksBtn = document.getElementById('importBookmarks');
 
     if (result.navUrl) {
         navUrl = result.navUrl;
@@ -20,14 +17,12 @@ chrome.storage.sync.get(['navUrl'], function (result) {
         openNavBtn.disabled = false;
         addCurrentBtn.disabled = false;
         selectTabsBtn.disabled = false;
-        importBookmarksBtn.disabled = false;
     } else {
         urlElement.textContent = '未设置';
         urlElement.classList.add('empty');
         openNavBtn.disabled = true;
         addCurrentBtn.disabled = true;
         selectTabsBtn.disabled = true;
-        importBookmarksBtn.disabled = true;
     }
 });
 
@@ -254,229 +249,4 @@ function isSpecialPage(url) {
         'file://'
     ];
     return specialPrefixes.some(prefix => url.startsWith(prefix));
-}
-
-// ========== 书签导入功能 ==========
-
-// 导入书签按钮
-document.getElementById('importBookmarks').addEventListener('click', async function () {
-    if (!navUrl) {
-        alert('请先设置导航站地址');
-        return;
-    }
-
-    // 检查浏览器是否支持 bookmarks API
-    if (!chrome.bookmarks) {
-        alert('当前浏览器不支持书签API，请使用Chrome、Edge或其他Chromium内核浏览器');
-        return;
-    }
-
-    try {
-        // 获取所有书签
-        const bookmarkTree = await chrome.bookmarks.getTree();
-        allBookmarks = flattenBookmarks(bookmarkTree);
-
-        if (allBookmarks.length === 0) {
-            alert('没有找到书签');
-            return;
-        }
-
-        // 显示书签选择界面
-        showBookmarkSelector();
-    } catch (error) {
-        console.error('获取书签失败:', error);
-        alert('获取书签失败: ' + error.message);
-    }
-});
-
-// 扁平化书签树
-function flattenBookmarks(nodes, folder = '') {
-    let bookmarks = [];
-    
-    for (const node of nodes) {
-        if (node.children) {
-            // 文件夹
-            const folderPath = folder ? `${folder}/${node.title}` : node.title;
-            bookmarks = bookmarks.concat(flattenBookmarks(node.children, folderPath));
-        } else if (node.url && !isSpecialPage(node.url)) {
-            // 书签
-            bookmarks.push({
-                id: node.id,
-                title: node.title || '无标题',
-                url: node.url,
-                folder: folder || '根目录'
-            });
-        }
-    }
-    
-    return bookmarks;
-}
-
-// 显示书签选择界面
-function showBookmarkSelector() {
-    const selector = document.getElementById('bookmarkSelector');
-    const bookmarkList = document.getElementById('bookmarkList');
-    const bookmarkCount = document.getElementById('bookmarkCount');
-
-    // 重置选择
-    selectedBookmarks.clear();
-
-    // 更新计数
-    bookmarkCount.textContent = `${allBookmarks.length} 个`;
-
-    // 按文件夹分组
-    const folderMap = new Map();
-    allBookmarks.forEach((bookmark, index) => {
-        if (!folderMap.has(bookmark.folder)) {
-            folderMap.set(bookmark.folder, []);
-        }
-        folderMap.get(bookmark.folder).push({ ...bookmark, index });
-    });
-
-    // 生成书签列表
-    bookmarkList.innerHTML = '';
-    
-    folderMap.forEach((bookmarks, folderName) => {
-        const folderDiv = document.createElement('div');
-        folderDiv.className = 'bookmark-folder';
-
-        // 文件夹头部
-        const folderHeader = document.createElement('div');
-        folderHeader.className = 'folder-header';
-        folderHeader.innerHTML = `📁 ${folderName} (${bookmarks.length})`;
-        
-        // 文件夹内容
-        const folderItems = document.createElement('div');
-        folderItems.className = 'folder-items';
-        folderItems.style.display = 'none';
-
-        folderHeader.addEventListener('click', () => {
-            folderItems.style.display = folderItems.style.display === 'none' ? 'block' : 'none';
-        });
-
-        bookmarks.forEach(bookmark => {
-            const item = document.createElement('div');
-            item.className = 'bookmark-item';
-
-            const checkbox = document.createElement('input');
-            checkbox.type = 'checkbox';
-            checkbox.dataset.index = bookmark.index;
-
-            const title = document.createElement('span');
-            title.className = 'bookmark-title';
-            title.textContent = bookmark.title;
-            title.title = bookmark.url;
-
-            item.appendChild(checkbox);
-            item.appendChild(title);
-
-            item.addEventListener('click', (e) => {
-                if (e.target !== checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    checkbox.dispatchEvent(new Event('change'));
-                }
-            });
-
-            checkbox.addEventListener('change', (e) => {
-                e.stopPropagation();
-                if (checkbox.checked) {
-                    selectedBookmarks.add(bookmark.index);
-                } else {
-                    selectedBookmarks.delete(bookmark.index);
-                }
-                updateBookmarkConfirmButton();
-            });
-
-            folderItems.appendChild(item);
-        });
-
-        folderDiv.appendChild(folderHeader);
-        folderDiv.appendChild(folderItems);
-        bookmarkList.appendChild(folderDiv);
-    });
-
-    // 显示选择器
-    selector.classList.add('active');
-    updateBookmarkConfirmButton();
-}
-
-// 全选书签
-document.getElementById('selectAllBookmarks').addEventListener('click', function () {
-    const checkboxes = document.querySelectorAll('#bookmarkList input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = true;
-        selectedBookmarks.add(parseInt(checkbox.dataset.index));
-    });
-    updateBookmarkConfirmButton();
-});
-
-// 清除书签选择
-document.getElementById('clearAllBookmarks').addEventListener('click', function () {
-    const checkboxes = document.querySelectorAll('#bookmarkList input[type="checkbox"]');
-    checkboxes.forEach(checkbox => {
-        checkbox.checked = false;
-    });
-    selectedBookmarks.clear();
-    updateBookmarkConfirmButton();
-});
-
-// 取消书签选择
-document.getElementById('cancelBookmark').addEventListener('click', function () {
-    document.getElementById('bookmarkSelector').classList.remove('active');
-    selectedBookmarks.clear();
-});
-
-// 确认导入书签
-document.getElementById('confirmBookmark').addEventListener('click', async function () {
-    if (selectedBookmarks.size === 0 || !navUrl) return;
-
-    try {
-        // 获取选中的书签
-        const bookmarksToImport = Array.from(selectedBookmarks).map(index => allBookmarks[index]);
-        console.log('[扩展] 准备导入书签数量:', bookmarksToImport.length);
-
-        // 创建新标签页
-        const tab = await chrome.tabs.create({ url: `${navUrl}/bookmarks` });
-        console.log('[扩展] 已创建标签页:', tab.id);
-        
-        // 等待页面加载完成后注入数据
-        chrome.tabs.onUpdated.addListener(function listener(tabId, info) {
-            if (tabId === tab.id && info.status === 'complete') {
-                console.log('[扩展] 页面加载完成，开始注入数据...');
-                
-                // 直接注入数据到sessionStorage
-                chrome.scripting.executeScript({
-                    target: { tabId: tabId },
-                    func: (data) => {
-                        console.log('[注入脚本] 收到数据:', data.length, '个书签');
-                        sessionStorage.setItem('pendingBookmarks', JSON.stringify(data));
-                        console.log('[注入脚本] 已写入sessionStorage');
-                        // 触发自定义事件通知页面
-                        window.dispatchEvent(new CustomEvent('bookmarksReady'));
-                        console.log('[注入脚本] 已触发bookmarksReady事件');
-                    },
-                    args: [bookmarksToImport]
-                }).then(() => {
-                    console.log('[扩展] 书签数据注入成功');
-                }).catch((err) => {
-                    console.error('[扩展] 注入失败:', err);
-                    alert('注入失败: ' + err.message);
-                });
-                
-                chrome.tabs.onUpdated.removeListener(listener);
-            }
-        });
-        
-        window.close();
-    } catch (error) {
-        console.error('[扩展] 准备导入失败:', error);
-        alert('准备导入失败: ' + error.message);
-    }
-});
-
-// 更新书签确认按钮状态
-function updateBookmarkConfirmButton() {
-    const confirmBtn = document.getElementById('confirmBookmark');
-    confirmBtn.textContent = `导入 (${selectedBookmarks.size})`;
-    confirmBtn.disabled = selectedBookmarks.size === 0;
 }
