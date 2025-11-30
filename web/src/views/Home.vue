@@ -2091,7 +2091,15 @@ async function handleDeleteCard(card) {
     
     showToastMessage('删除成功');
   } catch (error) {
-    alert('删除失败：' + (error.response?.data?.error || error.message));
+    // 如果是认证失败，清除token并提示重新验证
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('nav_password_token');
+      editMode.value = false;
+      alert('登录已过期，请重新进入编辑模式');
+    } else {
+      alert('删除失败：' + (error.response?.data?.error || error.message));
+    }
   }
 }
 
@@ -2212,7 +2220,20 @@ async function saveCardEdit() {
     showToastMessage('修改成功');
     closeEditCardModal();
   } catch (error) {
-    editError.value = '修改失败：' + (error.response?.data?.error || error.message);
+    // 如果是认证失败，清除token并提示重新验证
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('nav_password_token');
+      editError.value = '登录已过期，请重新进入编辑模式';
+      // 关闭编辑弹窗并退出编辑模式
+      setTimeout(() => {
+        closeEditCardModal();
+        editMode.value = false;
+        showToastMessage('请重新进入编辑模式');
+      }, 1500);
+    } else {
+      editError.value = '修改失败：' + (error.response?.data?.error || error.message);
+    }
   } finally {
     editLoading.value = false;
   }
