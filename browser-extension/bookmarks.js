@@ -1054,6 +1054,16 @@ function bindEvents() {
     // 快捷键帮助
     document.getElementById('btnShowShortcuts').addEventListener('click', showShortcutsHelp);
     
+    // 导航页设置
+    document.getElementById('btnNavSettings').addEventListener('click', showNavSettingsModal);
+    document.getElementById('navSettingsClose').addEventListener('click', closeNavSettingsModal);
+    document.getElementById('btnCancelNavSettings').addEventListener('click', closeNavSettingsModal);
+    document.getElementById('btnSaveNavSettings').addEventListener('click', saveNavSettings);
+    document.getElementById('btnTestConnection').addEventListener('click', testNavConnection);
+    document.getElementById('defaultMenuSelect').addEventListener('change', onDefaultMenuChange);
+    document.getElementById('btnNewMenuFromSettings').addEventListener('click', () => showNewMenuModalFromSettings('menu'));
+    document.getElementById('btnNewSubMenuFromSettings').addEventListener('click', () => showNewMenuModalFromSettings('submenu'));
+    
     // 合并文件夹
     document.getElementById('btnMergeFolders').addEventListener('click', showMergeFoldersModal);
     
@@ -4077,5 +4087,270 @@ async function confirmAddToNav() {
         alert('添加失败: ' + error.message);
     } finally {
         document.getElementById('btnConfirmAddToNav').disabled = false;
+    }
+}
+
+
+// ==================== 导航页设置 ====================
+let settingsMenus = [];
+
+// 显示导航页设置弹窗
+async function showNavSettingsModal() {
+    const modal = document.getElementById('navSettingsModal');
+    modal.classList.add('active');
+    
+    // 加载已保存的设置
+    try {
+        const config = await chrome.storage.sync.get(['navUrl', 'lastMenuId', 'lastSubMenuId']);
+        document.getElementById('navSettingsUrl').value = config.navUrl || '';
+        
+        if (config.navUrl) {
+            await loadSettingsMenus();
+            
+            if (config.lastMenuId) {
+                document.getElementById('defaultMenuSelect').value = config.lastMenuId;
+                onDefaultMenuChange();
+                
+                if (config.lastSubMenuId) {
+                    document.getElementById('defaultSubMenuSelect').value = config.lastSubMenuId;
+                }
+            }
+        }
+    } catch (e) {
+        console.error('加载设置失败:', e);
+    }
+}
+
+// 关闭导航页设置弹窗
+function closeNavSettingsModal() {
+    document.getElementById('navSettingsModal').classList.remove('active');
+}
+
+// 测试连接并加载分类
+async function testNavConnection() {
+    const urlInput = document.getElementById('navSettingsUrl');
+    const statusDiv = document.getElementById('connectionStatus');
+    const url = urlInput.value.trim();
+    
+    if (!url) {
+        statusDiv.innerHTML = '<span style="color: #dc2626;">请输入导航站地址</span>';
+        return;
+    }
+    
+    statusDiv.innerHTML = '<span style="color: #666;">正在测试连接...</span>';
+    
+    try {
+        const serverUrl = url.replace(/\/$/, '');
+        const response = await fetch(`${serverUrl}/api/menus`);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const menus = await response.json();
+        settingsMenus = menus;
+        
+        // 填充分类下拉框
+        const menuSelect = document.getElementById('defaultMenuSelect');
+        menuSelect.innerHTML = '<option value="">-- 选择默认分类 --</option>';
+        
+        menus.forEach(menu => {
+            const option = document.createElement('option');
+            option.value = menu.id;
+            option.textContent = menu.name;
+            menuSelect.appendChild(option);
+        });
+        
+        statusDiv.innerHTML = `<span style="color: #059669;">✓ 连接成功，已加载 ${menus.length} 个分类</span>`;
+        
+        // 临时保存URL
+        navServerUrl = serverUrl;
+    } catch (e) {
+        statusDiv.innerHTML = `<span style="color: #dc2626;">✗ 连接失败: ${e.message}</span>`;
+    }
+}
+
+// 加载设置中的分类
+async function loadSettingsMenus() {
+    const url = document.getElementById('navSettingsUrl').value.trim();
+    if (!url) return;
+    
+    try {
+        const serverUrl = url.replace(/\/$/, '');
+        const response = await fetch(`${serverUrl}/api/menus`);
+        if (!response.ok) return;
+        
+        const menus = await response.json();
+        settingsMenus = menus;
+        
+        const menuSelect = document.getElementById('defaultMenuSelect');
+        menuSelect.innerHTML = '<option value="">-- 选择默认分类 --</option>';
+        
+        menus.forEach(menu => {
+            const option = document.createElement('option');
+            option.value = menu.id;
+            option.textContent = menu.name;
+            menuSelect.appendChild(option);
+        });
+        
+        navServerUrl = serverUrl;
+    } catch (e) {
+        console.error('加载分类失败:', e);
+    }
+}
+
+// 默认分类选择变化
+function onDefaultMenuChange() {
+    const menuId = document.getElementById('defaultMenuSelect').value;
+    const subMenuSelect = document.getElementById('defaultSubMenuSelect');
+    
+    subMenuSelect.innerHTML = '<option value="">-- 不使用子分类 --</option>';
+    
+    if (!menuId) return;
+    
+    const menu = settingsMenus.find(m => String(m.id) === String(menuId));
+    if (menu && menu.subMenus && menu.subMenus.length > 0) {
+        menu.subMenus.forEach(sub => {
+            const option = document.createElement('option');
+            option.value = sub.id;
+            option.textContent = sub.name;
+            subMenuSelect.appendChild(option);
+        });
+    }
+}
+
+// 保存导航页设置
+async function saveNavSettings() {
+    const url = document.getElementById('navSettingsUrl').value.trim();
+    const menuId = document.getElementById('defaultMenuSelect').value;
+    const subMenuId = document.getElementById('defaultSubMenuSelect').value;
+    const statusDiv = document.getElementById('navSettingsStatus');
+    
+    if (!url) {
+        statusDiv.innerHTML = '<span style="color: #dc2626;">请输入导航站地址</span>';
+        return;
+    }
+    
+    try {
+        // 保存设置
+        await chrome.storage.sync.set({
+            navUrl: url.replace(/\/$/, ''),
+            lastMenuId: menuId || '',
+            lastSubMenuId: subMenuId || ''
+        });
+        
+        // 刷新右键菜单
+        try {
+            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+        } catch (e) {}
+        
+        statusDiv.innerHTML = '<span style="color: #059669;">✓ 设置已保存</span>';
+        
+        setTimeout(() => {
+            closeNavSettingsModal();
+        }, 1000);
+    } catch (e) {
+        statusDiv.innerHTML = `<span style="color: #dc2626;">保存失败: ${e.message}</span>`;
+    }
+}
+
+// 从设置弹窗新建分类
+let settingsNewMenuType = 'menu';
+
+function showNewMenuModalFromSettings(type) {
+    settingsNewMenuType = type;
+    
+    if (type === 'menu') {
+        document.getElementById('newMenuTitle').textContent = '新建分类';
+    } else {
+        const menuId = document.getElementById('defaultMenuSelect').value;
+        if (!menuId) {
+            alert('请先选择一个主分类');
+            return;
+        }
+        document.getElementById('newMenuTitle').textContent = '新建子分类';
+    }
+    
+    document.getElementById('newMenuName').value = '';
+    document.getElementById('newMenuModal').classList.add('active');
+    
+    // 临时修改确认按钮的行为
+    const confirmBtn = document.getElementById('btnConfirmNewMenu');
+    confirmBtn.onclick = confirmNewMenuFromSettings;
+}
+
+// 从设置弹窗确认新建分类
+async function confirmNewMenuFromSettings() {
+    const name = document.getElementById('newMenuName').value.trim();
+    if (!name) {
+        alert('请输入分类名称');
+        return;
+    }
+    
+    const url = document.getElementById('navSettingsUrl').value.trim();
+    if (!url) {
+        alert('请先设置导航站地址');
+        return;
+    }
+    
+    const token = await getNavAuthToken();
+    if (!token) return;
+    
+    try {
+        const serverUrl = url.replace(/\/$/, '');
+        let apiUrl, body;
+        
+        if (settingsNewMenuType === 'menu') {
+            apiUrl = `${serverUrl}/api/menus`;
+            body = { name, order: settingsMenus.length };
+        } else {
+            const menuId = document.getElementById('defaultMenuSelect').value;
+            const menu = settingsMenus.find(m => String(m.id) === String(menuId));
+            apiUrl = `${serverUrl}/api/menus/${menuId}/submenus`;
+            body = { name, order: menu?.subMenus?.length || 0 };
+        }
+        
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(body)
+        });
+        
+        if (!response.ok) {
+            throw new Error('创建失败');
+        }
+        
+        const result = await response.json();
+        
+        // 关闭新建弹窗
+        document.getElementById('newMenuModal').classList.remove('active');
+        
+        // 重新加载分类
+        await loadSettingsMenus();
+        
+        // 刷新右键菜单
+        try {
+            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+        } catch (e) {}
+        
+        // 选中新创建的分类
+        if (settingsNewMenuType === 'menu') {
+            document.getElementById('defaultMenuSelect').value = result.id;
+            onDefaultMenuChange();
+        } else {
+            const menuId = document.getElementById('defaultMenuSelect').value;
+            document.getElementById('defaultMenuSelect').value = menuId;
+            onDefaultMenuChange();
+            document.getElementById('defaultSubMenuSelect').value = result.id;
+        }
+        
+        // 恢复原来的确认按钮行为
+        document.getElementById('btnConfirmNewMenu').onclick = confirmNewMenu;
+        
+    } catch (e) {
+        alert('创建分类失败: ' + e.message);
     }
 }

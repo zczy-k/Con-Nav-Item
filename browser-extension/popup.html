@@ -7,7 +7,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            width: 340px;
+            width: 320px;
             padding: 16px;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
             background: #f9fafb;
@@ -40,6 +40,7 @@
         .info-value.empty { color: #999; font-style: italic; }
         .buttons { display: flex; flex-direction: column; gap: 8px; }
         button {
+            width: 100%;
             padding: 10px;
             border: none;
             border-radius: 6px;
@@ -62,10 +63,6 @@
             border: 1px solid #e5e7eb;
         }
         .btn-secondary:hover { background: #f9fafb; }
-        .btn-small {
-            padding: 6px 10px;
-            font-size: 12px;
-        }
         .btn-bookmarks {
             background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
             color: white;
@@ -112,30 +109,16 @@
         input:checked + .slider:before {
             transform: translateX(20px);
         }
-        select {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            font-size: 13px;
-            margin-top: 4px;
-            background: white;
+        .tip-box {
+            background: #eff6ff;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 10px 12px;
+            font-size: 12px;
+            color: #1e40af;
+            margin-top: 12px;
         }
-        .row {
-            display: flex;
-            gap: 8px;
-            align-items: center;
-        }
-        .row select { flex: 1; margin-top: 0; }
-        .default-badge {
-            display: inline-block;
-            padding: 2px 6px;
-            background: #10b981;
-            color: white;
-            font-size: 10px;
-            border-radius: 4px;
-            margin-left: 4px;
-        }
+        .tip-box strong { display: block; margin-bottom: 4px; }
         .footer {
             margin-top: 12px;
             padding-top: 12px;
@@ -144,12 +127,6 @@
             font-size: 12px;
             color: #999;
         }
-        .status-text {
-            font-size: 11px;
-            color: #10b981;
-            margin-top: 4px;
-        }
-        .status-text.error { color: #ef4444; }
     </style>
 </head>
 <body>
@@ -158,47 +135,26 @@
         <h2>导航站插件</h2>
     </div>
 
-    <!-- 新标签页模式 -->
     <div class="info">
         <div class="info-label">新标签页模式</div>
-        <select id="newtabMode">
+        <select id="newtabMode" style="width: 100%; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px; margin-top: 4px;">
             <option value="nav">导航站模式</option>
             <option value="quickaccess">快速访问面板</option>
         </select>
     </div>
 
-    <!-- 导航站地址 -->
     <div class="info" id="navUrlInfo">
-        <div class="info-label">导航站地址</div>
-        <div class="row" style="margin-top: 4px;">
-            <input type="text" id="navUrlInput" placeholder="例如: http://localhost:3000" 
-                   style="flex: 1; padding: 8px; border: 1px solid #e5e7eb; border-radius: 6px; font-size: 13px;">
-            <button class="btn-secondary btn-small" id="saveNavUrl">保存</button>
-        </div>
-        <div id="navUrlStatus" class="status-text" style="display: none;"></div>
+        <div class="info-label">当前导航站地址</div>
+        <div class="info-value" id="currentUrl">未设置</div>
     </div>
 
-    <!-- 快速添加默认分类 -->
-    <div class="section-title">⚡ 快速添加设置</div>
-    
-    <div class="info" id="quickAddSettings">
-        <div class="info-label">默认分类 <span class="default-badge">快速添加使用</span></div>
-        <div class="row" style="margin-top: 4px;">
-            <select id="defaultMenuSelect">
-                <option value="">-- 请先配置导航站 --</option>
-            </select>
-            <button class="btn-secondary btn-small" id="refreshMenus" title="刷新分类">🔄</button>
-        </div>
-        
-        <div class="info-label" style="margin-top: 10px;">默认子分类（可选）</div>
-        <select id="defaultSubMenuSelect">
-            <option value="">-- 不使用子分类 --</option>
-        </select>
-        
-        <div id="menuStatus" class="status-text" style="display: none;"></div>
+    <div class="buttons" id="navButtons">
+        <button class="btn-primary" id="openSettings">⚙️ 设置导航站地址</button>
+        <button class="btn-secondary" id="openNav">🌐 访问导航站</button>
     </div>
 
-    <!-- 浮动按钮开关 -->
+    <div class="section-title">⚡ 快捷功能</div>
+
     <div class="info">
         <div style="display: flex; align-items: center; justify-content: space-between;">
             <div>
@@ -212,12 +168,17 @@
         </div>
     </div>
 
-    <!-- 快捷入口 -->
-    <div class="section-title">🔖 快捷入口</div>
+    <div class="tip-box">
+        <strong>💡 添加网站到导航页</strong>
+        • 右键点击网页 → 选择分类添加<br>
+        • 点击网页右下角浮动按钮<br>
+        • 在书签管理器中批量添加
+    </div>
+
+    <div class="section-title">🔖 本地书签</div>
 
     <div class="buttons">
-        <button class="btn-secondary" id="openNav" style="width: 100%;">🌐 访问导航站</button>
-        <button class="btn-bookmarks" id="openBookmarks" style="width: 100%;">📚 书签管理器</button>
+        <button class="btn-bookmarks" id="openBookmarks">📚 书签管理器</button>
     </div>
 
     <div class="footer">v1.3.0</div>

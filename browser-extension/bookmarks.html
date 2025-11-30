@@ -118,6 +118,7 @@
                 <input type="checkbox" id="autoSortEnabled">
                 <span>自动排序</span>
             </label>
+            <button class="btn btn-primary" id="btnNavSettings" title="导航页设置">🚀 导航页设置</button>
             <button class="btn btn-secondary" id="btnShowShortcuts" title="查看快捷键">⌨️</button>
         </div>
         
@@ -407,6 +408,61 @@
                 <div class="modal-footer-right">
                     <button class="btn btn-secondary" id="btnCancelAddToNav">取消</button>
                     <button class="btn btn-primary" id="btnConfirmAddToNav">确认添加</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 导航页设置弹窗 -->
+    <div class="modal" id="navSettingsModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🚀 导航页设置</h3>
+                <button class="modal-close" id="navSettingsClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>导航站地址</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="navSettingsUrl" placeholder="例如: http://localhost:3000" style="flex: 1;">
+                        <button class="btn btn-secondary" id="btnTestConnection">测试连接</button>
+                    </div>
+                    <div id="connectionStatus" style="font-size: 12px; margin-top: 4px; color: #666;"></div>
+                </div>
+                <div class="form-group">
+                    <label>默认快速添加分类</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="defaultMenuSelect" style="flex: 1; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                            <option value="">-- 请先测试连接 --</option>
+                        </select>
+                        <button class="btn btn-secondary" id="btnNewMenuFromSettings">+ 新建</button>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>默认子分类（可选）</label>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="defaultSubMenuSelect" style="flex: 1; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                            <option value="">-- 不使用子分类 --</option>
+                        </select>
+                        <button class="btn btn-secondary" id="btnNewSubMenuFromSettings">+ 新建</button>
+                    </div>
+                </div>
+                <div style="background: #f0f7ff; border-radius: 8px; padding: 12px; margin-top: 16px;">
+                    <div style="font-size: 13px; font-weight: 500; color: #1e40af; margin-bottom: 8px;">💡 使用说明</div>
+                    <div style="font-size: 12px; color: #3b82f6; line-height: 1.6;">
+                        • 右键点击网页 → 快速添加到默认分类<br>
+                        • 网页右下角浮动按钮 → 点击快速添加<br>
+                        • 选择书签后点击工具栏按钮批量添加
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <span id="navSettingsStatus" style="font-size: 13px; color: #666;"></span>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" id="btnCancelNavSettings">取消</button>
+                    <button class="btn btn-primary" id="btnSaveNavSettings">保存设置</button>
                 </div>
             </div>
         </div>
