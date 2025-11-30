@@ -2161,24 +2161,24 @@ function showInvalidLinksResult(invalidLinks, filter = 'all') {
         <div style="margin-bottom: 16px;">
             <!-- 统计卡片 -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-bottom: 16px;">
-                <div onclick="filterInvalidLinks('all')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'all' ? 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);' : 'background: #f3f4f6; color: #374151;'}">
+                <div class="filter-card" data-filter="all" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'all' ? 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);' : 'background: #f3f4f6; color: #374151;'}">
                     <div style="font-size: 24px; font-weight: bold;">${invalidLinks.length}</div>
                     <div style="font-size: 11px; opacity: 0.9;">全部</div>
                 </div>
-                <div onclick="filterInvalidLinks('nxdomain')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'nxdomain' ? 'background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);' : 'background: #fee2e2; color: #dc2626;'}">
+                <div class="filter-card" data-filter="nxdomain" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'nxdomain' ? 'background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);' : 'background: #fee2e2; color: #dc2626;'}">
                     <div style="font-size: 24px; font-weight: bold;">${dnsNxdomainItems.length}</div>
                     <div style="font-size: 11px; opacity: 0.9;">🔴 域名不存在</div>
                 </div>
-                <div onclick="filterInvalidLinks('dns_ok')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_ok' ? 'background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);' : 'background: #fef3c7; color: #d97706;'}">
+                <div class="filter-card" data-filter="dns_ok" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_ok' ? 'background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);' : 'background: #fef3c7; color: #d97706;'}">
                     <div style="font-size: 24px; font-weight: bold;">${dnsOkItems.length}</div>
                     <div style="font-size: 11px; opacity: 0.9;">🟡 HTTP失败</div>
                 </div>
-                <div onclick="filterInvalidLinks('timeout')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'timeout' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);' : 'background: #f3f4f6; color: #6b7280;'}">
+                <div class="filter-card" data-filter="timeout" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'timeout' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);' : 'background: #f3f4f6; color: #6b7280;'}">
                     <div style="font-size: 24px; font-weight: bold;">${timeoutItems.length}</div>
                     <div style="font-size: 11px; opacity: 0.9;">⏱️ 超时</div>
                 </div>
                 ${dnsFailedItems.length > 0 ? `
-                <div onclick="filterInvalidLinks('dns_failed')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_failed' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white;' : 'background: #e5e7eb; color: #6b7280;'}">
+                <div class="filter-card" data-filter="dns_failed" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_failed' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white;' : 'background: #e5e7eb; color: #6b7280;'}">
                     <div style="font-size: 24px; font-weight: bold;">${dnsFailedItems.length}</div>
                     <div style="font-size: 11px; opacity: 0.9;">⚪ DNS失败</div>
                 </div>
@@ -2195,7 +2195,10 @@ function showInvalidLinksResult(invalidLinks, filter = 'all') {
                     <button class="btn btn-small btn-secondary" id="btnSelectAllCurrent" title="全选当前列表">
                         ☑️ 全选
                     </button>
-                    <button class="btn btn-small btn-secondary" id="btnRefreshCheck" title="重新检测">
+                    <button class="btn btn-small btn-secondary" id="btnRecheckSelected" title="重新检测选中的链接" style="display: none;">
+                        🔍 检测选中
+                    </button>
+                    <button class="btn btn-small btn-secondary" id="btnRefreshCheck" title="重新检测全部">
                         🔄 重新检测
                     </button>
                 </div>
@@ -2222,14 +2225,15 @@ function showInvalidLinksResult(invalidLinks, filter = 'all') {
             const statusBg = item.dnsStatus === 'nxdomain' ? '#fef2f2' : 
                             item.dnsStatus === 'ok' ? '#fffbeb' : '#f9fafb';
             html += `
-                <div class="result-item" data-bookmark-id="${item.bookmark.id}" data-dns-status="${item.dnsStatus || ''}" style="border-left: 3px solid ${statusColor}; background: ${statusBg}; margin-bottom: 8px; border-radius: 8px;">
+                <div class="result-item" data-bookmark-id="${item.bookmark.id}" data-bookmark-url="${escapeHtml(item.bookmark.url)}" data-dns-status="${item.dnsStatus || ''}" style="border-left: 3px solid ${statusColor}; background: ${statusBg}; margin-bottom: 8px; border-radius: 8px;">
                     <input type="checkbox" class="result-checkbox" style="width: 18px; height: 18px;">
-                    <div class="result-info" style="flex: 1; min-width: 0;">
-                        <div class="result-title" style="font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.bookmark.title)}</div>
-                        <div class="result-url" style="font-size: 12px; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.bookmark.url)}</div>
+                    <div class="result-info" style="flex: 1; min-width: 0; cursor: pointer;" title="点击打开链接">
+                        <div class="result-title bookmark-link" data-url="${escapeHtml(item.bookmark.url)}" style="font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer;">${escapeHtml(item.bookmark.title)}</div>
+                        <div class="result-url bookmark-link" data-url="${escapeHtml(item.bookmark.url)}" style="font-size: 12px; color: #6366f1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; text-decoration: underline;">${escapeHtml(item.bookmark.url)}</div>
                     </div>
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 12px; padding: 4px 8px; border-radius: 4px; background: ${statusColor}20; color: ${statusColor}; font-weight: 500;">${item.error || '无效'}</span>
+                        <button class="btn-icon btn-open-link" data-url="${escapeHtml(item.bookmark.url)}" title="在新标签页打开" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #6366f1; font-size: 14px;">🔗</button>
                         <button class="btn-icon btn-delete-single" data-id="${item.bookmark.id}" title="删除此书签" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #dc2626; font-size: 14px;">🗑️</button>
                     </div>
                 </div>
@@ -2247,10 +2251,20 @@ function showInvalidLinksResult(invalidLinks, filter = 'all') {
 
 // 绑定无效链接操作按钮
 function bindInvalidLinksActions(invalidLinks, currentFilter) {
+    // 绑定分类卡片点击事件
+    document.querySelectorAll('.filter-card').forEach(card => {
+        card.addEventListener('click', () => {
+            const filter = card.dataset.filter;
+            if (filter) {
+                window.filterInvalidLinks(filter);
+            }
+        });
+    });
+    
     // 全选当前列表
     const btnSelectAllCurrent = document.getElementById('btnSelectAllCurrent');
     if (btnSelectAllCurrent) {
-        btnSelectAllCurrent.onclick = () => {
+        btnSelectAllCurrent.addEventListener('click', () => {
             const checkboxes = document.querySelectorAll('.result-item .result-checkbox');
             const allChecked = Array.from(checkboxes).every(cb => cb.checked);
             checkboxes.forEach(cb => {
@@ -2259,22 +2273,109 @@ function bindInvalidLinksActions(invalidLinks, currentFilter) {
             updateResultSelection();
             // 更新按钮文字
             btnSelectAllCurrent.textContent = allChecked ? '☑️ 全选' : '☐ 取消全选';
-        };
+        });
     }
     
-    // 重新检测
+    // 重新检测全部
     const btnRefreshCheck = document.getElementById('btnRefreshCheck');
     if (btnRefreshCheck) {
-        btnRefreshCheck.onclick = async () => {
+        btnRefreshCheck.addEventListener('click', async () => {
             await clearInvalidLinksCache();
             document.getElementById('resultModal').classList.remove('active');
             showCheckOptions();
-        };
+        });
     }
+    
+    // 重新检测选中的链接
+    const btnRecheckSelected = document.getElementById('btnRecheckSelected');
+    if (btnRecheckSelected) {
+        btnRecheckSelected.addEventListener('click', async () => {
+            const selectedItems = document.querySelectorAll('.result-item .result-checkbox:checked');
+            if (selectedItems.length === 0) {
+                alert('请先选择要重新检测的链接');
+                return;
+            }
+            
+            // 收集选中的书签URL和ID
+            const selectedBookmarks = [];
+            selectedItems.forEach(checkbox => {
+                const item = checkbox.closest('.result-item');
+                const bookmarkId = item.dataset.bookmarkId;
+                const url = item.dataset.bookmarkUrl;
+                if (bookmarkId && url) {
+                    selectedBookmarks.push({ id: bookmarkId, url });
+                }
+            });
+            
+            if (selectedBookmarks.length === 0) return;
+            
+            // 显示检测进度
+            btnRecheckSelected.disabled = true;
+            btnRecheckSelected.textContent = '🔄 检测中...';
+            
+            try {
+                // 重新检测选中的链接
+                const recheckResults = await recheckSelectedLinks(selectedBookmarks);
+                
+                // 更新缓存中的结果
+                if (cachedInvalidLinks) {
+                    for (const result of recheckResults) {
+                        const index = cachedInvalidLinks.findIndex(item => item.bookmark.id === result.bookmarkId);
+                        if (result.isValid) {
+                            // 链接现在有效，从缓存中移除
+                            if (index !== -1) {
+                                cachedInvalidLinks.splice(index, 1);
+                            }
+                        } else if (index !== -1) {
+                            // 更新错误信息
+                            cachedInvalidLinks[index].error = result.error;
+                            cachedInvalidLinks[index].dnsStatus = result.dnsStatus;
+                        }
+                    }
+                    saveInvalidLinksCache(cachedInvalidLinks);
+                }
+                
+                // 刷新显示
+                const validCount = recheckResults.filter(r => r.isValid).length;
+                if (validCount > 0) {
+                    alert(`检测完成！${validCount} 个链接现在有效，已从列表中移除。`);
+                }
+                showInvalidLinksResult(cachedInvalidLinks, currentInvalidFilter);
+                
+            } catch (error) {
+                alert('检测失败: ' + error.message);
+            } finally {
+                btnRecheckSelected.disabled = false;
+                btnRecheckSelected.textContent = '🔍 检测选中';
+            }
+        });
+    }
+    
+    // 链接点击打开
+    document.querySelectorAll('.bookmark-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = link.dataset.url;
+            if (url) {
+                chrome.tabs.create({ url, active: false });
+            }
+        });
+    });
+    
+    // 打开链接按钮
+    document.querySelectorAll('.btn-open-link').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const url = btn.dataset.url;
+            if (url) {
+                chrome.tabs.create({ url, active: true });
+            }
+        });
+    });
     
     // 单个删除按钮
     document.querySelectorAll('.btn-delete-single').forEach(btn => {
-        btn.onclick = async (e) => {
+        btn.addEventListener('click', async (e) => {
             e.stopPropagation();
             const bookmarkId = btn.dataset.id;
             const item = btn.closest('.result-item');
@@ -2310,7 +2411,7 @@ function bindInvalidLinksActions(invalidLinks, currentFilter) {
                 item.style.transform = 'translateX(0)';
                 alert('删除失败: ' + error.message);
             }
-        };
+        });
     });
 }
 
@@ -2342,6 +2443,39 @@ window.filterInvalidLinks = function(filter) {
         showInvalidLinksResult(cachedInvalidLinks, filter);
     }
 };
+
+// 重新检测选中的链接
+async function recheckSelectedLinks(selectedBookmarks) {
+    const results = [];
+    
+    for (const bookmark of selectedBookmarks) {
+        try {
+            // 清除该URL的缓存
+            urlCheckCache.delete(bookmark.url);
+            
+            // 重新检测
+            const checkResult = await checkLinkWithDns({ url: bookmark.url });
+            
+            results.push({
+                bookmarkId: bookmark.id,
+                url: bookmark.url,
+                isValid: checkResult.valid,
+                error: checkResult.error,
+                dnsStatus: checkResult.dnsStatus
+            });
+        } catch (error) {
+            results.push({
+                bookmarkId: bookmark.id,
+                url: bookmark.url,
+                isValid: false,
+                error: error.message,
+                dnsStatus: 'error'
+            });
+        }
+    }
+    
+    return results;
+}
 
 function getDnsStatusBadge(status, message) {
     if (!status || status === 'skip') return '';
@@ -2521,6 +2655,7 @@ function updateResultSelection() {
     const selectAll = document.getElementById('resultSelectAll');
     const countSpan = document.getElementById('resultSelectedCount');
     const deleteBtn = document.getElementById('btnDeleteSelectedResults');
+    const recheckBtn = document.getElementById('btnRecheckSelected');
     
     selectAll.checked = checkboxes.length > 0 && checked.length === checkboxes.length;
     
@@ -2528,9 +2663,17 @@ function updateResultSelection() {
         countSpan.textContent = `已选 ${checked.length} 项`;
         deleteBtn.style.display = 'block';
         deleteBtn.textContent = `删除选中 (${checked.length})`;
+        // 显示重新检测选中按钮
+        if (recheckBtn) {
+            recheckBtn.style.display = 'inline-block';
+        }
     } else {
         countSpan.textContent = '';
         deleteBtn.style.display = 'none';
+        // 隐藏重新检测选中按钮
+        if (recheckBtn) {
+            recheckBtn.style.display = 'none';
+        }
     }
 }
 
@@ -3863,11 +4006,36 @@ async function quickAddToNav() {
     
     // 直接添加
     try {
-        const cards = bookmarksToAdd.map(bookmark => ({
-            title: bookmark.title || '无标题',
-            url: bookmark.url,
-            logo: getNavFaviconUrl(bookmark.url),
-            description: ''
+        // 获取服务器上已有的标签
+        let existingTags = [];
+        try {
+            const tagsResponse = await fetch(`${navServerUrl}/api/tags`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (tagsResponse.ok) {
+                existingTags = await tagsResponse.json();
+            }
+        } catch (e) {}
+        
+        // 构建卡片数据（包含自动生成的标签和描述）
+        const cards = await Promise.all(bookmarksToAdd.map(async bookmark => {
+            let domain = '';
+            try {
+                domain = new URL(bookmark.url).hostname.replace(/^www\./, '');
+            } catch (e) {}
+            
+            const title = truncateText(bookmark.title || domain || '无标题', 20);
+            const description = generateDescription(bookmark.title, domain);
+            const tagNames = generateTagNames(bookmark.url, bookmark.title);
+            const tagIds = await getOrCreateTagIds(tagNames, existingTags, token);
+            
+            return {
+                title,
+                url: bookmark.url,
+                logo: getNavFaviconUrl(bookmark.url),
+                description,
+                tagIds
+            };
         }));
         
         const response = await fetch(`${navServerUrl}/api/batch/add`, {
@@ -4007,21 +4175,36 @@ function renderPendingNavBookmarks() {
     
     container.innerHTML = pendingNavBookmarks.map((bookmark, index) => `
         <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #f0f0f0;">
-            <img src="${getFaviconUrl(bookmark.url)}" style="width: 16px; height: 16px;" onerror="this.src='icons/icon16.png'">
+            <img class="pending-favicon" data-url="${escapeHtml(bookmark.url)}" src="${getFaviconUrl(bookmark.url)}" style="width: 16px; height: 16px;">
             <div style="flex: 1; min-width: 0;">
                 <div style="font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(bookmark.title || '无标题')}</div>
                 <div style="font-size: 11px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(bookmark.url)}</div>
             </div>
-            <button class="btn btn-small btn-secondary" onclick="removePendingNavBookmark(${index})" title="移除">✕</button>
+            <button class="btn btn-small btn-secondary btn-remove-pending" data-index="${index}" title="移除">✕</button>
         </div>
     `).join('');
+    
+    // 绑定favicon错误处理
+    container.querySelectorAll('.pending-favicon').forEach(img => {
+        img.addEventListener('error', () => {
+            img.src = 'icons/icon16.png';
+        });
+    });
+    
+    // 绑定移除按钮事件
+    container.querySelectorAll('.btn-remove-pending').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const index = parseInt(btn.dataset.index, 10);
+            removePendingNavBookmark(index);
+        });
+    });
 }
 
-// 移除待添加的书签（暴露到全局以便onclick调用）
-window.removePendingNavBookmark = function(index) {
+// 移除待添加的书签
+function removePendingNavBookmark(index) {
     pendingNavBookmarks.splice(index, 1);
     renderPendingNavBookmarks();
-};
+}
 
 // 关闭添加到导航页弹窗
 function closeAddToNavModal() {
@@ -4347,21 +4530,50 @@ async function confirmAddToNav() {
     document.getElementById('btnConfirmAddToNav').disabled = true;
     
     try {
-        // 直接使用本地书签信息构建卡片（不调用parse API）
-        const cards = pendingNavBookmarks.map(bookmark => {
+        // 获取服务器上已有的标签
+        let existingTags = [];
+        try {
+            const tagsResponse = await fetch(`${navServerUrl}/api/tags`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (tagsResponse.ok) {
+                existingTags = await tagsResponse.json();
+            }
+        } catch (e) {
+            console.log('获取标签失败，将不使用标签:', e);
+        }
+        
+        // 构建卡片数据（包含自动生成的标签和描述）
+        const cards = await Promise.all(pendingNavBookmarks.map(async bookmark => {
             let logo = '';
+            let domain = '';
             try {
                 const urlObj = new URL(bookmark.url);
                 logo = `https://api.xinac.net/icon/?url=${urlObj.origin}&sz=128`;
+                domain = urlObj.hostname.replace(/^www\./, '');
             } catch (e) {}
             
+            // 自动生成标题（限制20字符）
+            let title = (bookmark.title || domain || '无标题').trim();
+            title = truncateText(title, 20);
+            
+            // 自动生成描述（基于标题和域名，限制100字符）
+            const description = generateDescription(bookmark.title, domain);
+            
+            // 自动生成标签名称（限制8字符）
+            const tagNames = generateTagNames(bookmark.url, bookmark.title);
+            
+            // 查找或创建标签，获取tagIds
+            const tagIds = await getOrCreateTagIds(tagNames, existingTags, token);
+            
             return {
-                title: bookmark.title || '无标题',
+                title,
                 url: bookmark.url,
-                logo: logo,
-                description: ''
+                logo,
+                description,
+                tagIds
             };
-        });
+        }));
         
         document.getElementById('navAddStatus').textContent = '正在添加到导航页...';
         
@@ -4421,6 +4633,181 @@ async function confirmAddToNav() {
     } finally {
         document.getElementById('btnConfirmAddToNav').disabled = false;
     }
+}
+
+// 截断文本到指定长度
+function truncateText(text, maxLength) {
+    if (!text) return '';
+    text = text.trim();
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength - 1) + '…';
+}
+
+// 自动生成描述
+function generateDescription(title, domain) {
+    if (!title && !domain) return '';
+    
+    let desc = '';
+    if (title) {
+        // 清理标题中的特殊字符和多余空格
+        desc = title.replace(/[\|\-–—_]/g, ' ').replace(/\s+/g, ' ').trim();
+    }
+    
+    if (domain && !desc.toLowerCase().includes(domain.toLowerCase())) {
+        desc = desc ? `${desc} - ${domain}` : domain;
+    }
+    
+    // 限制100字符
+    return truncateText(desc, 100);
+}
+
+// 自动生成标签名称
+function generateTagNames(url, title) {
+    const tags = [];
+    
+    try {
+        const urlObj = new URL(url);
+        const domain = urlObj.hostname.replace(/^www\./, '');
+        const pathname = urlObj.pathname.toLowerCase();
+        
+        // 常见网站分类映射
+        const domainTagMap = {
+            'github.com': '开发',
+            'gitlab.com': '开发',
+            'stackoverflow.com': '技术',
+            'youtube.com': '视频',
+            'bilibili.com': '视频',
+            'zhihu.com': '问答',
+            'juejin.cn': '技术',
+            'csdn.net': '技术',
+            'cnblogs.com': '技术',
+            'segmentfault.com': '技术',
+            'medium.com': '博客',
+            'dev.to': '技术',
+            'twitter.com': '社交',
+            'x.com': '社交',
+            'facebook.com': '社交',
+            'linkedin.com': '职场',
+            'reddit.com': '社区',
+            'v2ex.com': '社区',
+            'taobao.com': '购物',
+            'jd.com': '购物',
+            'amazon.com': '购物',
+            'tmall.com': '购物',
+            'douban.com': '影视',
+            'imdb.com': '影视',
+            'netflix.com': '影视',
+            'spotify.com': '音乐',
+            'music.163.com': '音乐',
+            'wikipedia.org': '百科',
+            'baike.baidu.com': '百科',
+            'notion.so': '工具',
+            'figma.com': '设计',
+            'dribbble.com': '设计',
+            'behance.net': '设计',
+            'unsplash.com': '图片',
+            'pexels.com': '图片',
+            'google.com': '搜索',
+            'baidu.com': '搜索',
+            'bing.com': '搜索'
+        };
+        
+        // 根据域名添加标签
+        for (const [site, tag] of Object.entries(domainTagMap)) {
+            if (domain.includes(site) || domain.endsWith('.' + site.split('.')[0])) {
+                tags.push(tag);
+                break;
+            }
+        }
+        
+        // 根据路径关键词添加标签
+        const pathKeywords = {
+            '/doc': '文档',
+            '/docs': '文档',
+            '/api': 'API',
+            '/blog': '博客',
+            '/news': '新闻',
+            '/tool': '工具',
+            '/download': '下载',
+            '/learn': '学习',
+            '/tutorial': '教程',
+            '/course': '课程'
+        };
+        
+        for (const [path, tag] of Object.entries(pathKeywords)) {
+            if (pathname.includes(path)) {
+                if (!tags.includes(tag)) tags.push(tag);
+                break;
+            }
+        }
+        
+        // 根据标题关键词添加标签
+        if (title) {
+            const titleLower = title.toLowerCase();
+            const titleKeywords = {
+                '文档': '文档',
+                'doc': '文档',
+                'api': 'API',
+                '教程': '教程',
+                'tutorial': '教程',
+                '工具': '工具',
+                'tool': '工具',
+                '下载': '下载',
+                'download': '下载',
+                '官网': '官网',
+                'official': '官网'
+            };
+            
+            for (const [keyword, tag] of Object.entries(titleKeywords)) {
+                if (titleLower.includes(keyword) && !tags.includes(tag)) {
+                    tags.push(tag);
+                    break;
+                }
+            }
+        }
+        
+    } catch (e) {}
+    
+    // 限制最多2个标签，每个标签最多8字符
+    return tags.slice(0, 2).map(tag => truncateText(tag, 8));
+}
+
+// 获取或创建标签ID
+async function getOrCreateTagIds(tagNames, existingTags, token) {
+    if (!tagNames || tagNames.length === 0) return [];
+    
+    const tagIds = [];
+    
+    for (const tagName of tagNames) {
+        // 查找已存在的标签
+        const existing = existingTags.find(t => t.name === tagName);
+        if (existing) {
+            tagIds.push(existing.id);
+        } else {
+            // 创建新标签
+            try {
+                const response = await fetch(`${navServerUrl}/api/tags`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: tagName })
+                });
+                
+                if (response.ok) {
+                    const newTag = await response.json();
+                    tagIds.push(newTag.id);
+                    // 添加到缓存避免重复创建
+                    existingTags.push({ id: newTag.id, name: tagName });
+                }
+            } catch (e) {
+                console.log('创建标签失败:', tagName, e);
+            }
+        }
+    }
+    
+    return tagIds;
 }
 
 
