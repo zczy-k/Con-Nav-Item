@@ -34,6 +34,9 @@ Thumbs.db
 .env.local
 .env.*.local
 
+# Security secrets
+config/.jwt-secret
+
 # IDE
 .vscode/
 .idea/
