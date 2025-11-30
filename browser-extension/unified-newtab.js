@@ -158,24 +158,13 @@ function handleSearchKeydown(e) {
     }
 }
 
-// 统一搜索
+// 统一搜索（支持拼音）
 function search(query) {
-    const q = query.toLowerCase();
+    // 使用拼音搜索过滤卡片
+    const cards = filterCardsWithPinyin(allCards, query).slice(0, 5);
     
-    // 搜索卡片
-    const cards = allCards.filter(card => {
-        const title = (card.title || '').toLowerCase();
-        const url = (card.url || '').toLowerCase();
-        const desc = (card.desc || '').toLowerCase();
-        return title.includes(q) || url.includes(q) || desc.includes(q);
-    }).slice(0, 5);
-    
-    // 搜索书签
-    const bookmarks = allBookmarks.filter(b => {
-        const title = (b.title || '').toLowerCase();
-        const url = (b.url || '').toLowerCase();
-        return title.includes(q) || url.includes(q);
-    }).slice(0, 5);
+    // 使用拼音搜索过滤书签
+    const bookmarks = filterBookmarksWithPinyin(allBookmarks, query).slice(0, 5);
     
     return { cards, bookmarks };
 }
