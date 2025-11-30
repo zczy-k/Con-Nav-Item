@@ -5415,7 +5415,7 @@ async function confirmImportFolder() {
             const title = truncateText(bookmark.title || domain || '无标题', 20);
             const description = generateDescription(bookmark.title, domain);
             const tagNames = generateTagNames(bookmark.url, bookmark.title);
-            const tagIds = await getOrCreateTagIds(tagNames, existingTags, token);
+            const tagIds = await getOrCreateTagIds(tagNames, existingTags);
             
             return {
                 title,
