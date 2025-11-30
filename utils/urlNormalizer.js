@@ -74,14 +74,19 @@ function isDuplicateCard(card1, card2) {
     return true;
   }
 
-  // 2. 标题相同且域名相同
-  const title1 = (card1.title || '').trim().toLowerCase();
-  const title2 = (card2.title || '').trim().toLowerCase();
+  // 2. 域名相同即视为重复（防止同一网站不同页面重复添加）
   const domain1 = extractDomain(card1.url);
   const domain2 = extractDomain(card2.url);
   
-  if (title1 && title2 && title1 === title2 && 
-      domain1 && domain2 && domain1 === domain2) {
+  if (domain1 && domain2 && domain1 === domain2) {
+    return true;
+  }
+
+  // 3. 标题完全相同也视为重复
+  const title1 = (card1.title || '').trim().toLowerCase();
+  const title2 = (card2.title || '').trim().toLowerCase();
+  
+  if (title1 && title2 && title1.length > 3 && title1 === title2) {
     return true;
   }
 
