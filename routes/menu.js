@@ -100,10 +100,60 @@ router.put('/:id', auth, (req, res) => {
 });
 
 router.delete('/:id', auth, (req, res) => {
-  db.run('DELETE FROM menus WHERE id=?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({error: err.message});
-    triggerDebouncedBackup(); // 触发自动备份
-    res.json({ deleted: this.changes });
+  const menuId = req.params.id;
+  
+  // 使用事务确保数据一致性
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION', (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      // 1. 删除该菜单下所有卡片的标签关联
+      db.run('DELETE FROM card_tags WHERE card_id IN (SELECT id FROM cards WHERE menu_id = ?)', [menuId], (err) => {
+        if (err) {
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: '删除卡片标签失败: ' + err.message });
+        }
+        
+        // 2. 删除该菜单下的所有卡片
+        db.run('DELETE FROM cards WHERE menu_id = ?', [menuId], function(err) {
+          if (err) {
+            db.run('ROLLBACK');
+            return res.status(500).json({ error: '删除卡片失败: ' + err.message });
+          }
+          
+          const deletedCards = this.changes;
+          
+          // 3. 删除该菜单下的所有子菜单
+          db.run('DELETE FROM sub_menus WHERE parent_id = ?', [menuId], function(err) {
+            if (err) {
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: '删除子菜单失败: ' + err.message });
+            }
+            
+            const deletedSubMenus = this.changes;
+            
+            // 4. 删除菜单本身
+            db.run('DELETE FROM menus WHERE id = ?', [menuId], function(err) {
+              if (err) {
+                db.run('ROLLBACK');
+                return res.status(500).json({ error: '删除菜单失败: ' + err.message });
+              }
+              
+              db.run('COMMIT', (err) => {
+                if (err) return res.status(500).json({ error: '提交事务失败: ' + err.message });
+                
+                triggerDebouncedBackup();
+                res.json({ 
+                  deleted: this.changes,
+                  deletedCards: deletedCards,
+                  deletedSubMenus: deletedSubMenus
+                });
+              });
+            });
+          });
+        });
+      });
+    });
   });
 });
 
@@ -128,10 +178,49 @@ router.put('/submenus/:id', auth, (req, res) => {
 });
 
 router.delete('/submenus/:id', auth, (req, res) => {
-  db.run('DELETE FROM sub_menus WHERE id=?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({error: err.message});
-    triggerDebouncedBackup(); // 触发自动备份
-    res.json({ deleted: this.changes });
+  const subMenuId = req.params.id;
+  
+  // 使用事务确保数据一致性
+  db.serialize(() => {
+    db.run('BEGIN TRANSACTION', (err) => {
+      if (err) return res.status(500).json({ error: err.message });
+      
+      // 1. 删除该子菜单下所有卡片的标签关联
+      db.run('DELETE FROM card_tags WHERE card_id IN (SELECT id FROM cards WHERE sub_menu_id = ?)', [subMenuId], (err) => {
+        if (err) {
+          db.run('ROLLBACK');
+          return res.status(500).json({ error: '删除卡片标签失败: ' + err.message });
+        }
+        
+        // 2. 删除该子菜单下的所有卡片
+        db.run('DELETE FROM cards WHERE sub_menu_id = ?', [subMenuId], function(err) {
+          if (err) {
+            db.run('ROLLBACK');
+            return res.status(500).json({ error: '删除卡片失败: ' + err.message });
+          }
+          
+          const deletedCards = this.changes;
+          
+          // 3. 删除子菜单本身
+          db.run('DELETE FROM sub_menus WHERE id = ?', [subMenuId], function(err) {
+            if (err) {
+              db.run('ROLLBACK');
+              return res.status(500).json({ error: '删除子菜单失败: ' + err.message });
+            }
+            
+            db.run('COMMIT', (err) => {
+              if (err) return res.status(500).json({ error: '提交事务失败: ' + err.message });
+              
+              triggerDebouncedBackup();
+              res.json({ 
+                deleted: this.changes,
+                deletedCards: deletedCards
+              });
+            });
+          });
+        });
+      });
+    });
   });
 });
 
