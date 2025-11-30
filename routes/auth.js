@@ -73,7 +73,8 @@ router.post('/verify-password', loginLimiter, (req, res) => {
     return res.status(400).json({ error: '请输入密码' });
   }
   
-  if (password.length > 128) {
+  // 密码长度验证（防止暴力破解和DoS）
+  if (password.length < 1 || password.length > 128) {
     return res.status(400).json({ error: '密码格式无效' });
   }
   
