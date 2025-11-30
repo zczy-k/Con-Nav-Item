@@ -2109,8 +2109,12 @@ async function clearInvalidLinksCache() {
     await chrome.storage.local.remove(['invalidLinksCache', 'invalidLinksCacheTime']);
 }
 
+// 当前筛选状态
+let currentInvalidFilter = 'all';
+
 function showInvalidLinksResult(invalidLinks, filter = 'all') {
     const resultList = document.getElementById('resultList');
+    currentInvalidFilter = filter;
     
     // 保存到缓存
     if (invalidLinks && invalidLinks.length > 0) {
@@ -2124,117 +2128,134 @@ function showInvalidLinksResult(invalidLinks, filter = 'all') {
     }
     
     // 分类统计
-    const dnsOkItems = invalidLinks.filter(item => item.dnsStatus === 'ok');
     const dnsNxdomainItems = invalidLinks.filter(item => item.dnsStatus === 'nxdomain');
-    const dnsFailedItems = invalidLinks.filter(item => item.dnsStatus === 'failed' || item.dnsStatus === 'error');
+    const dnsOkItems = invalidLinks.filter(item => item.dnsStatus === 'ok');
     const timeoutItems = invalidLinks.filter(item => item.error === '超时');
+    const dnsFailedItems = invalidLinks.filter(item => item.dnsStatus === 'failed' || item.dnsStatus === 'error');
     
-    // 根据筛选条件过滤
+    // 根据筛选条件过滤显示的项目
     let filteredItems = invalidLinks;
-    if (filter === 'nxdomain') filteredItems = dnsNxdomainItems;
-    else if (filter === 'dns_ok') filteredItems = dnsOkItems;
-    else if (filter === 'dns_failed') filteredItems = dnsFailedItems;
-    else if (filter === 'timeout') filteredItems = timeoutItems;
+    let filterTitle = '全部问题链接';
+    if (filter === 'nxdomain') {
+        filteredItems = dnsNxdomainItems;
+        filterTitle = '域名不存在（可安全删除）';
+    } else if (filter === 'dns_ok') {
+        filteredItems = dnsOkItems;
+        filterTitle = 'DNS正常但HTTP失败（建议手动确认）';
+    } else if (filter === 'timeout') {
+        filteredItems = timeoutItems;
+        filterTitle = '连接超时（可能是网络问题）';
+    } else if (filter === 'dns_failed') {
+        filteredItems = dnsFailedItems;
+        filterTitle = 'DNS检测失败';
+    }
     
     // 缓存时间提示
     const cacheAge = cachedInvalidLinksTime ? Math.floor((Date.now() - cachedInvalidLinksTime) / 60000) : 0;
-    const cacheHint = cachedInvalidLinksTime ? `<span style="font-size: 11px; color: #999;">（${cacheAge}分钟前的结果）</span>` : '';
+    const cacheHint = cachedInvalidLinksTime ? `（${cacheAge}分钟前的结果）` : '';
     
     let html = `
         <div style="margin-bottom: 16px;">
-            <div style="color: #666; margin-bottom: 8px;">发现 ${invalidLinks.length} 个可能无效的链接 ${cacheHint}</div>
-            
-            <!-- 分类筛选按钮 -->
-            <div style="display: flex; gap: 8px; font-size: 12px; flex-wrap: wrap; margin-bottom: 12px;">
-                <button class="btn btn-small ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('all')">
-                    全部 (${invalidLinks.length})
-                </button>
-                ${dnsNxdomainItems.length > 0 ? `
-                    <button class="btn btn-small ${filter === 'nxdomain' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('nxdomain')" style="background: ${filter === 'nxdomain' ? '#dc2626' : '#fee2e2'}; color: ${filter === 'nxdomain' ? 'white' : '#dc2626'}; border: none;">
-                        🔴 域名不存在 (${dnsNxdomainItems.length})
-                    </button>
-                ` : ''}
-                ${dnsOkItems.length > 0 ? `
-                    <button class="btn btn-small ${filter === 'dns_ok' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('dns_ok')" style="background: ${filter === 'dns_ok' ? '#d97706' : '#fef3c7'}; color: ${filter === 'dns_ok' ? 'white' : '#d97706'}; border: none;">
-                        🟡 DNS正常HTTP失败 (${dnsOkItems.length})
-                    </button>
-                ` : ''}
-                ${timeoutItems.length > 0 ? `
-                    <button class="btn btn-small ${filter === 'timeout' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('timeout')" style="background: ${filter === 'timeout' ? '#6b7280' : '#f3f4f6'}; color: ${filter === 'timeout' ? 'white' : '#6b7280'}; border: none;">
-                        ⏱️ 超时 (${timeoutItems.length})
-                    </button>
-                ` : ''}
+            <!-- 统计卡片 -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); gap: 8px; margin-bottom: 16px;">
+                <div onclick="filterInvalidLinks('all')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'all' ? 'background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);' : 'background: #f3f4f6; color: #374151;'}">
+                    <div style="font-size: 24px; font-weight: bold;">${invalidLinks.length}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">全部</div>
+                </div>
+                <div onclick="filterInvalidLinks('nxdomain')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'nxdomain' ? 'background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color: white; box-shadow: 0 4px 12px rgba(220, 38, 38, 0.4);' : 'background: #fee2e2; color: #dc2626;'}">
+                    <div style="font-size: 24px; font-weight: bold;">${dnsNxdomainItems.length}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">🔴 域名不存在</div>
+                </div>
+                <div onclick="filterInvalidLinks('dns_ok')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_ok' ? 'background: linear-gradient(135deg, #d97706 0%, #b45309 100%); color: white; box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);' : 'background: #fef3c7; color: #d97706;'}">
+                    <div style="font-size: 24px; font-weight: bold;">${dnsOkItems.length}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">🟡 HTTP失败</div>
+                </div>
+                <div onclick="filterInvalidLinks('timeout')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'timeout' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white; box-shadow: 0 4px 12px rgba(107, 114, 128, 0.4);' : 'background: #f3f4f6; color: #6b7280;'}">
+                    <div style="font-size: 24px; font-weight: bold;">${timeoutItems.length}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">⏱️ 超时</div>
+                </div>
                 ${dnsFailedItems.length > 0 ? `
-                    <button class="btn btn-small ${filter === 'dns_failed' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('dns_failed')" style="background: ${filter === 'dns_failed' ? '#6b7280' : '#f3f4f6'}; color: ${filter === 'dns_failed' ? 'white' : '#6b7280'}; border: none;">
-                        ⚪ DNS检测失败 (${dnsFailedItems.length})
-                    </button>
+                <div onclick="filterInvalidLinks('dns_failed')" style="cursor: pointer; padding: 12px; border-radius: 8px; text-align: center; transition: all 0.2s; ${filter === 'dns_failed' ? 'background: linear-gradient(135deg, #6b7280 0%, #4b5563 100%); color: white;' : 'background: #e5e7eb; color: #6b7280;'}">
+                    <div style="font-size: 24px; font-weight: bold;">${dnsFailedItems.length}</div>
+                    <div style="font-size: 11px; opacity: 0.9;">⚪ DNS失败</div>
+                </div>
                 ` : ''}
             </div>
             
-            <!-- 智能操作按钮 -->
-            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <button class="btn btn-small btn-secondary" id="btnSelectNxdomain" ${dnsNxdomainItems.length === 0 ? 'disabled' : ''}>
-                    🎯 选择域名不存在 (${dnsNxdomainItems.length})
-                </button>
-                <button class="btn btn-small btn-secondary" id="btnSelectAllInvalid">
-                    ☑️ 全选当前列表
-                </button>
-                <button class="btn btn-small btn-secondary" id="btnRefreshCheck">
-                    🔄 重新检测
-                </button>
+            <!-- 当前筛选标题和操作 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding: 10px 12px; background: #f9fafb; border-radius: 8px;">
+                <div>
+                    <span style="font-weight: 600; color: #374151;">${filterTitle}</span>
+                    <span style="font-size: 12px; color: #9ca3af; margin-left: 8px;">${filteredItems.length} 项 ${cacheHint}</span>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-small btn-secondary" id="btnSelectAllCurrent" title="全选当前列表">
+                        ☑️ 全选
+                    </button>
+                    <button class="btn btn-small btn-secondary" id="btnRefreshCheck" title="重新检测">
+                        🔄 重新检测
+                    </button>
+                </div>
             </div>
-            <div style="font-size: 11px; color: #999; margin-top: 8px;">
-                💡 提示：🔴域名不存在 的链接可以安全删除；🟡DNS正常HTTP失败 可能是临时问题，建议手动确认
+            
+            <!-- 提示信息 -->
+            ${filter === 'all' ? `
+            <div style="font-size: 12px; color: #6b7280; margin-bottom: 12px; padding: 8px 12px; background: #fffbeb; border-radius: 6px; border-left: 3px solid #f59e0b;">
+                💡 点击上方分类卡片筛选查看，🔴域名不存在 的链接可安全删除
             </div>
+            ` : ''}
         </div>
+        
+        <!-- 列表项 -->
+        <div id="invalidLinksList">
     `;
     
-    for (const item of filteredItems) {
-        const dnsStatusBadge = getDnsStatusBadge(item.dnsStatus, item.dnsMessage);
-        const dangerClass = item.dnsStatus === 'nxdomain' ? 'style="border-left: 3px solid #dc2626;"' : '';
-        html += `
-            <div class="result-item" data-bookmark-id="${item.bookmark.id}" data-dns-status="${item.dnsStatus || ''}" ${dangerClass}>
-                <input type="checkbox" class="result-checkbox">
-                <div class="result-info">
-                    <div class="result-title">${escapeHtml(item.bookmark.title)}</div>
-                    <div class="result-url">${escapeHtml(item.bookmark.url)}</div>
-                    ${dnsStatusBadge ? `<div style="font-size: 11px; color: #999; margin-top: 4px;">${dnsStatusBadge}</div>` : ''}
+    if (filteredItems.length === 0) {
+        html += `<div style="text-align: center; padding: 40px; color: #9ca3af;">此分类下没有链接</div>`;
+    } else {
+        for (const item of filteredItems) {
+            const statusColor = item.dnsStatus === 'nxdomain' ? '#dc2626' : 
+                               item.dnsStatus === 'ok' ? '#d97706' : '#6b7280';
+            const statusBg = item.dnsStatus === 'nxdomain' ? '#fef2f2' : 
+                            item.dnsStatus === 'ok' ? '#fffbeb' : '#f9fafb';
+            html += `
+                <div class="result-item" data-bookmark-id="${item.bookmark.id}" data-dns-status="${item.dnsStatus || ''}" style="border-left: 3px solid ${statusColor}; background: ${statusBg}; margin-bottom: 8px; border-radius: 8px;">
+                    <input type="checkbox" class="result-checkbox" style="width: 18px; height: 18px;">
+                    <div class="result-info" style="flex: 1; min-width: 0;">
+                        <div class="result-title" style="font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.bookmark.title)}</div>
+                        <div class="result-url" style="font-size: 12px; color: #9ca3af; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(item.bookmark.url)}</div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; padding: 4px 8px; border-radius: 4px; background: ${statusColor}20; color: ${statusColor}; font-weight: 500;">${item.error || '无效'}</span>
+                        <button class="btn-icon btn-delete-single" data-id="${item.bookmark.id}" title="删除此书签" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #dc2626; font-size: 14px;">🗑️</button>
+                    </div>
                 </div>
-                <span class="result-status status-error">${item.error || '无效'}</span>
-            </div>
-        `;
+            `;
+        }
     }
+    
+    html += '</div>';
     
     resultList.innerHTML = html;
     showResultFooterActions();
     bindResultCheckboxes();
-    bindInvalidLinksActions(invalidLinks);
+    bindInvalidLinksActions(invalidLinks, filter);
 }
 
 // 绑定无效链接操作按钮
-function bindInvalidLinksActions(invalidLinks) {
-    // 选择域名不存在的
-    const btnSelectNxdomain = document.getElementById('btnSelectNxdomain');
-    if (btnSelectNxdomain) {
-        btnSelectNxdomain.onclick = () => {
-            document.querySelectorAll('.result-item').forEach(item => {
-                const checkbox = item.querySelector('.result-checkbox');
-                if (checkbox) {
-                    checkbox.checked = item.dataset.dnsStatus === 'nxdomain';
-                }
-            });
-            updateResultSelection();
-        };
-    }
-    
+function bindInvalidLinksActions(invalidLinks, currentFilter) {
     // 全选当前列表
-    const btnSelectAllInvalid = document.getElementById('btnSelectAllInvalid');
-    if (btnSelectAllInvalid) {
-        btnSelectAllInvalid.onclick = () => {
-            document.querySelectorAll('.result-item .result-checkbox').forEach(cb => {
-                cb.checked = true;
+    const btnSelectAllCurrent = document.getElementById('btnSelectAllCurrent');
+    if (btnSelectAllCurrent) {
+        btnSelectAllCurrent.onclick = () => {
+            const checkboxes = document.querySelectorAll('.result-item .result-checkbox');
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            checkboxes.forEach(cb => {
+                cb.checked = !allChecked;
             });
             updateResultSelection();
+            // 更新按钮文字
+            btnSelectAllCurrent.textContent = allChecked ? '☑️ 全选' : '☐ 取消全选';
         };
     }
     
@@ -2247,6 +2268,69 @@ function bindInvalidLinksActions(invalidLinks) {
             showCheckOptions();
         };
     }
+    
+    // 单个删除按钮
+    document.querySelectorAll('.btn-delete-single').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const bookmarkId = btn.dataset.id;
+            const item = btn.closest('.result-item');
+            const title = item.querySelector('.result-title')?.textContent || '此书签';
+            
+            if (!confirm(`确定要删除"${title}"吗？`)) return;
+            
+            try {
+                // 添加删除动画
+                item.style.transition = 'all 0.3s ease';
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(20px)';
+                
+                await chrome.bookmarks.remove(bookmarkId);
+                
+                // 从缓存中移除
+                if (cachedInvalidLinks) {
+                    cachedInvalidLinks = cachedInvalidLinks.filter(link => link.bookmark.id !== bookmarkId);
+                    saveInvalidLinksCache(cachedInvalidLinks);
+                }
+                
+                // 延迟后移除DOM元素并更新统计
+                setTimeout(() => {
+                    item.remove();
+                    // 更新统计数字
+                    updateInvalidLinksStats();
+                    // 刷新书签列表
+                    loadBookmarks();
+                }, 300);
+                
+            } catch (error) {
+                item.style.opacity = '1';
+                item.style.transform = 'translateX(0)';
+                alert('删除失败: ' + error.message);
+            }
+        };
+    });
+}
+
+// 更新无效链接统计数字
+function updateInvalidLinksStats() {
+    if (!cachedInvalidLinks) return;
+    
+    const invalidLinks = cachedInvalidLinks;
+    const dnsNxdomainItems = invalidLinks.filter(item => item.dnsStatus === 'nxdomain');
+    const dnsOkItems = invalidLinks.filter(item => item.dnsStatus === 'ok');
+    const timeoutItems = invalidLinks.filter(item => item.error === '超时');
+    const dnsFailedItems = invalidLinks.filter(item => item.dnsStatus === 'failed' || item.dnsStatus === 'error');
+    
+    // 如果所有链接都已删除
+    if (invalidLinks.length === 0) {
+        const resultList = document.getElementById('resultList');
+        resultList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>所有问题链接已清理完毕！</p></div>';
+        hideResultFooterActions();
+        return;
+    }
+    
+    // 重新渲染整个界面以更新统计
+    showInvalidLinksResult(invalidLinks, currentInvalidFilter);
 }
 
 // 筛选无效链接（全局函数供onclick调用）
@@ -2470,22 +2554,46 @@ async function deleteSelectedResults() {
     });
     
     try {
+        // 批量删除
         for (const id of ids) {
             await chrome.bookmarks.remove(id);
         }
         
-        // 移除已删除的项
+        // 从无效链接缓存中移除已删除的项
+        if (cachedInvalidLinks) {
+            cachedInvalidLinks = cachedInvalidLinks.filter(link => !ids.includes(link.bookmark.id));
+            saveInvalidLinksCache(cachedInvalidLinks);
+        }
+        
+        // 添加删除动画
         checked.forEach(cb => {
             const item = cb.closest('.result-item');
             if (item) {
-                item.style.transition = 'opacity 0.3s';
+                item.style.transition = 'all 0.3s ease';
                 item.style.opacity = '0';
-                setTimeout(() => item.remove(), 300);
+                item.style.transform = 'translateX(20px)';
             }
         });
         
-        await loadBookmarks();
-        updateResultSelection();
+        // 延迟后更新UI
+        setTimeout(async () => {
+            // 移除DOM元素
+            checked.forEach(cb => {
+                const item = cb.closest('.result-item');
+                if (item) item.remove();
+            });
+            
+            // 刷新书签列表
+            await loadBookmarks();
+            
+            // 更新统计数字（如果是无效链接检测结果）
+            if (cachedInvalidLinks !== null) {
+                updateInvalidLinksStats();
+            } else {
+                updateResultSelection();
+            }
+        }, 300);
+        
     } catch (error) {
         alert('删除失败: ' + error.message);
     }
