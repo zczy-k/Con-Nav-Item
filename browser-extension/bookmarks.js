@@ -1073,6 +1073,8 @@ function bindEvents() {
     document.getElementById('defaultMenuSelect').addEventListener('change', onDefaultMenuChange);
     document.getElementById('btnNewMenuFromSettings').addEventListener('click', () => showNewMenuModalFromSettings('menu'));
     document.getElementById('btnNewSubMenuFromSettings').addEventListener('click', () => showNewMenuModalFromSettings('submenu'));
+    document.getElementById('btnDeleteMenuFromSettings').addEventListener('click', deleteMenuFromSettings);
+    document.getElementById('btnDeleteSubMenuFromSettings').addEventListener('click', deleteSubMenuFromSettings);
     
     // 文件夹右键菜单
     document.getElementById('ctxFolderToNav').addEventListener('click', () => { hideFolderContextMenu(); showImportFolderModal(); });
@@ -4628,5 +4630,127 @@ async function confirmImportFolder() {
         statusDiv.innerHTML = `<span style="color: #dc2626;">导入失败: ${e.message}</span>`;
     } finally {
         confirmBtn.disabled = false;
+    }
+}
+
+
+// ==================== 删除菜单/子菜单 ====================
+
+// 删除主菜单
+async function deleteMenuFromSettings() {
+    const menuId = document.getElementById('defaultMenuSelect').value;
+    if (!menuId) {
+        alert('请先选择要删除的分类');
+        return;
+    }
+    
+    const menuSelect = document.getElementById('defaultMenuSelect');
+    const menuName = menuSelect.options[menuSelect.selectedIndex].text;
+    
+    // 二次确认
+    const confirmed = confirm(`⚠️ 确定要删除分类"${menuName}"吗？\n\n删除后该分类下的所有卡片也将被删除，此操作不可恢复！`);
+    if (!confirmed) return;
+    
+    // 再次确认
+    const doubleConfirmed = confirm(`⚠️ 再次确认：删除分类"${menuName}"及其所有内容？`);
+    if (!doubleConfirmed) return;
+    
+    // 验证密码
+    const token = await getNavAuthToken();
+    if (!token) return;
+    
+    const url = document.getElementById('navSettingsUrl').value.trim();
+    if (!url) {
+        alert('请先设置导航站地址');
+        return;
+    }
+    
+    const statusDiv = document.getElementById('navSettingsStatus');
+    statusDiv.innerHTML = '<span style="color: #666;">正在删除...</span>';
+    
+    try {
+        const serverUrl = url.replace(/\/$/, '');
+        const response = await fetch(`${serverUrl}/api/menus/${menuId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('删除失败');
+        }
+        
+        // 刷新分类列表
+        await loadSettingsMenus();
+        
+        // 刷新右键菜单
+        try {
+            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+        } catch (e) {}
+        
+        statusDiv.innerHTML = '<span style="color: #059669;">✓ 分类已删除</span>';
+    } catch (e) {
+        statusDiv.innerHTML = `<span style="color: #dc2626;">删除失败: ${e.message}</span>`;
+    }
+}
+
+// 删除子菜单
+async function deleteSubMenuFromSettings() {
+    const subMenuId = document.getElementById('defaultSubMenuSelect').value;
+    if (!subMenuId) {
+        alert('请先选择要删除的子分类');
+        return;
+    }
+    
+    const subMenuSelect = document.getElementById('defaultSubMenuSelect');
+    const subMenuName = subMenuSelect.options[subMenuSelect.selectedIndex].text;
+    
+    // 二次确认
+    const confirmed = confirm(`⚠️ 确定要删除子分类"${subMenuName}"吗？\n\n删除后该子分类下的所有卡片也将被删除，此操作不可恢复！`);
+    if (!confirmed) return;
+    
+    // 再次确认
+    const doubleConfirmed = confirm(`⚠️ 再次确认：删除子分类"${subMenuName}"及其所有内容？`);
+    if (!doubleConfirmed) return;
+    
+    // 验证密码
+    const token = await getNavAuthToken();
+    if (!token) return;
+    
+    const url = document.getElementById('navSettingsUrl').value.trim();
+    if (!url) {
+        alert('请先设置导航站地址');
+        return;
+    }
+    
+    const statusDiv = document.getElementById('navSettingsStatus');
+    statusDiv.innerHTML = '<span style="color: #666;">正在删除...</span>';
+    
+    try {
+        const serverUrl = url.replace(/\/$/, '');
+        const response = await fetch(`${serverUrl}/api/menus/submenus/${subMenuId}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('删除失败');
+        }
+        
+        // 刷新分类列表
+        await loadSettingsMenus();
+        onDefaultMenuChange(); // 刷新子分类列表
+        
+        // 刷新右键菜单
+        try {
+            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+        } catch (e) {}
+        
+        statusDiv.innerHTML = '<span style="color: #059669;">✓ 子分类已删除</span>';
+    } catch (e) {
+        statusDiv.innerHTML = `<span style="color: #dc2626;">删除失败: ${e.message}</span>`;
     }
 }
