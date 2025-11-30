@@ -3900,6 +3900,13 @@ async function confirmNewMenu() {
         // 重新加载分类
         await loadNavMenus();
         
+        // 通知 background.js 刷新右键菜单
+        try {
+            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+        } catch (e) {
+            console.warn('刷新右键菜单失败:', e);
+        }
+        
         // 自动选中新创建的分类
         if (newMenuType === 'menu') {
             document.getElementById('navMenuSelect').value = result.id;

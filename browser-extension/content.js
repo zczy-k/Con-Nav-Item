@@ -294,7 +294,8 @@
             menuVisible = true;
             
             try {
-                const response = await chrome.runtime.sendMessage({ action: 'getMenus' });
+                // 强制刷新获取最新分类
+                const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
                 
                 if (!response.success) {
                     menu.innerHTML = `<div class="nav-menu-header">加载失败</div>`;

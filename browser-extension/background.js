@@ -4,7 +4,7 @@
 // 缓存的菜单数据
 let cachedMenus = [];
 let lastMenuFetchTime = 0;
-const MENU_CACHE_MS = 5 * 60 * 1000; // 5分钟缓存
+const MENU_CACHE_MS = 60 * 1000; // 1分钟缓存（减少延迟感）
 
 // 扩展安装/更新时注册右键菜单
 chrome.runtime.onInstalled.addListener(async () => {
@@ -337,6 +337,13 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 }
                 
                 const navServerUrl = config.navUrl.replace(/\/$/, '');
+                
+                // 如果缓存有效且不是强制刷新，使用缓存
+                if (!request.forceRefresh && cachedMenus.length > 0 && Date.now() - lastMenuFetchTime < MENU_CACHE_MS) {
+                    sendResponse({ success: true, menus: cachedMenus });
+                    return;
+                }
+                
                 const response = await fetch(`${navServerUrl}/api/menus`);
                 if (!response.ok) throw new Error('获取失败');
                 
@@ -345,7 +352,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
                 lastMenuFetchTime = Date.now();
                 sendResponse({ success: true, menus });
             } catch (e) {
-                sendResponse({ success: false, error: e.message });
+                // 如果请求失败但有缓存，返回缓存
+                if (cachedMenus.length > 0) {
+                    sendResponse({ success: true, menus: cachedMenus, fromCache: true });
+                } else {
+                    sendResponse({ success: false, error: e.message });
+                }
             }
         })();
         return true;
