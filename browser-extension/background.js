@@ -116,15 +116,13 @@ function createCategorySubMenus(menus) {
 // 刷新分类菜单
 async function refreshCategoryMenus() {
     try {
-        // 删除旧的分类子菜单
         const config = await chrome.storage.sync.get(['navUrl']);
         if (!config.navUrl) return;
         
-        // 强制刷新
+        // 强制刷新缓存
         lastMenuFetchTime = 0;
-        cachedMenus = [];
         
-        // 重新注册所有菜单
+        // 重新注册所有菜单（会自动获取最新数据）
         await registerContextMenus();
     } catch (e) {
         console.error('刷新分类菜单失败:', e);
@@ -364,10 +362,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     }
     
     if (request.action === 'refreshMenus') {
-        refreshCategoryMenus()
-            .then(() => sendResponse({ success: true }))
-            .catch(e => sendResponse({ success: false, error: e.message }));
-        return true;
+        // 立即返回，后台异步刷新
+        sendResponse({ success: true });
+        refreshCategoryMenus().catch(e => console.error('刷新菜单失败:', e));
+        return false;
     }
     
     if (request.action === 'getConfig') {

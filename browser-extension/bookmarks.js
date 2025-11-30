@@ -3865,90 +3865,80 @@ async function confirmNewMenu() {
         return;
     }
     
-    // 获取认证token
-    const token = await getNavAuthToken();
-    if (!token) {
+    const menuId = document.getElementById('navMenuSelect').value;
+    
+    if (newMenuType === 'submenu' && !menuId) {
+        alert('请先选择一个主分类');
         return;
     }
     
+    // 立即关闭弹窗
+    closeNewMenuModal();
+    document.getElementById('navAddStatus').textContent = '正在创建分类...';
+    
     try {
-        let url, body;
-        
+        let apiUrl, body;
         if (newMenuType === 'menu') {
-            url = `${navServerUrl}/api/menus`;
+            apiUrl = `${navServerUrl}/api/menus`;
             body = { name, order: navMenus.length };
         } else {
-            const menuId = document.getElementById('navMenuSelect').value;
-            if (!menuId) {
-                alert('请先选择一个主分类');
-                return;
-            }
             const menu = navMenus.find(m => String(m.id) === String(menuId));
-            url = `${navServerUrl}/api/menus/${menuId}/submenus`;
+            apiUrl = `${navServerUrl}/api/menus/${menuId}/submenus`;
             body = { name, order: menu?.subMenus?.length || 0 };
         }
         
-        const response = await fetch(url, {
+        // 使用带自动重试的认证请求
+        const response = await fetchWithAuth(apiUrl, {
             method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify(body)
         });
         
         if (!response.ok) {
-            let errorMsg = '创建失败';
-            try {
-                const error = await response.json();
-                errorMsg = error.error || errorMsg;
-            } catch (e) {
-                errorMsg = `HTTP ${response.status}: ${response.statusText}`;
-            }
-            if (response.status === 401) {
-                await chrome.storage.local.remove(['navAuthToken']);
-                errorMsg = '认证失败，请重新输入密码';
-            }
-            throw new Error(errorMsg);
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `创建失败 (${response.status})`);
         }
         
         const result = await response.json();
         
-        closeNewMenuModal();
-        
-        // 重新加载分类
-        await loadNavMenus();
-        
-        // 通知 background.js 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {
-            console.warn('刷新右键菜单失败:', e);
-        }
-        
-        // 自动选中新创建的分类
+        // 更新UI
         if (newMenuType === 'menu') {
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.textContent = name;
+            document.getElementById('navMenuSelect').appendChild(option);
             document.getElementById('navMenuSelect').value = result.id;
+            navMenus.push({ id: result.id, name: name, subMenus: [] });
             onMenuSelectChange();
         } else {
-            const menuId = document.getElementById('navMenuSelect').value;
-            document.getElementById('navMenuSelect').value = menuId;
-            onMenuSelectChange();
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.textContent = name;
+            document.getElementById('navSubMenuSelect').appendChild(option);
             document.getElementById('navSubMenuSelect').value = result.id;
+            // 更新本地缓存
+            const menu = navMenus.find(m => String(m.id) === String(menuId));
+            if (menu) {
+                if (!menu.subMenus) menu.subMenus = [];
+                menu.subMenus.push({ id: result.id, name: name });
+            }
         }
         
         document.getElementById('navAddStatus').textContent = '分类创建成功';
+        
+        // 后台刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
+        
     } catch (error) {
         console.error('创建分类失败:', error);
-        alert('创建分类失败: ' + error.message);
+        document.getElementById('navAddStatus').textContent = '创建失败: ' + error.message;
     }
 }
 
 // 获取认证token
-async function getNavAuthToken() {
+async function getNavAuthToken(forceNew = false) {
     // 确保服务器地址已设置
     if (!navServerUrl) {
-        const serverUrl = document.getElementById('navServerUrl').value.trim();
+        const serverUrl = document.getElementById('navServerUrl')?.value?.trim();
         if (!serverUrl) {
             alert('请先输入导航站地址');
             return null;
@@ -3956,17 +3946,39 @@ async function getNavAuthToken() {
         navServerUrl = serverUrl.replace(/\/$/, '');
     }
     
-    // 尝试从存储中获取token
-    try {
-        const result = await chrome.storage.local.get(['navAuthToken']);
-        if (result.navAuthToken) {
-            return result.navAuthToken;
+    // 如果不是强制获取新token，尝试从存储中获取
+    if (!forceNew) {
+        try {
+            const result = await chrome.storage.local.get(['navAuthToken']);
+            if (result.navAuthToken) {
+                // 验证token是否有效（简单检查格式）
+                const token = result.navAuthToken;
+                if (token && token.split('.').length === 3) {
+                    // 检查token是否过期（JWT格式）
+                    try {
+                        const payload = JSON.parse(atob(token.split('.')[1]));
+                        if (payload.exp && payload.exp * 1000 > Date.now()) {
+                            return token;
+                        }
+                        // token已过期，清除并重新获取
+                        console.log('Token已过期，需要重新登录');
+                        await chrome.storage.local.remove(['navAuthToken']);
+                    } catch (e) {
+                        // 解析失败，token可能无效
+                        console.log('Token解析失败，需要重新登录');
+                        await chrome.storage.local.remove(['navAuthToken']);
+                    }
+                }
+            }
+        } catch (e) {
+            console.error('获取存储的token失败:', e);
         }
-    } catch (e) {
-        console.error('获取存储的token失败:', e);
+    } else {
+        // 强制获取新token，先清除旧的
+        await chrome.storage.local.remove(['navAuthToken']);
     }
     
-    // 没有token，提示用户输入密码
+    // 没有有效token，提示用户输入密码
     const password = prompt('请输入导航站管理密码：');
     if (!password) return null;
     
@@ -4005,6 +4017,30 @@ async function getNavAuthToken() {
         alert('登录失败: ' + error.message);
         return null;
     }
+}
+
+// 带自动重试的认证API请求
+async function fetchWithAuth(url, options = {}, retried = false) {
+    const token = await getNavAuthToken();
+    if (!token) {
+        throw new Error('未获取到认证token');
+    }
+    
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...(options.headers || {})
+    };
+    
+    const response = await fetch(url, { ...options, headers });
+    
+    // 如果认证失败且还没重试过，清除token并重试一次
+    if (response.status === 401 && !retried) {
+        await chrome.storage.local.remove(['navAuthToken']);
+        return fetchWithAuth(url, options, true);
+    }
+    
+    return response;
 }
 
 // 确认添加到导航页
@@ -4262,12 +4298,10 @@ async function saveNavSettings() {
             lastSubMenuId: subMenuId || ''
         });
         
-        // 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {}
-        
         statusDiv.innerHTML = '<span style="color: #059669;">✓ 设置已保存</span>';
+        
+        // 后台刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
         
         setTimeout(() => {
             closeNavSettingsModal();
@@ -4316,62 +4350,65 @@ async function confirmNewMenuFromSettings() {
         return;
     }
     
-    const token = await getNavAuthToken();
-    if (!token) return;
+    // 确保navServerUrl已设置
+    const serverUrl = url.replace(/\/$/, '');
+    navServerUrl = serverUrl;
+    
+    // 立即关闭弹窗，提升响应速度
+    document.getElementById('newMenuModal').classList.remove('active');
+    document.getElementById('btnConfirmNewMenu').onclick = confirmNewMenu;
     
     try {
-        const serverUrl = url.replace(/\/$/, '');
         let apiUrl, body;
+        const parentMenuId = document.getElementById('defaultMenuSelect').value;
         
         if (settingsNewMenuType === 'menu') {
             apiUrl = `${serverUrl}/api/menus`;
             body = { name, order: settingsMenus.length };
         } else {
-            const menuId = document.getElementById('defaultMenuSelect').value;
-            const menu = settingsMenus.find(m => String(m.id) === String(menuId));
-            apiUrl = `${serverUrl}/api/menus/${menuId}/submenus`;
+            const menu = settingsMenus.find(m => String(m.id) === String(parentMenuId));
+            apiUrl = `${serverUrl}/api/menus/${parentMenuId}/submenus`;
             body = { name, order: menu?.subMenus?.length || 0 };
         }
         
-        const response = await fetch(apiUrl, {
+        // 使用带自动重试的认证请求
+        const response = await fetchWithAuth(apiUrl, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify(body)
         });
         
         if (!response.ok) {
-            throw new Error('创建失败');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `创建失败 (${response.status})`);
         }
         
         const result = await response.json();
         
-        // 关闭新建弹窗
-        document.getElementById('newMenuModal').classList.remove('active');
-        
-        // 重新加载分类
-        await loadSettingsMenus();
-        
-        // 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {}
-        
-        // 选中新创建的分类
+        // 本地立即更新下拉框（不等待重新加载）
         if (settingsNewMenuType === 'menu') {
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.textContent = name;
+            document.getElementById('defaultMenuSelect').appendChild(option);
             document.getElementById('defaultMenuSelect').value = result.id;
+            settingsMenus.push({ id: result.id, name: name, subMenus: [] });
             onDefaultMenuChange();
         } else {
-            const menuId = document.getElementById('defaultMenuSelect').value;
-            document.getElementById('defaultMenuSelect').value = menuId;
-            onDefaultMenuChange();
+            const option = document.createElement('option');
+            option.value = result.id;
+            option.textContent = name;
+            document.getElementById('defaultSubMenuSelect').appendChild(option);
             document.getElementById('defaultSubMenuSelect').value = result.id;
+            // 更新本地缓存
+            const menu = settingsMenus.find(m => String(m.id) === String(parentMenuId));
+            if (menu) {
+                if (!menu.subMenus) menu.subMenus = [];
+                menu.subMenus.push({ id: result.id, name: name });
+            }
         }
         
-        // 恢复原来的确认按钮行为
-        document.getElementById('btnConfirmNewMenu').onclick = confirmNewMenu;
+        // 后台异步刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
         
     } catch (e) {
         alert('创建分类失败: ' + e.message);
@@ -4511,8 +4548,8 @@ async function confirmImportFolder() {
         return;
     }
     
-    const token = await getNavAuthToken();
-    if (!token) return;
+    // 确保navServerUrl已设置（fetchWithAuth依赖它）
+    navServerUrl = config.navUrl.replace(/\/$/, '');
     
     const importType = document.getElementById('importFolderType').value;
     const parentMenuId = document.getElementById('importParentMenu').value;
@@ -4533,40 +4570,34 @@ async function confirmImportFolder() {
     statusDiv.innerHTML = '<span style="color: #666;">正在导入...</span>';
     
     try {
-        const serverUrl = config.navUrl.replace(/\/$/, '');
+        const serverUrl = navServerUrl;
         let menuId, subMenuId = null;
         
-        // 1. 创建菜单或子菜单
+        // 1. 创建菜单或子菜单（使用带自动重试的认证请求）
         if (importType === 'menu') {
             // 创建主菜单
-            const menuResponse = await fetch(`${serverUrl}/api/menus`, {
+            const menuResponse = await fetchWithAuth(`${serverUrl}/api/menus`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ name: folderName, order: 999 })
             });
             
             if (!menuResponse.ok) {
-                throw new Error('创建分类失败');
+                const errorData = await menuResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || `创建分类失败 (${menuResponse.status})`);
             }
             
             const menuResult = await menuResponse.json();
             menuId = menuResult.id;
         } else {
             // 创建子菜单
-            const subMenuResponse = await fetch(`${serverUrl}/api/menus/${parentMenuId}/submenus`, {
+            const subMenuResponse = await fetchWithAuth(`${serverUrl}/api/menus/${parentMenuId}/submenus`, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
                 body: JSON.stringify({ name: folderName, order: 999 })
             });
             
             if (!subMenuResponse.ok) {
-                throw new Error('创建子分类失败');
+                const errorData = await subMenuResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || `创建子分类失败 (${subMenuResponse.status})`);
             }
             
             const subMenuResult = await subMenuResponse.json();
@@ -4590,12 +4621,8 @@ async function confirmImportFolder() {
             };
         });
         
-        const addResponse = await fetch(`${serverUrl}/api/batch/add`, {
+        const addResponse = await fetchWithAuth(`${serverUrl}/api/batch/add`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
             body: JSON.stringify({
                 menu_id: menuId,
                 sub_menu_id: subMenuId,
@@ -4604,20 +4631,19 @@ async function confirmImportFolder() {
         });
         
         if (!addResponse.ok) {
-            throw new Error('添加卡片失败');
+            const errorData = await addResponse.json().catch(() => ({}));
+            throw new Error(errorData.error || '添加卡片失败');
         }
         
         const addResult = await addResponse.json();
-        
-        // 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {}
         
         let message = `✓ 成功创建分类"${folderName}"，添加了 ${addResult.added} 个卡片`;
         if (addResult.skipped > 0) {
             message += `，跳过 ${addResult.skipped} 个重复`;
         }
+        
+        // 后台刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
         
         statusDiv.innerHTML = `<span style="color: #059669;">${message}</span>`;
         
@@ -4645,7 +4671,8 @@ async function deleteMenuFromSettings() {
     }
     
     const menuSelect = document.getElementById('defaultMenuSelect');
-    const menuName = menuSelect.options[menuSelect.selectedIndex].text;
+    const selectedIndex = menuSelect.selectedIndex;
+    const menuName = menuSelect.options[selectedIndex].text;
     
     // 二次确认
     const confirmed = confirm(`⚠️ 确定要删除分类"${menuName}"吗？\n\n删除后该分类下的所有卡片也将被删除，此操作不可恢复！`);
@@ -4655,41 +4682,37 @@ async function deleteMenuFromSettings() {
     const doubleConfirmed = confirm(`⚠️ 再次确认：删除分类"${menuName}"及其所有内容？`);
     if (!doubleConfirmed) return;
     
-    // 验证密码
-    const token = await getNavAuthToken();
-    if (!token) return;
-    
     const url = document.getElementById('navSettingsUrl').value.trim();
     if (!url) {
         alert('请先设置导航站地址');
         return;
     }
     
+    // 确保navServerUrl已设置
+    navServerUrl = url.replace(/\/$/, '');
+    
     const statusDiv = document.getElementById('navSettingsStatus');
     statusDiv.innerHTML = '<span style="color: #666;">正在删除...</span>';
     
     try {
-        const serverUrl = url.replace(/\/$/, '');
-        const response = await fetch(`${serverUrl}/api/menus/${menuId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        // 使用带自动重试的认证请求
+        const response = await fetchWithAuth(`${navServerUrl}/api/menus/${menuId}`, {
+            method: 'DELETE'
         });
         
         if (!response.ok) {
-            throw new Error('删除失败');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `删除失败 (${response.status})`);
         }
         
-        // 刷新分类列表
-        await loadSettingsMenus();
-        
-        // 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {}
-        
+        // 删除成功，更新UI
+        menuSelect.remove(selectedIndex);
+        settingsMenus = settingsMenus.filter(m => String(m.id) !== String(menuId));
+        document.getElementById('defaultSubMenuSelect').innerHTML = '<option value="">-- 不使用子分类 --</option>';
         statusDiv.innerHTML = '<span style="color: #059669;">✓ 分类已删除</span>';
+        
+        // 后台刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
     } catch (e) {
         statusDiv.innerHTML = `<span style="color: #dc2626;">删除失败: ${e.message}</span>`;
     }
@@ -4704,7 +4727,9 @@ async function deleteSubMenuFromSettings() {
     }
     
     const subMenuSelect = document.getElementById('defaultSubMenuSelect');
-    const subMenuName = subMenuSelect.options[subMenuSelect.selectedIndex].text;
+    const selectedIndex = subMenuSelect.selectedIndex;
+    const subMenuName = subMenuSelect.options[selectedIndex].text;
+    const menuId = document.getElementById('defaultMenuSelect').value;
     
     // 二次确认
     const confirmed = confirm(`⚠️ 确定要删除子分类"${subMenuName}"吗？\n\n删除后该子分类下的所有卡片也将被删除，此操作不可恢复！`);
@@ -4714,42 +4739,39 @@ async function deleteSubMenuFromSettings() {
     const doubleConfirmed = confirm(`⚠️ 再次确认：删除子分类"${subMenuName}"及其所有内容？`);
     if (!doubleConfirmed) return;
     
-    // 验证密码
-    const token = await getNavAuthToken();
-    if (!token) return;
-    
     const url = document.getElementById('navSettingsUrl').value.trim();
     if (!url) {
         alert('请先设置导航站地址');
         return;
     }
     
+    // 确保navServerUrl已设置
+    navServerUrl = url.replace(/\/$/, '');
+    
     const statusDiv = document.getElementById('navSettingsStatus');
     statusDiv.innerHTML = '<span style="color: #666;">正在删除...</span>';
     
     try {
-        const serverUrl = url.replace(/\/$/, '');
-        const response = await fetch(`${serverUrl}/api/menus/submenus/${subMenuId}`, {
-            method: 'DELETE',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+        // 使用带自动重试的认证请求
+        const response = await fetchWithAuth(`${navServerUrl}/api/menus/submenus/${subMenuId}`, {
+            method: 'DELETE'
         });
         
         if (!response.ok) {
-            throw new Error('删除失败');
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || `删除失败 (${response.status})`);
         }
         
-        // 刷新分类列表
-        await loadSettingsMenus();
-        onDefaultMenuChange(); // 刷新子分类列表
-        
-        // 刷新右键菜单
-        try {
-            await chrome.runtime.sendMessage({ action: 'refreshMenus' });
-        } catch (e) {}
-        
+        // 删除成功，更新UI
+        subMenuSelect.remove(selectedIndex);
+        const menu = settingsMenus.find(m => String(m.id) === String(menuId));
+        if (menu && menu.subMenus) {
+            menu.subMenus = menu.subMenus.filter(s => String(s.id) !== String(subMenuId));
+        }
         statusDiv.innerHTML = '<span style="color: #059669;">✓ 子分类已删除</span>';
+        
+        // 后台刷新右键菜单（不阻塞）
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
     } catch (e) {
         statusDiv.innerHTML = `<span style="color: #dc2626;">删除失败: ${e.message}</span>`;
     }
