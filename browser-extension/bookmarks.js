@@ -1090,6 +1090,9 @@ function bindEvents() {
     // 合并文件夹
     document.getElementById('btnMergeFolders').addEventListener('click', showMergeFoldersModal);
     
+    // 空文件夹检测
+    document.getElementById('btnFindEmptyFolders').addEventListener('click', findEmptyFolders);
+    
     // 清除标签筛选
     document.getElementById('btnClearTagFilter').addEventListener('click', () => {
         currentTagFilter = null;
@@ -3131,6 +3134,169 @@ async function confirmMergeFolders() {
     }
 }
 
+
+// ==================== 空文件夹检测 ====================
+async function findEmptyFolders() {
+    const resultList = document.getElementById('resultList');
+    document.getElementById('resultTitle').textContent = '📭 空文件夹检测';
+    resultList.innerHTML = '<div class="loading">正在检测空文件夹...</div>';
+    document.getElementById('resultModal').classList.add('active');
+    hideResultFooterActions();
+    
+    // 收集所有文件夹
+    const allFolders = [];
+    collectAllFolders(allBookmarks, allFolders);
+    
+    // 检测空文件夹（没有任何子项的文件夹）
+    const emptyFolders = [];
+    
+    for (const folder of allFolders) {
+        // 跳过根节点
+        if (!folder.id || folder.id === '0') continue;
+        
+        try {
+            const children = await chrome.bookmarks.getChildren(folder.id);
+            if (children.length === 0) {
+                const path = await getBookmarkPath(folder.id);
+                emptyFolders.push({
+                    folder: folder,
+                    path: path
+                });
+            }
+        } catch (e) {
+            // 文件夹可能已被删除，跳过
+        }
+    }
+    
+    showEmptyFoldersResult(emptyFolders);
+}
+
+function showEmptyFoldersResult(emptyFolders) {
+    const resultList = document.getElementById('resultList');
+    
+    if (emptyFolders.length === 0) {
+        resultList.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-state-icon">✅</div>
+                <p>没有发现空文件夹</p>
+            </div>
+        `;
+        hideResultFooterActions();
+        return;
+    }
+    
+    let html = `
+        <div style="margin-bottom: 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                <div>
+                    <span style="font-size: 16px; font-weight: 600; color: #374151;">发现 ${emptyFolders.length} 个空文件夹</span>
+                    <p style="font-size: 12px; color: #9ca3af; margin-top: 4px;">这些文件夹中没有任何书签或子文件夹</p>
+                </div>
+                <button class="btn btn-danger btn-small" id="btnDeleteAllEmpty">
+                    🗑️ 删除全部 (${emptyFolders.length})
+                </button>
+            </div>
+        </div>
+    `;
+    
+    for (const item of emptyFolders) {
+        html += `
+            <div class="result-item" data-folder-id="${item.folder.id}" style="border-left: 3px solid #9ca3af; background: #f9fafb; margin-bottom: 8px; border-radius: 8px;">
+                <input type="checkbox" class="result-checkbox" style="width: 18px; height: 18px;">
+                <div class="result-info" style="flex: 1; min-width: 0;">
+                    <div class="result-title" style="font-weight: 500; color: #374151;">
+                        📁 ${escapeHtml(item.folder.title || '未命名')}
+                    </div>
+                    <div class="result-url" style="font-size: 12px; color: #9ca3af;">
+                        📍 ${escapeHtml(item.path)}
+                    </div>
+                </div>
+                <button class="btn-icon btn-delete-empty" data-id="${item.folder.id}" title="删除此文件夹" style="padding: 4px 8px; background: none; border: none; cursor: pointer; color: #dc2626; font-size: 14px;">
+                    🗑️
+                </button>
+            </div>
+        `;
+    }
+    
+    resultList.innerHTML = html;
+    showResultFooterActions();
+    bindResultCheckboxes();
+    bindEmptyFolderActions(emptyFolders);
+}
+
+function bindEmptyFolderActions(emptyFolders) {
+    // 删除全部按钮
+    const btnDeleteAll = document.getElementById('btnDeleteAllEmpty');
+    if (btnDeleteAll) {
+        btnDeleteAll.onclick = async () => {
+            if (!confirm(`确定要删除全部 ${emptyFolders.length} 个空文件夹吗？`)) return;
+            
+            btnDeleteAll.disabled = true;
+            btnDeleteAll.textContent = '删除中...';
+            
+            let deletedCount = 0;
+            for (const item of emptyFolders) {
+                try {
+                    await chrome.bookmarks.remove(item.folder.id);
+                    deletedCount++;
+                } catch (e) {
+                    // 可能已被删除，跳过
+                }
+            }
+            
+            await loadBookmarks();
+            closeResultModal();
+            alert(`已删除 ${deletedCount} 个空文件夹`);
+        };
+    }
+    
+    // 单个删除按钮
+    document.querySelectorAll('.btn-delete-empty').forEach(btn => {
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            const folderId = btn.dataset.id;
+            const item = btn.closest('.result-item');
+            const title = item.querySelector('.result-title')?.textContent?.trim() || '此文件夹';
+            
+            if (!confirm(`确定要删除"${title}"吗？`)) return;
+            
+            try {
+                // 添加删除动画
+                item.style.transition = 'all 0.3s ease';
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(20px)';
+                
+                await chrome.bookmarks.remove(folderId);
+                
+                // 从列表中移除
+                emptyFolders = emptyFolders.filter(f => f.folder.id !== folderId);
+                
+                setTimeout(() => {
+                    item.remove();
+                    
+                    // 更新统计
+                    const remaining = document.querySelectorAll('.result-item').length;
+                    if (remaining === 0) {
+                        showEmptyFoldersResult([]);
+                    } else {
+                        // 更新删除全部按钮
+                        const btnDeleteAll = document.getElementById('btnDeleteAllEmpty');
+                        if (btnDeleteAll) {
+                            btnDeleteAll.textContent = `🗑️ 删除全部 (${remaining})`;
+                        }
+                    }
+                    
+                    loadBookmarks();
+                }, 300);
+                
+            } catch (error) {
+                item.style.opacity = '1';
+                item.style.transform = 'translateX(0)';
+                alert('删除失败: ' + error.message);
+            }
+        };
+    });
+}
 
 // ==================== 自动排序书签栏 ====================
 function loadAutoSortSetting() {
