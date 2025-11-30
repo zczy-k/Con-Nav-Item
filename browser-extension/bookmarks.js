@@ -1835,10 +1835,25 @@ function isPrivateIp(url) {
     }
 }
 
-async function checkInvalidLinks() {
+async function checkInvalidLinks(forceRefresh = false) {
     if (checkingLinks) {
         cancelCheck = true;
         return;
+    }
+    
+    // 检查是否有缓存的结果（非强制刷新时）
+    if (!forceRefresh) {
+        const cached = await loadInvalidLinksCache();
+        if (cached && cached.length > 0) {
+            const cacheAge = Math.floor((Date.now() - cachedInvalidLinksTime) / 60000);
+            const useCache = confirm(`发现 ${cacheAge} 分钟前的检测结果（${cached.length} 个无效链接）\n\n点击"确定"查看缓存结果\n点击"取消"重新检测`);
+            if (useCache) {
+                document.getElementById('resultTitle').textContent = '检测无效链接';
+                document.getElementById('resultModal').classList.add('active');
+                showInvalidLinksResult(cached);
+                return;
+            }
+        }
     }
     
     const bookmarks = [];
@@ -2018,34 +2033,148 @@ async function checkDns(url) {
 }
 
 
-function showInvalidLinksResult(invalidLinks) {
+// 缓存无效链接检测结果
+let cachedInvalidLinks = null;
+let cachedInvalidLinksTime = 0;
+const CACHE_EXPIRE_MS = 30 * 60 * 1000; // 30分钟过期
+
+// 保存检测结果到本地存储
+async function saveInvalidLinksCache(invalidLinks) {
+    try {
+        cachedInvalidLinks = invalidLinks;
+        cachedInvalidLinksTime = Date.now();
+        await chrome.storage.local.set({
+            invalidLinksCache: invalidLinks.map(item => ({
+                bookmarkId: item.bookmark.id,
+                bookmarkTitle: item.bookmark.title,
+                bookmarkUrl: item.bookmark.url,
+                error: item.error,
+                dnsStatus: item.dnsStatus,
+                dnsMessage: item.dnsMessage
+            })),
+            invalidLinksCacheTime: cachedInvalidLinksTime
+        });
+    } catch (e) {
+        console.error('保存检测结果缓存失败:', e);
+    }
+}
+
+// 从本地存储加载检测结果
+async function loadInvalidLinksCache() {
+    try {
+        const result = await chrome.storage.local.get(['invalidLinksCache', 'invalidLinksCacheTime']);
+        if (result.invalidLinksCache && result.invalidLinksCacheTime) {
+            const age = Date.now() - result.invalidLinksCacheTime;
+            if (age < CACHE_EXPIRE_MS) {
+                cachedInvalidLinksTime = result.invalidLinksCacheTime;
+                // 重建完整的数据结构
+                cachedInvalidLinks = result.invalidLinksCache.map(item => ({
+                    bookmark: { id: item.bookmarkId, title: item.bookmarkTitle, url: item.bookmarkUrl },
+                    error: item.error,
+                    dnsStatus: item.dnsStatus,
+                    dnsMessage: item.dnsMessage
+                }));
+                return cachedInvalidLinks;
+            }
+        }
+    } catch (e) {
+        console.error('加载检测结果缓存失败:', e);
+    }
+    return null;
+}
+
+// 清除检测结果缓存
+async function clearInvalidLinksCache() {
+    cachedInvalidLinks = null;
+    cachedInvalidLinksTime = 0;
+    await chrome.storage.local.remove(['invalidLinksCache', 'invalidLinksCacheTime']);
+}
+
+function showInvalidLinksResult(invalidLinks, filter = 'all') {
     const resultList = document.getElementById('resultList');
     
-    if (invalidLinks.length === 0) {
+    // 保存到缓存
+    if (invalidLinks && invalidLinks.length > 0) {
+        saveInvalidLinksCache(invalidLinks);
+    }
+    
+    if (!invalidLinks || invalidLinks.length === 0) {
         resultList.innerHTML = '<div class="empty-state"><div class="empty-state-icon">✅</div><p>所有链接都有效</p></div>';
         hideResultFooterActions();
         return;
     }
     
-    const dnsOk = invalidLinks.filter(item => item.dnsStatus === 'ok').length;
-    const dnsNxdomain = invalidLinks.filter(item => item.dnsStatus === 'nxdomain').length;
-    const dnsFailed = invalidLinks.filter(item => item.dnsStatus === 'failed' || item.dnsStatus === 'error').length;
+    // 分类统计
+    const dnsOkItems = invalidLinks.filter(item => item.dnsStatus === 'ok');
+    const dnsNxdomainItems = invalidLinks.filter(item => item.dnsStatus === 'nxdomain');
+    const dnsFailedItems = invalidLinks.filter(item => item.dnsStatus === 'failed' || item.dnsStatus === 'error');
+    const timeoutItems = invalidLinks.filter(item => item.error === '超时');
+    
+    // 根据筛选条件过滤
+    let filteredItems = invalidLinks;
+    if (filter === 'nxdomain') filteredItems = dnsNxdomainItems;
+    else if (filter === 'dns_ok') filteredItems = dnsOkItems;
+    else if (filter === 'dns_failed') filteredItems = dnsFailedItems;
+    else if (filter === 'timeout') filteredItems = timeoutItems;
+    
+    // 缓存时间提示
+    const cacheAge = cachedInvalidLinksTime ? Math.floor((Date.now() - cachedInvalidLinksTime) / 60000) : 0;
+    const cacheHint = cachedInvalidLinksTime ? `<span style="font-size: 11px; color: #999;">（${cacheAge}分钟前的结果）</span>` : '';
     
     let html = `
         <div style="margin-bottom: 16px;">
-            <div style="color: #666; margin-bottom: 8px;">发现 ${invalidLinks.length} 个可能无效的链接</div>
-            <div style="display: flex; gap: 8px; font-size: 12px; flex-wrap: wrap;">
-                ${dnsOk > 0 ? `<span style="background: #fef3c7; color: #d97706; padding: 4px 8px; border-radius: 4px;">🟡 DNS正常但HTTP失败: ${dnsOk}</span>` : ''}
-                ${dnsNxdomain > 0 ? `<span style="background: #fee2e2; color: #dc2626; padding: 4px 8px; border-radius: 4px;">🔴 域名不存在: ${dnsNxdomain}</span>` : ''}
-                ${dnsFailed > 0 ? `<span style="background: #f3f4f6; color: #666; padding: 4px 8px; border-radius: 4px;">⚪ DNS检测失败: ${dnsFailed}</span>` : ''}
+            <div style="color: #666; margin-bottom: 8px;">发现 ${invalidLinks.length} 个可能无效的链接 ${cacheHint}</div>
+            
+            <!-- 分类筛选按钮 -->
+            <div style="display: flex; gap: 8px; font-size: 12px; flex-wrap: wrap; margin-bottom: 12px;">
+                <button class="btn btn-small ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('all')">
+                    全部 (${invalidLinks.length})
+                </button>
+                ${dnsNxdomainItems.length > 0 ? `
+                    <button class="btn btn-small ${filter === 'nxdomain' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('nxdomain')" style="background: ${filter === 'nxdomain' ? '#dc2626' : '#fee2e2'}; color: ${filter === 'nxdomain' ? 'white' : '#dc2626'}; border: none;">
+                        🔴 域名不存在 (${dnsNxdomainItems.length})
+                    </button>
+                ` : ''}
+                ${dnsOkItems.length > 0 ? `
+                    <button class="btn btn-small ${filter === 'dns_ok' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('dns_ok')" style="background: ${filter === 'dns_ok' ? '#d97706' : '#fef3c7'}; color: ${filter === 'dns_ok' ? 'white' : '#d97706'}; border: none;">
+                        🟡 DNS正常HTTP失败 (${dnsOkItems.length})
+                    </button>
+                ` : ''}
+                ${timeoutItems.length > 0 ? `
+                    <button class="btn btn-small ${filter === 'timeout' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('timeout')" style="background: ${filter === 'timeout' ? '#6b7280' : '#f3f4f6'}; color: ${filter === 'timeout' ? 'white' : '#6b7280'}; border: none;">
+                        ⏱️ 超时 (${timeoutItems.length})
+                    </button>
+                ` : ''}
+                ${dnsFailedItems.length > 0 ? `
+                    <button class="btn btn-small ${filter === 'dns_failed' ? 'btn-primary' : 'btn-secondary'}" onclick="filterInvalidLinks('dns_failed')" style="background: ${filter === 'dns_failed' ? '#6b7280' : '#f3f4f6'}; color: ${filter === 'dns_failed' ? 'white' : '#6b7280'}; border: none;">
+                        ⚪ DNS检测失败 (${dnsFailedItems.length})
+                    </button>
+                ` : ''}
+            </div>
+            
+            <!-- 智能操作按钮 -->
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                <button class="btn btn-small btn-secondary" id="btnSelectNxdomain" ${dnsNxdomainItems.length === 0 ? 'disabled' : ''}>
+                    🎯 选择域名不存在 (${dnsNxdomainItems.length})
+                </button>
+                <button class="btn btn-small btn-secondary" id="btnSelectAllInvalid">
+                    ☑️ 全选当前列表
+                </button>
+                <button class="btn btn-small btn-secondary" id="btnRefreshCheck">
+                    🔄 重新检测
+                </button>
+            </div>
+            <div style="font-size: 11px; color: #999; margin-top: 8px;">
+                💡 提示：🔴域名不存在 的链接可以安全删除；🟡DNS正常HTTP失败 可能是临时问题，建议手动确认
             </div>
         </div>
     `;
     
-    for (const item of invalidLinks) {
+    for (const item of filteredItems) {
         const dnsStatusBadge = getDnsStatusBadge(item.dnsStatus, item.dnsMessage);
+        const dangerClass = item.dnsStatus === 'nxdomain' ? 'style="border-left: 3px solid #dc2626;"' : '';
         html += `
-            <div class="result-item" data-bookmark-id="${item.bookmark.id}">
+            <div class="result-item" data-bookmark-id="${item.bookmark.id}" data-dns-status="${item.dnsStatus || ''}" ${dangerClass}>
                 <input type="checkbox" class="result-checkbox">
                 <div class="result-info">
                     <div class="result-title">${escapeHtml(item.bookmark.title)}</div>
@@ -2060,7 +2189,53 @@ function showInvalidLinksResult(invalidLinks) {
     resultList.innerHTML = html;
     showResultFooterActions();
     bindResultCheckboxes();
+    bindInvalidLinksActions(invalidLinks);
 }
+
+// 绑定无效链接操作按钮
+function bindInvalidLinksActions(invalidLinks) {
+    // 选择域名不存在的
+    const btnSelectNxdomain = document.getElementById('btnSelectNxdomain');
+    if (btnSelectNxdomain) {
+        btnSelectNxdomain.onclick = () => {
+            document.querySelectorAll('.result-item').forEach(item => {
+                const checkbox = item.querySelector('.result-checkbox');
+                if (checkbox) {
+                    checkbox.checked = item.dataset.dnsStatus === 'nxdomain';
+                }
+            });
+            updateResultSelection();
+        };
+    }
+    
+    // 全选当前列表
+    const btnSelectAllInvalid = document.getElementById('btnSelectAllInvalid');
+    if (btnSelectAllInvalid) {
+        btnSelectAllInvalid.onclick = () => {
+            document.querySelectorAll('.result-item .result-checkbox').forEach(cb => {
+                cb.checked = true;
+            });
+            updateResultSelection();
+        };
+    }
+    
+    // 重新检测
+    const btnRefreshCheck = document.getElementById('btnRefreshCheck');
+    if (btnRefreshCheck) {
+        btnRefreshCheck.onclick = async () => {
+            await clearInvalidLinksCache();
+            document.getElementById('resultModal').classList.remove('active');
+            showCheckOptions();
+        };
+    }
+}
+
+// 筛选无效链接（全局函数供onclick调用）
+window.filterInvalidLinks = function(filter) {
+    if (cachedInvalidLinks) {
+        showInvalidLinksResult(cachedInvalidLinks, filter);
+    }
+};
 
 function getDnsStatusBadge(status, message) {
     if (!status || status === 'skip') return '';
