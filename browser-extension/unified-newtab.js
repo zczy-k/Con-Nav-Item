@@ -191,6 +191,7 @@ function performWebSearch(query) {
 // 渲染搜索结果
 function renderSearchResults(results, query) {
     const container = document.getElementById('searchResults');
+    container.innerHTML = '';
     
     if (results.cards.length === 0 && results.bookmarks.length === 0) {
         container.innerHTML = `
@@ -203,44 +204,61 @@ function renderSearchResults(results, query) {
         return;
     }
     
-    let html = '';
-    
     // 卡片结果
     if (results.cards.length > 0) {
-        html += '<div class="result-group"><h3>📑 卡片</h3><div class="result-list">';
+        const cardGroup = document.createElement('div');
+        cardGroup.className = 'result-group';
+        cardGroup.innerHTML = '<h3>📑 卡片</h3>';
+        const cardList = document.createElement('div');
+        cardList.className = 'result-list';
         for (const card of results.cards) {
-            html += createResultItem(card, 'card');
+            cardList.appendChild(createResultItem(card, 'card'));
         }
-        html += '</div></div>';
+        cardGroup.appendChild(cardList);
+        container.appendChild(cardGroup);
     }
     
     // 书签结果
     if (results.bookmarks.length > 0) {
-        html += '<div class="result-group"><h3>🔖 书签</h3><div class="result-list">';
+        const bookmarkGroup = document.createElement('div');
+        bookmarkGroup.className = 'result-group';
+        bookmarkGroup.innerHTML = '<h3>🔖 书签</h3>';
+        const bookmarkList = document.createElement('div');
+        bookmarkList.className = 'result-list';
         for (const bookmark of results.bookmarks) {
-            html += createResultItem(bookmark, 'bookmark');
+            bookmarkList.appendChild(createResultItem(bookmark, 'bookmark'));
         }
-        html += '</div></div>';
+        bookmarkGroup.appendChild(bookmarkList);
+        container.appendChild(bookmarkGroup);
     }
     
-    container.innerHTML = html;
     container.style.display = 'block';
 }
 
 function createResultItem(item, type) {
-    const favicon = getFaviconUrl(item.url);
-    const title = escapeHtml(item.title || '无标题');
-    const url = escapeHtml(item.url);
+    const a = document.createElement('a');
+    a.href = item.url;
+    a.target = '_blank';
+    a.className = 'result-item';
     
-    return `
-        <a href="${url}" target="_blank" class="result-item">
-            <img src="${favicon}" class="result-favicon" onerror="this.src='icons/icon16.png'">
-            <div class="result-info">
-                <div class="result-title">${title}</div>
-                <div class="result-url">${getDomain(item.url)}</div>
-            </div>
-        </a>
+    // 卡片优先使用 logo_url
+    const faviconSrc = (type === 'card' && item.logo_url) ? item.logo_url : getFaviconUrl(item.url);
+    
+    a.innerHTML = `
+        <img src="${faviconSrc}" class="result-favicon">
+        <div class="result-info">
+            <div class="result-title">${escapeHtml(item.title || '无标题')}</div>
+            <div class="result-url">${getDomain(item.url)}</div>
+        </div>
     `;
+    
+    // 绑定 favicon 错误处理
+    const faviconImg = a.querySelector('.result-favicon');
+    faviconImg.addEventListener('error', () => {
+        handleFaviconError(faviconImg, item.url);
+    });
+    
+    return a;
 }
 
 function hideSearchResults() {
@@ -250,6 +268,7 @@ function hideSearchResults() {
 // 渲染快捷访问
 async function renderQuickAccess() {
     const container = document.getElementById('quickAccess');
+    container.innerHTML = '';
     
     // 获取常用书签（基于访问历史）
     const frequentBookmarks = await getFrequentBookmarks();
@@ -259,39 +278,56 @@ async function renderQuickAccess() {
         return;
     }
     
-    let html = '';
-    
     // 显示常用书签
     if (frequentBookmarks.length > 0) {
-        html += '<div class="quick-section"><h3>⭐ 常用</h3><div class="quick-grid">';
+        const section = document.createElement('div');
+        section.className = 'quick-section';
+        section.innerHTML = '<h3>⭐ 常用</h3>';
+        const grid = document.createElement('div');
+        grid.className = 'quick-grid';
         for (const b of frequentBookmarks.slice(0, 8)) {
-            html += createQuickItem(b);
+            grid.appendChild(createQuickItem(b, 'bookmark'));
         }
-        html += '</div></div>';
+        section.appendChild(grid);
+        container.appendChild(section);
     }
     
     // 显示部分卡片
     if (allCards.length > 0) {
-        html += '<div class="quick-section"><h3>📑 导航卡片</h3><div class="quick-grid">';
+        const section = document.createElement('div');
+        section.className = 'quick-section';
+        section.innerHTML = '<h3>📑 导航卡片</h3>';
+        const grid = document.createElement('div');
+        grid.className = 'quick-grid';
         for (const card of allCards.slice(0, 12)) {
-            html += createQuickItem(card);
+            grid.appendChild(createQuickItem(card, 'card'));
         }
-        html += '</div></div>';
+        section.appendChild(grid);
+        container.appendChild(section);
     }
-    
-    container.innerHTML = html;
 }
 
-function createQuickItem(item) {
-    const favicon = item.logo_url || getFaviconUrl(item.url);
-    const title = escapeHtml(item.title || '无标题');
+function createQuickItem(item, type) {
+    const a = document.createElement('a');
+    a.href = item.url;
+    a.target = '_blank';
+    a.className = 'quick-item';
     
-    return `
-        <a href="${escapeHtml(item.url)}" target="_blank" class="quick-item">
-            <img src="${favicon}" class="quick-favicon" onerror="handleFaviconError(this, '${escapeHtml(item.url)}')">
-            <span class="quick-title">${title}</span>
-        </a>
+    // 卡片优先使用 logo_url
+    const faviconSrc = (type === 'card' && item.logo_url) ? item.logo_url : getFaviconUrl(item.url);
+    
+    a.innerHTML = `
+        <img src="${faviconSrc}" class="quick-favicon">
+        <span class="quick-title">${escapeHtml(item.title || '无标题')}</span>
     `;
+    
+    // 绑定 favicon 错误处理
+    const faviconImg = a.querySelector('.quick-favicon');
+    faviconImg.addEventListener('error', () => {
+        handleFaviconError(faviconImg, item.url);
+    });
+    
+    return a;
 }
 
 // 获取常用书签
