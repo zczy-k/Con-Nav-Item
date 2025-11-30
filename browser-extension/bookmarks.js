@@ -2303,7 +2303,7 @@ function bindInvalidLinksActions(invalidLinks, currentFilter) {
                 const bookmarkId = item.dataset.bookmarkId;
                 const url = item.dataset.bookmarkUrl;
                 if (bookmarkId && url) {
-                    selectedBookmarks.push({ id: bookmarkId, url });
+                    selectedBookmarks.push({ id: bookmarkId, url, element: item });
                 }
             });
             
@@ -2311,36 +2311,112 @@ function bindInvalidLinksActions(invalidLinks, currentFilter) {
             
             // 显示检测进度
             btnRecheckSelected.disabled = true;
-            btnRecheckSelected.textContent = '🔄 检测中...';
+            const total = selectedBookmarks.length;
+            let validCount = 0;
+            let checkedCount = 0;
             
             try {
-                // 重新检测选中的链接
-                const recheckResults = await recheckSelectedLinks(selectedBookmarks);
-                
-                // 更新缓存中的结果
-                if (cachedInvalidLinks) {
-                    for (const result of recheckResults) {
-                        const index = cachedInvalidLinks.findIndex(item => item.bookmark.id === result.bookmarkId);
+                // 重新检测选中的链接（带进度回调）
+                const recheckResults = await recheckSelectedLinks(selectedBookmarks, (progress) => {
+                    // 更新按钮进度文字
+                    btnRecheckSelected.textContent = `🔄 ${progress.current}/${progress.total}`;
+                    
+                    // 找到对应的列表项
+                    const item = document.querySelector(`.result-item[data-bookmark-id="${progress.bookmarkId}"]`);
+                    if (!item) return;
+                    
+                    if (progress.status === 'checking') {
+                        // 正在检测，添加检测中状态
+                        item.style.opacity = '0.7';
+                        const statusSpan = item.querySelector('span[style*="border-radius: 4px"]');
+                        if (statusSpan) {
+                            statusSpan.textContent = '检测中...';
+                            statusSpan.style.background = '#dbeafe';
+                            statusSpan.style.color = '#3b82f6';
+                        }
+                    } else if (progress.status === 'done' && progress.result) {
+                        checkedCount++;
+                        const result = progress.result;
+                        
                         if (result.isValid) {
-                            // 链接现在有效，从缓存中移除
-                            if (index !== -1) {
-                                cachedInvalidLinks.splice(index, 1);
+                            // 链接有效，添加成功动画并移除
+                            validCount++;
+                            item.style.transition = 'all 0.3s ease';
+                            item.style.background = '#d1fae5';
+                            item.style.borderLeftColor = '#10b981';
+                            
+                            const statusSpan = item.querySelector('span[style*="border-radius: 4px"]');
+                            if (statusSpan) {
+                                statusSpan.textContent = '✓ 有效';
+                                statusSpan.style.background = '#d1fae5';
+                                statusSpan.style.color = '#059669';
                             }
-                        } else if (index !== -1) {
-                            // 更新错误信息
-                            cachedInvalidLinks[index].error = result.error;
-                            cachedInvalidLinks[index].dnsStatus = result.dnsStatus;
+                            
+                            // 从缓存中移除
+                            if (cachedInvalidLinks) {
+                                const index = cachedInvalidLinks.findIndex(link => link.bookmark.id === result.bookmarkId);
+                                if (index !== -1) {
+                                    cachedInvalidLinks.splice(index, 1);
+                                }
+                            }
+                            
+                            // 延迟后移除DOM元素
+                            setTimeout(() => {
+                                item.style.opacity = '0';
+                                item.style.transform = 'translateX(20px)';
+                                setTimeout(() => {
+                                    item.remove();
+                                    // 更新统计
+                                    updateInvalidLinksStats();
+                                }, 300);
+                            }, 500);
+                        } else {
+                            // 链接仍然无效，更新状态
+                            item.style.opacity = '1';
+                            
+                            const statusColor = result.dnsStatus === 'nxdomain' ? '#dc2626' : 
+                                               result.dnsStatus === 'ok' ? '#d97706' : '#6b7280';
+                            const statusBg = result.dnsStatus === 'nxdomain' ? '#fef2f2' : 
+                                            result.dnsStatus === 'ok' ? '#fffbeb' : '#f9fafb';
+                            
+                            item.style.background = statusBg;
+                            item.style.borderLeftColor = statusColor;
+                            
+                            const statusSpan = item.querySelector('span[style*="border-radius: 4px"]');
+                            if (statusSpan) {
+                                statusSpan.textContent = result.error || '无效';
+                                statusSpan.style.background = `${statusColor}20`;
+                                statusSpan.style.color = statusColor;
+                            }
+                            
+                            // 更新缓存中的错误信息
+                            if (cachedInvalidLinks) {
+                                const index = cachedInvalidLinks.findIndex(link => link.bookmark.id === result.bookmarkId);
+                                if (index !== -1) {
+                                    cachedInvalidLinks[index].error = result.error;
+                                    cachedInvalidLinks[index].dnsStatus = result.dnsStatus;
+                                }
+                            }
                         }
                     }
+                });
+                
+                // 保存缓存
+                if (cachedInvalidLinks) {
                     saveInvalidLinksCache(cachedInvalidLinks);
                 }
                 
-                // 刷新显示
-                const validCount = recheckResults.filter(r => r.isValid).length;
+                // 显示完成提示
                 if (validCount > 0) {
-                    alert(`检测完成！${validCount} 个链接现在有效，已从列表中移除。`);
+                    showToast(`检测完成！${validCount} 个链接现在有效`);
+                } else {
+                    showToast(`检测完成，${checkedCount} 个链接仍然无效`);
                 }
-                showInvalidLinksResult(cachedInvalidLinks, currentInvalidFilter);
+                
+                // 更新统计卡片
+                setTimeout(() => {
+                    updateInvalidLinksStats();
+                }, 800);
                 
             } catch (error) {
                 alert('检测失败: ' + error.message);
@@ -2444,11 +2520,25 @@ window.filterInvalidLinks = function(filter) {
     }
 };
 
-// 重新检测选中的链接
-async function recheckSelectedLinks(selectedBookmarks) {
+// 重新检测选中的链接（带进度回调）
+async function recheckSelectedLinks(selectedBookmarks, onProgress) {
     const results = [];
+    const total = selectedBookmarks.length;
     
-    for (const bookmark of selectedBookmarks) {
+    for (let i = 0; i < selectedBookmarks.length; i++) {
+        const bookmark = selectedBookmarks[i];
+        
+        // 报告进度
+        if (onProgress) {
+            onProgress({
+                current: i + 1,
+                total,
+                url: bookmark.url,
+                bookmarkId: bookmark.id,
+                status: 'checking'
+            });
+        }
+        
         try {
             // 清除该URL的缓存
             urlCheckCache.delete(bookmark.url);
@@ -2456,21 +2546,48 @@ async function recheckSelectedLinks(selectedBookmarks) {
             // 重新检测
             const checkResult = await checkLinkWithDns({ url: bookmark.url });
             
-            results.push({
+            const result = {
                 bookmarkId: bookmark.id,
                 url: bookmark.url,
                 isValid: checkResult.valid,
                 error: checkResult.error,
                 dnsStatus: checkResult.dnsStatus
-            });
+            };
+            
+            results.push(result);
+            
+            // 报告单个结果
+            if (onProgress) {
+                onProgress({
+                    current: i + 1,
+                    total,
+                    url: bookmark.url,
+                    bookmarkId: bookmark.id,
+                    status: 'done',
+                    result
+                });
+            }
         } catch (error) {
-            results.push({
+            const result = {
                 bookmarkId: bookmark.id,
                 url: bookmark.url,
                 isValid: false,
                 error: error.message,
                 dnsStatus: 'error'
-            });
+            };
+            
+            results.push(result);
+            
+            if (onProgress) {
+                onProgress({
+                    current: i + 1,
+                    total,
+                    url: bookmark.url,
+                    bookmarkId: bookmark.id,
+                    status: 'done',
+                    result
+                });
+            }
         }
     }
     
