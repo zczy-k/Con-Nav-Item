@@ -17,6 +17,9 @@ yarn-error.log*
 database/*.db
 database/*.db-*
 
+# Backups
+backups/
+
 # SSL Certificates
 certs/
 *.key
