@@ -757,6 +757,12 @@ const selectedCardsCount = computed(() => {
 
 // 默认搜索引擎配置
 const defaultEngines = [
+  // 优先
+  {
+    name: 'bing',
+    label: 'Bing',
+    url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}`
+  },
   {
     name: 'google',
     label: 'Google',
@@ -767,6 +773,7 @@ const defaultEngines = [
     label: '百度',
     url: q => `https://www.baidu.com/s?wd=${encodeURIComponent(q)}`
   },
+  // 国内
   {
     name: '360',
     label: '360搜索',
@@ -777,11 +784,7 @@ const defaultEngines = [
     label: '搜狗',
     url: q => `https://www.sogou.com/web?query=${encodeURIComponent(q)}`
   },
-  {
-    name: 'bing',
-    label: 'Bing',
-    url: q => `https://www.bing.com/search?q=${encodeURIComponent(q)}`
-  },
+  // 其他
   {
     name: 'github',
     label: 'GitHub',
