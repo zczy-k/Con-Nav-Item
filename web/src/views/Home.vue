@@ -37,23 +37,31 @@
                   </button>
                 </div>
                 <div class="engine-menu-items">
-                  <button v-for="engine in searchEngines" :key="engine.name"
-                    :class="['engine-menu-item', {active: selectedEngine.name === engine.name}]"
-                    @click="selectEngineFromDropdown(engine)"
-                  >
-                    <span class="engine-icon">
-                      <img
-                        :src="getEngineIcon(engine)" 
-                        :alt="engine.label"
-                        @error="handleEngineIconError"
-                        class="engine-icon-img"
-                      />
-                    </span>
-                    <span class="engine-label">{{ engine.label }}</span>
-                    <button v-if="engine.custom" @click.stop="deleteCustomEngine(engine)" class="delete-engine-btn-small" title="删除">
-                      ×
+                  <div v-for="(engine, index) in searchEngines" :key="engine.name" class="engine-menu-row">
+                    <button
+                      :class="['engine-menu-item', {active: selectedEngine.name === engine.name}]"
+                      @click="selectEngineFromDropdown(engine)"
+                    >
+                      <span class="engine-icon">
+                        <img
+                          :src="getEngineIcon(engine)" 
+                          :alt="engine.label"
+                          @error="handleEngineIconError"
+                          class="engine-icon-img"
+                        />
+                      </span>
+                      <span class="engine-label">{{ engine.label }}</span>
                     </button>
-                  </button>
+                    <div class="engine-actions">
+                      <button v-if="index > 0" @click.stop="moveEngineUp(index)" class="engine-sort-btn" title="上移">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 15l-6-6-6 6"/></svg>
+                      </button>
+                      <button v-if="index < searchEngines.length - 1" @click.stop="moveEngineDown(index)" class="engine-sort-btn" title="下移">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+                      </button>
+                      <button v-if="engine.custom" @click.stop="deleteCustomEngine(engine)" class="delete-engine-btn-small" title="删除">×</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </transition>
@@ -849,6 +857,34 @@ function selectEngineFromDropdown(engine) {
   showEngineDropdown.value = false;
 }
 
+// 保存搜索引擎顺序到localStorage
+function saveEngineOrder() {
+  try {
+    const order = searchEngines.value.map(e => e.name);
+    localStorage.setItem('search_engine_order', JSON.stringify(order));
+  } catch (e) {
+    console.error('保存搜索引擎顺序失败:', e);
+  }
+}
+
+// 上移搜索引擎
+function moveEngineUp(index) {
+  if (index <= 0) return;
+  const engines = [...searchEngines.value];
+  [engines[index - 1], engines[index]] = [engines[index], engines[index - 1]];
+  searchEngines.value = engines;
+  saveEngineOrder();
+}
+
+// 下移搜索引擎
+function moveEngineDown(index) {
+  if (index >= searchEngines.value.length - 1) return;
+  const engines = [...searchEngines.value];
+  [engines[index], engines[index + 1]] = [engines[index + 1], engines[index]];
+  searchEngines.value = engines;
+  saveEngineOrder();
+}
+
 function clearSearch() {
   searchQuery.value = '';
 }
@@ -1105,6 +1141,30 @@ onMounted(async () => {
           keyword: engine.keyword
         }));
         searchEngines.value = [...defaultEngines, ...customEngines];
+      }
+      
+      // 恢复用户保存的搜索引擎顺序
+      const savedOrder = localStorage.getItem('search_engine_order');
+      if (savedOrder) {
+        try {
+          const order = JSON.parse(savedOrder);
+          const engineMap = new Map(searchEngines.value.map(e => [e.name, e]));
+          const sorted = [];
+          // 按保存的顺序排列
+          order.forEach(name => {
+            if (engineMap.has(name)) {
+              sorted.push(engineMap.get(name));
+              engineMap.delete(name);
+            }
+          });
+          // 新增的引擎放到末尾
+          engineMap.forEach(e => sorted.push(e));
+          if (sorted.length > 0) {
+            searchEngines.value = sorted;
+          }
+        } catch (e) {
+          // 解析失败忽略
+        }
       }
       
       // 从缓存恢复用户选择的搜索引擎
@@ -2541,11 +2601,21 @@ async function saveCardEdit() {
   overflow-y: auto;
 }
 
+.engine-menu-row {
+  display: flex;
+  align-items: center;
+  padding-right: 8px;
+}
+
+.engine-menu-row:hover {
+  background: rgba(102, 126, 234, 0.05);
+}
+
 .engine-menu-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  width: 100%;
+  flex: 1;
   padding: 10px 16px;
   border: none;
   background: transparent;
@@ -2573,15 +2643,45 @@ async function saveCardEdit() {
   min-width: 20px;
 }
 
-
 .engine-menu-item .engine-label {
   flex: 1;
 }
 
+.engine-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.engine-menu-row:hover .engine-actions {
+  opacity: 1;
+}
+
+.engine-sort-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  background: rgba(102, 126, 234, 0.1);
+  border: none;
+  color: #667eea;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.engine-sort-btn:hover {
+  background: #667eea;
+  color: white;
+}
+
 .delete-engine-btn-small {
-  width: 20px;
-  height: 20px;
-  border-radius: 50%;
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
   background: rgba(239, 68, 68, 0.1);
   border: none;
   color: #ef4444;
@@ -2596,7 +2696,6 @@ async function saveCardEdit() {
 .delete-engine-btn-small:hover {
   background: #ef4444;
   color: white;
-  transform: scale(1.1);
 }
 
 /* 下拉菜单动画 */
