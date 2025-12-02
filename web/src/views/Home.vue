@@ -2060,6 +2060,9 @@ async function changeBackground() {
     const response = await getRandomWallpaper();
     const wallpaperUrl = response.data.url;
     
+    // 将图片转换为 Base64 存储，实现秒加载
+    const base64Data = await convertImageToBase64(wallpaperUrl);
+    
     // 更新背景 - 直接更新或创建 <style> 标签，使用 !important 覆盖
     let bgStyle = document.getElementById('dynamic-bg-style');
     if (!bgStyle) {
@@ -2067,16 +2070,66 @@ async function changeBackground() {
       bgStyle.id = 'dynamic-bg-style';
       document.head.appendChild(bgStyle);
     }
-    bgStyle.textContent = `.home-container { background-image: url(${wallpaperUrl}) !important; }`;
+    bgStyle.textContent = `.home-container { background-image: url(${base64Data}) !important; }`;
     
-    // 保存到localStorage，下次刷新时自动应用
-    localStorage.setItem('nav_background', wallpaperUrl);
+    // 保存 Base64 到 localStorage，下次刷新时秒加载
+    localStorage.setItem('nav_background', base64Data);
   } catch (error) {
     console.error('获取壁纸失败:', error);
     alert('获取壁纸失败，请稍后重试');
   } finally {
     bgLoading.value = false;
   }
+}
+
+// 将远程图片转换为 Base64
+async function convertImageToBase64(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        // 限制最大尺寸以控制 Base64 大小
+        const maxSize = 1920;
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > maxSize || height > maxSize) {
+          if (width > height) {
+            height = Math.round(height * maxSize / width);
+            width = maxSize;
+          } else {
+            width = Math.round(width * maxSize / height);
+            height = maxSize;
+          }
+        }
+        
+        canvas.width = width;
+        canvas.height = height;
+        
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // 使用 JPEG 格式，质量 0.8，平衡大小和质量
+        const base64 = canvas.toDataURL('image/jpeg', 0.8);
+        resolve(base64);
+      } catch (e) {
+        // 如果转换失败，返回原始 URL
+        console.warn('Base64 转换失败，使用原始 URL:', e);
+        resolve(url);
+      }
+    };
+    
+    img.onerror = () => {
+      // 加载失败时返回原始 URL
+      console.warn('图片加载失败，使用原始 URL');
+      resolve(url);
+    };
+    
+    img.src = url;
+  });
 }
 
 // ========== 编辑模式相关函数 ==========
