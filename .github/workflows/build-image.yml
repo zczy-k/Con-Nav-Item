@@ -12,6 +12,7 @@ on:
       - 'start-with-https.js'
       - 'check-password.js'
       - 'web/**'
+      - 'public/**'
       - 'routes/**'
       - 'middleware/**'
       - 'utils/**'
