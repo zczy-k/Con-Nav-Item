@@ -469,7 +469,17 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       // 清理失败不影响主流程
     }
 
-    let message = '备份恢复成功！应用可能需要重启以生效。';
+    // 清除应用缓存
+    try {
+      const app = require('../app');
+      if (app.clearCache) {
+        app.clearCache();
+      }
+    } catch (e) {
+      // 忽略缓存清除失败
+    }
+
+    let message = '备份恢复成功！请刷新页面查看，如数据未更新请重启应用。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
@@ -479,7 +489,8 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       message,
       restored: restoredFiles,
       skipped: skippedFiles,
-      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null
+      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null,
+      needRestart: true
     });
 
   } catch (error) {
@@ -920,7 +931,17 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     fs.unlinkSync(tempPath);
     fs.rmSync(tempDir, { recursive: true, force: true });
     
-    let message = '从 WebDAV恢复成功！应用可能需要重启以生效。';
+    // 清除应用缓存
+    try {
+      const app = require('../app');
+      if (app.clearCache) {
+        app.clearCache();
+      }
+    } catch (e) {
+      // 忽略缓存清除失败
+    }
+    
+    let message = '从 WebDAV恢复成功！请刷新页面查看，如数据未更新请重启应用。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
@@ -929,7 +950,8 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
       success: true, 
       message,
       restored: restoredFiles,
-      skipped: skippedFiles
+      skipped: skippedFiles,
+      needRestart: true
     });
     
   } catch (error) {
