@@ -57,21 +57,37 @@ const newAdPos = ref('left');
 onMounted(loadAds);
 
 async function loadAds() {
-  const res = await getAds();
-  leftAds.value = res.data.filter(ad => ad.position === 'left');
-  rightAds.value = res.data.filter(ad => ad.position === 'right');
+  try {
+    const res = await getAds();
+    const ads = Array.isArray(res.data) ? res.data : [];
+    leftAds.value = ads.filter(ad => ad.position === 'left');
+    rightAds.value = ads.filter(ad => ad.position === 'right');
+  } catch (err) {
+    console.error('加载广告失败:', err);
+  }
 }
 async function handleAddAd() {
-  if (!newAdImg.value || !newAdUrl.value) return;
-  await apiAddAd({ position: newAdPos.value, img: newAdImg.value, url: newAdUrl.value });
-  newAdImg.value = '';
-  newAdUrl.value = '';
-  newAdPos.value = 'left';
-  loadAds();
+  if (!newAdImg.value || !newAdUrl.value) {
+    alert('请填写广告图片链接和跳转链接');
+    return;
+  }
+  try {
+    await apiAddAd({ position: newAdPos.value, img: newAdImg.value, url: newAdUrl.value });
+    newAdImg.value = '';
+    newAdUrl.value = '';
+    newAdPos.value = 'left';
+    await loadAds();
+  } catch (err) {
+    alert('添加广告失败：' + (err.response?.data?.error || err.message));
+  }
 }
 async function updateAd(ad) {
-  await apiUpdateAd(ad.id, { img: ad.img, url: ad.url });
-  loadAds();
+  try {
+    await apiUpdateAd(ad.id, { img: ad.img, url: ad.url });
+  } catch (err) {
+    alert('更新广告失败：' + (err.response?.data?.error || err.message));
+    await loadAds();
+  }
 }
 async function deleteAd(id) {
   if (!confirm('确定要删除这个广告吗？')) return;
