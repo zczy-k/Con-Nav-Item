@@ -9,7 +9,32 @@ if (!fs.existsSync(dbDir)) {
   fs.mkdirSync(dbDir);
 }
 
-const db = new sqlite3.Database(path.join(dbDir, 'nav.db'));
+const dbPath = path.join(dbDir, 'nav.db');
+let db = new sqlite3.Database(dbPath);
+
+// 重新连接数据库（用于备份恢复后刷新连接）
+function reconnectDatabase() {
+  return new Promise((resolve, reject) => {
+    // 关闭当前连接
+    db.close((err) => {
+      if (err) {
+        console.error('关闭数据库连接失败:', err);
+        // 即使关闭失败也尝试重新连接
+      }
+      
+      // 重新打开连接
+      db = new sqlite3.Database(dbPath, (err) => {
+        if (err) {
+          console.error('重新连接数据库失败:', err);
+          reject(err);
+        } else {
+          console.log('✓ 数据库已重新连接');
+          resolve();
+        }
+      });
+    });
+  });
+}
 
 // Promisify database operations
 const dbRun = (sql, params = []) => {
@@ -461,5 +486,13 @@ async function seedTags() {
 // 执行初始化并导出 Promise
 const dbInitPromise = initializeDatabase();
 
-module.exports = db;
+// 导出数据库实例（使用 getter 确保始终返回最新的连接）
+module.exports = new Proxy({}, {
+  get: (target, prop) => {
+    if (prop === 'reconnect') return reconnectDatabase;
+    if (prop === 'initPromise') return dbInitPromise;
+    return db[prop];
+  }
+});
 module.exports.initPromise = dbInitPromise;
+module.exports.reconnect = reconnectDatabase;

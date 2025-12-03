@@ -469,6 +469,17 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       // 清理失败不影响主流程
     }
 
+    // 重新连接数据库，加载恢复后的数据
+    try {
+      const db = require('../db');
+      if (db.reconnect) {
+        await db.reconnect();
+        console.log('✓ 数据库已重新连接，恢复的数据已生效');
+      }
+    } catch (e) {
+      console.error('数据库重连失败:', e);
+    }
+
     // 清除应用缓存
     try {
       const app = require('../app');
@@ -479,7 +490,7 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       // 忽略缓存清除失败
     }
 
-    let message = '备份恢复成功！请刷新页面查看，如数据未更新请重启应用。';
+    let message = '备份恢复成功！请刷新页面查看最新数据。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
@@ -489,8 +500,7 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       message,
       restored: restoredFiles,
       skipped: skippedFiles,
-      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null,
-      needRestart: true
+      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null
     });
 
   } catch (error) {
@@ -931,6 +941,17 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     fs.unlinkSync(tempPath);
     fs.rmSync(tempDir, { recursive: true, force: true });
     
+    // 重新连接数据库，加载恢复后的数据
+    try {
+      const db = require('../db');
+      if (db.reconnect) {
+        await db.reconnect();
+        console.log('✓ 数据库已重新连接，恢复的数据已生效');
+      }
+    } catch (e) {
+      console.error('数据库重连失败:', e);
+    }
+    
     // 清除应用缓存
     try {
       const app = require('../app');
@@ -941,7 +962,7 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
       // 忽略缓存清除失败
     }
     
-    let message = '从 WebDAV恢复成功！请刷新页面查看，如数据未更新请重启应用。';
+    let message = '从 WebDAV恢复成功！请刷新页面查看最新数据。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
@@ -950,8 +971,7 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
       success: true, 
       message,
       restored: restoredFiles,
-      skipped: skippedFiles,
-      needRestart: true
+      skipped: skippedFiles
     });
     
   } catch (error) {
