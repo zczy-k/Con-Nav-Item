@@ -582,9 +582,40 @@
                     <button @click="removeTag(tagId)" class="remove-tag-btn">×</button>
                   </span>
                 </div>
+                <!-- 标签搜索框 -->
+                <div class="tag-search-row">
+                  <input 
+                    v-model="tagSearchQuery" 
+                    type="text" 
+                    placeholder="搜索标签..." 
+                    class="tag-search-input"
+                  />
+                  <button @click="showQuickAddTag = !showQuickAddTag" class="quick-add-tag-btn" :title="showQuickAddTag ? '取消' : '新建标签'">
+                    {{ showQuickAddTag ? '×' : '+ 新建' }}
+                  </button>
+                </div>
+                <!-- 快速新建标签 -->
+                <div v-if="showQuickAddTag" class="quick-add-tag-form">
+                  <input 
+                    v-model="quickTagName" 
+                    type="text" 
+                    placeholder="标签名称" 
+                    class="quick-tag-name-input"
+                    maxlength="20"
+                  />
+                  <input 
+                    v-model="quickTagColor" 
+                    type="color" 
+                    class="quick-tag-color-input"
+                    title="选择颜色"
+                  />
+                  <button @click="createQuickTag" class="quick-tag-create-btn" :disabled="!quickTagName.trim()">
+                    创建
+                  </button>
+                </div>
                 <div class="available-tags">
                   <button 
-                    v-for="tag in availableTagsForEdit" 
+                    v-for="tag in filteredAvailableTags" 
                     :key="tag.id"
                     @click="addTag(tag.id)"
                     class="available-tag-btn"
@@ -592,6 +623,9 @@
                   >
                     + {{ tag.name }}
                   </button>
+                  <span v-if="filteredAvailableTags.length === 0 && tagSearchQuery" class="no-tags-hint">
+                    未找到匹配的标签
+                  </span>
                 </div>
               </div>
             </div>
@@ -754,6 +788,12 @@ const cardEditForm = ref({
   desc: '',
   tagIds: []
 });
+
+// 标签搜索和快速创建
+const tagSearchQuery = ref('');
+const showQuickAddTag = ref(false);
+const quickTagName = ref('');
+const quickTagColor = ref('#1890ff');
 
 // FAB 菜单
 const showFabMenu = ref(false);
@@ -2484,6 +2524,11 @@ function closeEditCardModal() {
     tagIds: []
   };
   editError.value = '';
+  // 重置标签搜索和快速创建状态
+  tagSearchQuery.value = '';
+  showQuickAddTag.value = false;
+  quickTagName.value = '';
+  quickTagColor.value = '#1890ff';
 }
 
 // 标签相关辅助方法
@@ -2507,6 +2552,48 @@ function removeTag(tagId) {
 const availableTagsForEdit = computed(() => {
   return allTags.value.filter(tag => !cardEditForm.value.tagIds.includes(tag.id));
 });
+
+// 过滤后的可用标签（支持搜索）
+const filteredAvailableTags = computed(() => {
+  const query = tagSearchQuery.value.trim().toLowerCase();
+  if (!query) return availableTagsForEdit.value;
+  return availableTagsForEdit.value.filter(tag => 
+    tag.name.toLowerCase().includes(query)
+  );
+});
+
+// 快速创建标签
+async function createQuickTag() {
+  const name = quickTagName.value.trim();
+  if (!name) return;
+  
+  try {
+    const { addTag: apiAddTag } = await import('../api');
+    const maxOrder = allTags.value.length
+      ? Math.max(...allTags.value.map(t => t.order || 0))
+      : 0;
+    
+    const res = await apiAddTag({
+      name: name,
+      color: quickTagColor.value,
+      order: maxOrder + 1
+    });
+    
+    // 添加到标签列表
+    const newTag = res.data;
+    allTags.value.push(newTag);
+    
+    // 自动选中新创建的标签
+    cardEditForm.value.tagIds.push(newTag.id);
+    
+    // 重置表单
+    quickTagName.value = '';
+    quickTagColor.value = '#1890ff';
+    showQuickAddTag.value = false;
+  } catch (err) {
+    alert('创建标签失败：' + (err.response?.data?.error || err.message));
+  }
+}
 
 // 保存卡片编辑
 async function saveCardEdit() {
@@ -3747,10 +3834,100 @@ async function saveCardEdit() {
   opacity: 1;
 }
 
+.tag-search-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.tag-search-input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.tag-search-input:focus {
+  border-color: #1890ff;
+}
+
+.quick-add-tag-btn {
+  padding: 8px 12px;
+  background: #1890ff;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.quick-add-tag-btn:hover {
+  background: #40a9ff;
+}
+
+.quick-add-tag-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 10px;
+  background: #f0f7ff;
+  border-radius: 8px;
+  border: 1px dashed #1890ff;
+}
+
+.quick-tag-name-input {
+  flex: 1;
+  padding: 6px 10px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  font-size: 13px;
+  outline: none;
+}
+
+.quick-tag-name-input:focus {
+  border-color: #1890ff;
+}
+
+.quick-tag-color-input {
+  width: 32px;
+  height: 32px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.quick-tag-create-btn {
+  padding: 6px 14px;
+  background: #52c41a;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.quick-tag-create-btn:hover:not(:disabled) {
+  background: #73d13d;
+}
+
+.quick-tag-create-btn:disabled {
+  background: #d9d9d9;
+  cursor: not-allowed;
+}
+
 .available-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  max-height: 150px;
+  overflow-y: auto;
 }
 
 .available-tag-btn {
@@ -3770,6 +3947,12 @@ async function saveCardEdit() {
 .available-tag-btn:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.no-tags-hint {
+  color: #999;
+  font-size: 13px;
+  font-style: italic;
 }
 
 .btn {
