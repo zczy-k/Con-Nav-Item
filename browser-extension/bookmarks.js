@@ -11,7 +11,7 @@ let currentSortOrder = 'frequency'; // 当前排序方式
 let autoSortInterval = null; // 自动排序定时器
 let bookmarkTags = new Map(); // 书签标签映射 {bookmarkId: [tags]}
 let allTags = new Set(); // 所有标签集合
-let currentTagFilter = null; // 当前标签筛选
+let currentTagFilters = []; // 当前标签筛选（支持多标签）
 let bookmarkNotes = new Map(); // 书签笔记映射 {bookmarkId: note}
 
 // 分隔符书签URL（这些不是真实书签，不参与任何操作）
@@ -412,7 +412,7 @@ function renderTagCloud() {
         const ratio = count / maxCount;
         const fontSize = 12 + ratio * 6; // 12px - 18px
         
-        const isActive = currentTagFilter === tag;
+        const isActive = currentTagFilters.includes(tag);
         
         tagEl.style.cssText = `
             display: inline-block;
@@ -424,14 +424,15 @@ function renderTagCloud() {
             cursor: pointer;
             transition: all 0.2s;
         `;
-        tagEl.textContent = `${tag} (${count})`;
-        tagEl.title = `点击筛选 "${tag}" 标签的书签`;
+        tagEl.textContent = `${tag} (${count})${isActive ? ' ✓' : ''}`;
+        tagEl.title = isActive ? `点击取消筛选 "${tag}"` : `点击筛选 "${tag}" 标签的书签`;
         
         tagEl.addEventListener('click', () => {
-            if (currentTagFilter === tag) {
-                currentTagFilter = null;
+            const index = currentTagFilters.indexOf(tag);
+            if (index > -1) {
+                currentTagFilters.splice(index, 1);
             } else {
-                currentTagFilter = tag;
+                currentTagFilters.push(tag);
             }
             renderTagCloud();
             renderBookmarkList();
@@ -452,6 +453,36 @@ function renderTagCloud() {
         });
         
         content.appendChild(tagEl);
+    }
+    
+    // 如果有选中的标签，显示清除按钮
+    if (currentTagFilters.length > 0) {
+        const clearBtn = document.createElement('span');
+        clearBtn.style.cssText = `
+            display: inline-block;
+            padding: 4px 10px;
+            background: #ff4d4f;
+            color: white;
+            border-radius: 16px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: 8px;
+        `;
+        clearBtn.textContent = `清除全部 (${currentTagFilters.length})`;
+        clearBtn.title = '清除所有标签筛选';
+        clearBtn.addEventListener('click', () => {
+            currentTagFilters = [];
+            renderTagCloud();
+            renderBookmarkList();
+        });
+        clearBtn.addEventListener('mouseenter', () => {
+            clearBtn.style.background = '#ff7875';
+        });
+        clearBtn.addEventListener('mouseleave', () => {
+            clearBtn.style.background = '#ff4d4f';
+        });
+        content.appendChild(clearBtn);
     }
 }
 
@@ -757,13 +788,14 @@ async function renderBookmarkList() {
     
     let bookmarks = getBookmarksForCurrentFolder();
     
-    // 标签筛选
-    if (currentTagFilter) {
+    // 标签筛选（支持多标签：书签需包含所有选中的标签）
+    if (currentTagFilters.length > 0) {
         bookmarks = bookmarks.filter(b => {
             const tags = getBookmarkTags(b.id);
-            return tags.includes(currentTagFilter);
+            return currentTagFilters.every(filter => tags.includes(filter));
         });
-        document.getElementById('currentFolderName').textContent = `🏷️ ${currentTagFilter} (${bookmarks.length})`;
+        const tagNames = currentTagFilters.join(' + ');
+        document.getElementById('currentFolderName').textContent = `🏷️ ${tagNames} (${bookmarks.length})`;
     }
     
     if (bookmarks.length > 0) {
@@ -771,8 +803,8 @@ async function renderBookmarkList() {
     }
     
     if (bookmarks.length === 0) {
-        const msg = currentTagFilter 
-            ? `没有标签为 "${currentTagFilter}" 的书签` 
+        const msg = currentTagFilters.length > 0 
+            ? `没有同时包含 "${currentTagFilters.join('" 和 "')}" 标签的书签` 
             : '暂无书签';
         container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><p>${msg}</p></div>`;
         return;
@@ -1095,7 +1127,7 @@ function bindEvents() {
     
     // 清除标签筛选
     document.getElementById('btnClearTagFilter').addEventListener('click', () => {
-        currentTagFilter = null;
+        currentTagFilters = [];
         renderTagCloud();
         renderBookmarkList();
     });
@@ -1279,8 +1311,8 @@ function bindKeyboardShortcuts() {
             }
             
             // 清除标签筛选
-            if (currentTagFilter) {
-                currentTagFilter = null;
+            if (currentTagFilters.length > 0) {
+                currentTagFilters = [];
                 renderTagCloud();
                 renderBookmarkList();
                 return;

@@ -87,12 +87,20 @@
     
     <!-- 迷你标签栏 -->
     <div class="mini-tag-bar">
-      <!-- 已选标签显示 -->
-      <div class="selected-tag-display" v-if="selectedTagId">
-        <span class="mini-tag-chip" :style="{ backgroundColor: getTagById(selectedTagId)?.color }">
-          {{ getTagById(selectedTagId)?.name }}
-          <button class="mini-tag-close" @click="clearTagFilter" title="清除筛选">×</button>
+      <!-- 已选标签显示（支持多标签） -->
+      <div class="selected-tag-display" v-if="selectedTagIds.length > 0">
+        <span 
+          v-for="tagId in selectedTagIds" 
+          :key="tagId"
+          class="mini-tag-chip" 
+          :style="{ backgroundColor: getTagById(tagId)?.color }"
+        >
+          {{ getTagById(tagId)?.name }}
+          <button class="mini-tag-close" @click="toggleTagFilter(tagId)" title="移除此标签">×</button>
         </span>
+        <button v-if="selectedTagIds.length > 1" class="mini-tag-clear-all" @click="clearTagFilter" title="清除全部">
+          清除
+        </button>
       </div>
       <!-- 标签选择按钮 -->
       <button v-if="allTags.length > 0" class="mini-tag-btn" @click="showTagPanel = !showTagPanel" :title="showTagPanel ? '关闭标签' : '选择标签'">
@@ -110,7 +118,7 @@
       <div v-if="showTagPanel" class="tag-panel-overlay" @click="showTagPanel = false">
         <div class="tag-panel" @click.stop>
           <div class="tag-panel-header">
-            <h4>选择标签</h4>
+            <h4>选择标签 <span v-if="selectedTagIds.length > 0" class="selected-count">(已选 {{ selectedTagIds.length }})</span></h4>
             <button class="panel-close-btn" @click="showTagPanel = false">×</button>
           </div>
           <div class="tag-panel-content">
@@ -118,10 +126,10 @@
               v-for="tag in allTags" 
               :key="tag.id" 
               class="panel-tag-btn"
-              :class="{ active: selectedTagId === tag.id }"
+              :class="{ active: isTagSelected(tag.id) }"
               :style="{ 
-                backgroundColor: selectedTagId === tag.id ? tag.color : 'rgba(255,255,255,0.9)',
-                color: selectedTagId === tag.id ? 'white' : tag.color,
+                backgroundColor: isTagSelected(tag.id) ? tag.color : 'rgba(255,255,255,0.9)',
+                color: isTagSelected(tag.id) ? 'white' : tag.color,
                 borderColor: tag.color
               }"
               @click="selectTag(tag.id)"
@@ -131,7 +139,11 @@
                 <line x1="7" y1="7" x2="7.01" y2="7"/>
               </svg>
               {{ tag.name }}
+              <span v-if="isTagSelected(tag.id)" class="tag-check">✓</span>
             </button>
+          </div>
+          <div v-if="selectedTagIds.length > 0" class="tag-panel-footer">
+            <button class="clear-all-btn" @click="clearTagFilter">清除全部</button>
           </div>
         </div>
       </div>
@@ -701,7 +713,7 @@ const rightAds = ref([]);
 const showFriendLinks = ref(false);
 const friendLinks = ref([]);
 const allTags = ref([]);
-const selectedTagId = ref(null);
+const selectedTagIds = ref([]); // 支持多标签筛选
 const showTagPanel = ref(false); // 标签选择浮层
 
 // 批量添加相关状态
@@ -889,18 +901,32 @@ function clearSearch() {
   searchQuery.value = '';
 }
 
-// 标签筛选控制
+// 标签筛选控制（支持多标签）
 function toggleTagFilter(tagId) {
-  selectedTagId.value = selectedTagId.value === tagId ? null : tagId;
+  const index = selectedTagIds.value.indexOf(tagId);
+  if (index > -1) {
+    selectedTagIds.value.splice(index, 1);
+  } else {
+    selectedTagIds.value.push(tagId);
+  }
 }
 
 function clearTagFilter() {
-  selectedTagId.value = null;
+  selectedTagIds.value = [];
 }
 
 function selectTag(tagId) {
-  selectedTagId.value = selectedTagId.value === tagId ? null : tagId;
-  showTagPanel.value = false;
+  const index = selectedTagIds.value.indexOf(tagId);
+  if (index > -1) {
+    selectedTagIds.value.splice(index, 1);
+  } else {
+    selectedTagIds.value.push(tagId);
+  }
+}
+
+// 检查标签是否被选中
+function isTagSelected(tagId) {
+  return selectedTagIds.value.includes(tagId);
 }
 
 // 打开添加搜索引擎弹窗(需要先验证密码)
@@ -1061,10 +1087,12 @@ const filteredCards = computed(() => {
   // 当有搜索关键词时，从所有卡片中搜索；否则只显示当前菜单的卡片
   let result = searchQuery.value ? allCards.value : cards.value;
   
-  // 先应用标签筛选
-  if (selectedTagId.value) {
+  // 先应用标签筛选（多标签：卡片需包含所有选中的标签）
+  if (selectedTagIds.value.length > 0) {
     result = result.filter(card => 
-      card.tags && card.tags.some(tag => tag.id === selectedTagId.value)
+      card.tags && selectedTagIds.value.every(tagId => 
+        card.tags.some(tag => tag.id === tagId)
+      )
     );
   }
   
@@ -2936,6 +2964,23 @@ async function saveCardEdit() {
   opacity: 1;
 }
 
+.mini-tag-clear-all {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #ddd;
+  border-radius: 12px;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mini-tag-clear-all:hover {
+  background: #ff4d4f;
+  color: white;
+  border-color: #ff4d4f;
+}
+
 .mini-tag-btn {
   display: flex;
   align-items: center;
@@ -3015,6 +3060,12 @@ async function saveCardEdit() {
   color: white;
 }
 
+.tag-panel-header h4 .selected-count {
+  font-size: 14px;
+  font-weight: 400;
+  opacity: 0.9;
+}
+
 .panel-close-btn {
   background: none;
   border: none;
@@ -3068,6 +3119,34 @@ async function saveCardEdit() {
 .panel-tag-btn.active {
   transform: scale(1.05);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.panel-tag-btn .tag-check {
+  margin-left: 2px;
+  font-size: 12px;
+}
+
+.tag-panel-footer {
+  padding: 12px 20px;
+  border-top: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.clear-all-btn {
+  background: #ff4d4f;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.clear-all-btn:hover {
+  background: #ff7875;
+  transform: translateY(-1px);
 }
 
 /* 浮层动画 */
