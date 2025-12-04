@@ -8,10 +8,9 @@ const { decryptWebDAVConfig } = require('./crypto');
 // 配置文件路径
 const CONFIG_PATH = path.join(__dirname, '..', 'config', 'autoBackup.json');
 
-// WebDAV配置文件路径
+// WebDAV配置文件路径（存储在项目config目录，便于备份和管理）
 function getWebDAVConfigPath() {
-  const homeDir = process.env.HOME || require('os').homedir();
-  return path.join(homeDir, '.Con-Nav-Item-webdav-config.json');
+  return path.join(__dirname, '..', 'config', '.webdav-config.json');
 }
 
 // 默认配置

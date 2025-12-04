@@ -39,6 +39,7 @@ Thumbs.db
 
 # Security secrets
 config/.jwt-secret
+config/.webdav-config.json
 
 # IDE
 .vscode/

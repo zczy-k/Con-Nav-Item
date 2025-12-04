@@ -182,16 +182,10 @@ router.post('/create', authMiddleware, backupLimiter, async (req, res) => {
       archive.directory(databaseDir, 'database');
     }
     
-    // 备份 config 目录（自动备份配置等）
+    // 备份 config 目录（包含自动备份配置、WebDAV配置等）
     const configDir = path.join(__dirname, '..', 'config');
     if (fs.existsSync(configDir)) {
       archive.directory(configDir, 'config');
-    }
-    
-    // 备份 WebDAV 配置
-    const webdavConfigPath = getWebDAVConfigPath();
-    if (fs.existsSync(webdavConfigPath)) {
-      archive.file(webdavConfigPath, { name: 'webdav-config.json' });
     }
     
     // 备份环境配置
@@ -454,12 +448,8 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
       
-      // 特殊处理 WebDAV 配置文件
+      // 忽略旧版备份中单独的webdav-config.json（新版在config目录内）
       if (item === 'webdav-config.json') {
-        const webdavConfigPath = getWebDAVConfigPath();
-        fs.copyFileSync(sourcePath, webdavConfigPath);
-        fs.chmodSync(webdavConfigPath, 0o600);
-        restoredFiles.push('webdav-config.json');
         continue;
       }
       
@@ -573,10 +563,9 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
 
 // ==================== WebDAV备份功能 ====================
 
-// WebDAV配置文件路径
+// WebDAV配置文件路径（存储在项目config目录，便于备份和管理）
 const getWebDAVConfigPath = () => {
-  const homeDir = process.env.HOME || require('os').homedir();
-  return path.join(homeDir, '.Con-Nav-Item-webdav-config.json');
+  return path.join(__dirname, '..', 'config', '.webdav-config.json');
 };
 
 // 保存WebDAV配置
@@ -753,16 +742,10 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
         archive.directory(databaseDir, 'database');
       }
       
-      // 备份 config 目录
+      // 备份 config 目录（包含自动备份配置、WebDAV配置等）
       const configDir = path.join(__dirname, '..', 'config');
       if (fs.existsSync(configDir)) {
         archive.directory(configDir, 'config');
-      }
-      
-      // 备份 WebDAV 配置
-      const webdavConfigPath = getWebDAVConfigPath();
-      if (fs.existsSync(webdavConfigPath)) {
-        archive.file(webdavConfigPath, { name: 'webdav-config.json' });
       }
       
       const envFile = path.join(__dirname, '..', '.env');
@@ -970,12 +953,8 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
       
-      // 特殊处理 WebDAV 配置文件
+      // 忽略旧版备份中单独的webdav-config.json（新版在config目录内）
       if (item === 'webdav-config.json') {
-        const webdavConfigPath = getWebDAVConfigPath();
-        fs.copyFileSync(sourcePath, webdavConfigPath);
-        fs.chmodSync(webdavConfigPath, 0o600);
-        restoredFiles.push('webdav-config.json');
         continue;
       }
       
