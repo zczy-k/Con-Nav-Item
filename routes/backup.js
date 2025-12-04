@@ -136,15 +136,29 @@ router.post('/create', authMiddleware, backupLimiter, async (req, res) => {
           fs.fsyncSync(fd);
           fs.closeSync(fd);
           
-          // 生成备份签名并嵌入ZIP内部
-          const backupData = fs.readFileSync(backupPath);
-          const signature = generateBackupSignature(backupData);
           let signed = false;
           
+          // 基于原始ZIP内容计算签名，然后嵌入签名
+          const AdmZip = require('adm-zip');
+          const zip = new AdmZip(backupPath);
+          
+          // 计算ZIP内所有文件内容的哈希（不包含签名文件本身）
+          const entries = zip.getEntries();
+          const contentHash = require('crypto').createHash('sha256');
+          entries.sort((a, b) => a.entryName.localeCompare(b.entryName));
+          for (const entry of entries) {
+            if (entry.entryName !== '.backup-signature') {
+              contentHash.update(entry.entryName);
+              contentHash.update(entry.getData());
+            }
+          }
+          const contentDigest = contentHash.digest();
+          
+          // 基于内容哈希生成签名
+          const signature = generateBackupSignature(contentDigest);
+          
           if (signature) {
-            // 将签名追加到ZIP文件内部
-            const AdmZip = require('adm-zip');
-            const zip = new AdmZip(backupPath);
+            // 将签名嵌入ZIP
             zip.addFile('.backup-signature', Buffer.from(signature, 'utf-8'));
             zip.writeZip(backupPath);
             signed = true;
@@ -453,7 +467,19 @@ router.post('/upload', authMiddleware, backupLimiter, upload.single('backup'), (
         signed = true;
         const signature = zip.readAsText(sigEntry).trim();
         try {
-          signatureValid = verifyBackupSignature(backupData, signature);
+          // 计算ZIP内所有文件内容的哈希（不包含签名文件本身）
+          const entries = zip.getEntries();
+          const contentHash = require('crypto').createHash('sha256');
+          entries.sort((a, b) => a.entryName.localeCompare(b.entryName));
+          for (const entry of entries) {
+            if (entry.entryName !== '.backup-signature') {
+              contentHash.update(entry.entryName);
+              contentHash.update(entry.getData());
+            }
+          }
+          const contentDigest = contentHash.digest();
+          
+          signatureValid = verifyBackupSignature(contentDigest, signature);
           if (signatureValid) {
             warning = null; // 签名有效，无警告
           } else {
@@ -530,8 +556,8 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     if (!filePath) return;
 
     // 强制验证备份签名
-    const backupData = fs.readFileSync(filePath);
     let signature = null;
+    let contentDigest = null;
     
     // 1. 优先从ZIP内部读取签名
     try {
@@ -540,6 +566,18 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       const sigEntry = zip.getEntry('.backup-signature');
       if (sigEntry) {
         signature = zip.readAsText(sigEntry).trim();
+        
+        // 计算ZIP内所有文件内容的哈希（不包含签名文件本身）
+        const entries = zip.getEntries();
+        const contentHash = require('crypto').createHash('sha256');
+        entries.sort((a, b) => a.entryName.localeCompare(b.entryName));
+        for (const entry of entries) {
+          if (entry.entryName !== '.backup-signature') {
+            contentHash.update(entry.entryName);
+            contentHash.update(entry.getData());
+          }
+        }
+        contentDigest = contentHash.digest();
       }
     } catch (e) {
       console.warn('无法从ZIP内部读取签名:', e.message);
@@ -550,6 +588,8 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       const sigPath = filePath.replace('.zip', '.sig');
       if (fs.existsSync(sigPath)) {
         signature = fs.readFileSync(sigPath, 'utf-8').trim();
+        // 旧版本使用整个ZIP文件计算签名
+        contentDigest = fs.readFileSync(filePath);
       }
     }
     
@@ -568,7 +608,7 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     } else {
       // 有签名，必须验证通过
       try {
-        if (!verifyBackupSignature(backupData, signature)) {
+        if (!verifyBackupSignature(contentDigest, signature)) {
           return res.status(403).json({
             success: false,
             message: '🚫 备份文件签名验证失败！文件已被篡改，拒绝恢复。',
@@ -969,12 +1009,24 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
             fs.fsyncSync(fd);
             fs.closeSync(fd);
             
-            // 生成备份签名并嵌入ZIP内部
-            const backupData = fs.readFileSync(backupPath);
-            const signature = generateBackupSignature(backupData);
+            // 基于ZIP内容计算签名并嵌入
+            const AdmZip = require('adm-zip');
+            const zip = new AdmZip(backupPath);
+            
+            // 计算ZIP内所有文件内容的哈希
+            const entries = zip.getEntries();
+            const contentHash = require('crypto').createHash('sha256');
+            entries.sort((a, b) => a.entryName.localeCompare(b.entryName));
+            for (const entry of entries) {
+              if (entry.entryName !== '.backup-signature') {
+                contentHash.update(entry.entryName);
+                contentHash.update(entry.getData());
+              }
+            }
+            const contentDigest = contentHash.digest();
+            
+            const signature = generateBackupSignature(contentDigest);
             if (signature) {
-              const AdmZip = require('adm-zip');
-              const zip = new AdmZip(backupPath);
               zip.addFile('.backup-signature', Buffer.from(signature, 'utf-8'));
               zip.writeZip(backupPath);
               
