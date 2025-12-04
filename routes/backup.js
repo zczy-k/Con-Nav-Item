@@ -469,6 +469,7 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
           }
           // 逐个复制config目录中的文件，跳过.jwt-secret
           const configFiles = fs.readdirSync(sourcePath);
+          console.log(`[恢复] config目录包含文件: ${configFiles.join(', ')}`);
           for (const configFile of configFiles) {
             if (configFile === '.jwt-secret') {
               skippedFiles.push('config/.jwt-secret (保护当前JWT密钥)');
@@ -480,6 +481,7 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
               fs.cpSync(srcFile, destFile, { recursive: true });
             } else {
               fs.copyFileSync(srcFile, destFile);
+              console.log(`[恢复] 已复制文件: ${configFile} -> ${destFile}`);
             }
             restoredFiles.push(`config/${configFile}`);
           }
@@ -968,6 +970,7 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
             fs.mkdirSync(destPath, { recursive: true });
           }
           const configFiles = fs.readdirSync(sourcePath);
+          console.log(`[WebDAV恢复] config目录包含文件: ${configFiles.join(', ')}`);
           for (const configFile of configFiles) {
             if (configFile === '.jwt-secret') {
               skippedFiles.push('config/.jwt-secret (保护当前JWT密钥)');
@@ -979,6 +982,7 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
               fs.cpSync(srcFile, destFile, { recursive: true });
             } else {
               fs.copyFileSync(srcFile, destFile);
+              console.log(`[WebDAV恢复] 已复制文件: ${configFile} -> ${destFile}`);
             }
             restoredFiles.push(`config/${configFile}`);
           }
