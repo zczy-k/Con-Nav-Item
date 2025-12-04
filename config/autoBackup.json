@@ -9,12 +9,12 @@
     "hour": 2,
     "minute": 0,
     "keep": 7,
-    "onlyIfModified": false
+    "onlyIfModified": true
   },
   "webdav": {
     "enabled": false,
     "syncDaily": true,
-    "syncIncremental": false
+    "syncIncremental": true
   },
   "autoClean": true
 }

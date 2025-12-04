@@ -26,12 +26,12 @@ const DEFAULT_CONFIG = {
     hour: 2,                       // 每天凌晨2点
     minute: 0,
     keep: 7,                       // 保留7个
-    onlyIfModified: false          // 仅在有修改时备份（避免重复）
+    onlyIfModified: true           // 仅在有修改时备份（避免重复）
   },
   webdav: {
-    enabled: false,                // WebDAV 自动备份（默认禁用）
+    enabled: false,                // WebDAV 自动备份（默认禁用，需先配置）
     syncDaily: true,               // 同步每日备份
-    syncIncremental: false         // 同步增量备份（默认不同步，避免频繁）
+    syncIncremental: true          // 同步增量备份
   },
   autoClean: true                  // 自动清理过期备份
 };

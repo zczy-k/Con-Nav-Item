@@ -265,11 +265,14 @@
           <div class="config-header">
             <h4>☁️ WebDAV 自动同步</h4>
             <label class="switch">
-              <input type="checkbox" v-model="autoBackupConfig.webdav.enabled" />
+              <input type="checkbox" v-model="autoBackupConfig.webdav.enabled" @change="onWebdavEnabledChange" />
               <span class="slider"></span>
             </label>
           </div>
-          <p class="config-info">自动将本地备份同步到 WebDAV 云端。需要先配置 WebDAV 连接。</p>
+          <p class="config-info">
+            自动将本地备份同步到 WebDAV 云端。
+            <span v-if="!webdavConfig.configured" class="warning-text">⚠️ 请先在"WebDAV备份"标签页配置连接</span>
+          </p>
           
           <div v-if="autoBackupConfig.webdav.enabled" class="config-fields">
             <div class="field-row checkbox-row">
@@ -284,7 +287,7 @@
                 <input type="checkbox" v-model="autoBackupConfig.webdav.syncIncremental" />
                 <span>同步增量备份</span>
               </label>
-              <small>增量备份后自动上传（可能频繁，不推荐）</small>
+              <small>增量备份后自动上传到 WebDAV</small>
             </div>
           </div>
         </div>
@@ -497,12 +500,12 @@ const autoBackupConfig = reactive({
     hour: 2,
     minute: 0,
     keep: 7,
-    onlyIfModified: false
+    onlyIfModified: true
   },
   webdav: {
     enabled: false,
     syncDaily: true,
-    syncIncremental: false
+    syncIncremental: true
   },
   autoClean: true
 });
@@ -772,6 +775,17 @@ const backupToWebdav = async () => {
     showMessage(data.message || '备份到WebDAV失败', 'error');
   }
   loading.webdavBackup = false;
+};
+
+// WebDAV自动同步开关变化时检查配置
+const onWebdavEnabledChange = (event) => {
+  if (event.target.checked && !webdavConfig.configured) {
+    // 未配置WebDAV，禁止开启
+    autoBackupConfig.webdav.enabled = false;
+    showMessage('请先在"WebDAV备份"标签页配置WebDAV连接', 'error');
+    // 切换到WebDAV标签页
+    activeTab.value = 'webdav';
+  }
 };
 
 const loadWebdavBackupList = async () => {
@@ -1374,6 +1388,11 @@ input:checked + .slider:before {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.warning-text {
+  color: #f59e0b;
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
