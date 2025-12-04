@@ -19,14 +19,14 @@ const DEFAULT_CONFIG = {
   debounce: {
     enabled: true,
     delay: 30,                     // 30分钟防抖延迟
-    maxPerDay: 3,                  // 每天最多触�?�?
-    keep: 5                        // 保留5个增量备�?
+    maxPerDay: 3,                  // 每天最多触�?�?
+    keep: 5                        // 保留5个增量备�?
   },
   scheduled: {
     enabled: true,
-    hour: 2,                       // 每天凌晨2�?
+    hour: 2,                       // 每天凌晨2�?
     minute: 0,
-    keep: 7                        // 保留7�?
+    keep: 7                        // 保留7�?
   },
   webdav: {
     enabled: false,                // WebDAV 自动备份（默认禁用）
@@ -49,7 +49,7 @@ function loadConfig() {
       return { ...DEFAULT_CONFIG, ...JSON.parse(data) };
     }
     
-    // 首次运行，保存默认配�?
+    // 首次运行，保存默认配�?
     saveConfig(DEFAULT_CONFIG);
     return DEFAULT_CONFIG;
   } catch (error) {
@@ -76,9 +76,10 @@ function saveConfig(newConfig) {
 // 当前配置
 let config = loadConfig();
 
-// 状态管�?
+// 状态管理
 let debounceTimer = null;
-let lastBackupTime = 0;
+let lastDebounceBackupTime = 0;
+let lastScheduledBackupTime = 0;
 let dailyBackupCount = 0;
 let lastBackupDate = new Date().toDateString();
 let scheduledJob = null;
@@ -119,13 +120,13 @@ async function createBackupFile(prefix = 'auto') {
       
       archive.pipe(output);
       
-      // 备份数据�?
+      // 备份数据�?
       const databaseDir = path.join(__dirname, '..', 'database');
       if (fs.existsSync(databaseDir)) {
         archive.directory(databaseDir, 'database');
       }
       
-      // 备份 config 目录（自动备份配置等�?
+      // 备份 config 目录（自动备份配置等�?
       const configDir = path.join(__dirname, '..', 'config');
       if (fs.existsSync(configDir)) {
         archive.directory(configDir, 'config');
@@ -161,17 +162,17 @@ async function createBackupFile(prefix = 'auto') {
 }
 
 /**
- * 同步备份�?WebDAV
+ * 同步备份�?WebDAV
  */
 async function syncToWebDAV(backupPath, backupName) {
   try {
-    // 检�?WebDAV 配置是否存在
+    // 检�?WebDAV 配置是否存在
     const webdavConfigPath = getWebDAVConfigPath();
     if (!fs.existsSync(webdavConfigPath)) {
       return false;
     }
     
-    // 读取并解密配�?
+    // 读取并解密配�?
     const encryptedConfig = JSON.parse(fs.readFileSync(webdavConfigPath, 'utf-8'));
     const webdavConfig = decryptWebDAVConfig(encryptedConfig);
     
@@ -226,7 +227,7 @@ function cleanOldBackups(prefix, keepCount) {
       }))
       .sort((a, b) => b.time - a.time);
     
-    // 删除超出保留数量的备�?
+    // 删除超出保留数量的备�?
     let deletedCount = 0;
     for (let i = keepCount; i < files.length; i++) {
       fs.unlinkSync(files[i].path);
@@ -241,7 +242,7 @@ function cleanOldBackups(prefix, keepCount) {
 }
 
 /**
- * 防抖备份 - 数据修改后触�?
+ * 防抖备份 - 数据修改后触�?
  */
 function triggerDebouncedBackup() {
   if (!config.debounce.enabled) {
@@ -251,13 +252,13 @@ function triggerDebouncedBackup() {
   const now = Date.now();
   const currentDate = new Date().toDateString();
   
-  // 重置每日计数�?
+  // 重置每日计数�?
   if (currentDate !== lastBackupDate) {
     dailyBackupCount = 0;
     lastBackupDate = currentDate;
   }
   
-  // 检查每日限�?
+  // 检查每日限�?
   if (dailyBackupCount >= config.debounce.maxPerDay) {
     return;
   }
@@ -268,14 +269,15 @@ function triggerDebouncedBackup() {
   }
   
   
-  // 设置新的定时�?
+  // 设置新的定时�?
   debounceTimer = setTimeout(async () => {
     try {
       const result = await createBackupFile('incremental');
-      lastBackupTime = Date.now();
+      lastDebounceBackupTime = Date.now();
       dailyBackupCount++;
+      console.log(`[自动备份] 增量备份完成: ${result.name} (${result.size} MB)`);
       
-      // 同步�?WebDAV（如果启用）
+      // 同步�?WebDAV（如果启用）
       if (config.webdav && config.webdav.enabled && config.webdav.syncIncremental) {
         await syncToWebDAV(result.path, result.name);
       }
@@ -288,7 +290,7 @@ function triggerDebouncedBackup() {
     } catch (error) {
       console.error('[自动备份] 防抖备份失败:', error);
     }
-  }, config.debounce.delay * 60 * 1000); // 转换为毫�?
+  }, config.debounce.delay * 60 * 1000); // 转换为毫�?
 }
 
 /**
@@ -299,7 +301,7 @@ function startScheduledBackup() {
     return;
   }
   
-  // 取消之前的任�?
+  // 取消之前的任�?
   if (scheduledJob) {
     scheduledJob.cancel();
   }
@@ -309,10 +311,15 @@ function startScheduledBackup() {
   scheduledJob = schedule.scheduleJob(cronExpr, async () => {
     try {
       const result = await createBackupFile('daily');
+      lastScheduledBackupTime = Date.now();
+      console.log(`[自动备份] 定时备份完成: ${result.name} (${result.size} MB)`);
       
-      // 同步�?WebDAV（如果启用）
+      // 同步到WebDAV（如果启用）
       if (config.webdav && config.webdav.enabled && config.webdav.syncDaily) {
-        await syncToWebDAV(result.path, result.name);
+        const synced = await syncToWebDAV(result.path, result.name);
+        if (synced) {
+          console.log(`[自动备份] 已同步到WebDAV: ${result.name}`);
+        }
       }
       
       // 自动清理
@@ -375,8 +382,11 @@ function getBackupStats() {
         count: files.length,
         size: (files.reduce((sum, f) => sum + f.size, 0) / (1024 * 1024)).toFixed(2)
       },
-      dailyBackupCount,
-      maxPerDay: config.debounce.maxPerDay
+      debounceToday: dailyBackupCount,
+      maxPerDay: config.debounce.maxPerDay,
+      lastDebounce: lastDebounceBackupTime ? new Date(lastDebounceBackupTime).toISOString() : null,
+      lastScheduled: lastScheduledBackupTime ? new Date(lastScheduledBackupTime).toISOString() : null,
+      nextScheduled: scheduledJob ? scheduledJob.nextInvocation()?.toISOString() : null
     };
   } catch (error) {
     console.error('[自动备份] 获取统计信息失败:', error);
@@ -385,14 +395,14 @@ function getBackupStats() {
 }
 
 /**
- * 更新配置并重启定时任�?
+ * 更新配置并重启定时任�?
  */
 function updateConfig(newConfig) {
   try {
     // 合并配置
     config = { ...config, ...newConfig };
     
-    // 保存到文�?
+    // 保存到文�?
     if (!saveConfig(config)) {
       return { success: false, message: '配置保存失败' };
     }

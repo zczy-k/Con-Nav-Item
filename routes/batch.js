@@ -4,6 +4,7 @@ const cheerio = require('cheerio');
 const db = require('../db');
 const auth = require('./authMiddleware');
 const { isDuplicateCard } = require('../utils/urlNormalizer');
+const { triggerDebouncedBackup } = require('../utils/autoBackup');
 const router = express.Router();
 
 // 批量解析网址信息
@@ -323,6 +324,7 @@ router.post('/add', auth, (req, res) => {
             } else {
               completed++;
               if (completed === uniqueCards.length) {
+                triggerDebouncedBackup(); // 触发自动备份
                 res.json({ 
                   success: true, 
                   added: insertedIds.length,

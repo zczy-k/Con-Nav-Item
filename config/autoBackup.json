@@ -11,5 +11,10 @@
     "minute": 0,
     "keep": 7
   },
+  "webdav": {
+    "enabled": false,
+    "syncDaily": true,
+    "syncIncremental": false
+  },
   "autoClean": true
 }
