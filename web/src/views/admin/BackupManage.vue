@@ -642,8 +642,17 @@ const executeAction = async () => {
     loading.restore = true;
     const data = await apiRequest(`/api/backup/restore/${filename}`, { method: 'POST' });
     if (data.success) {
-      showMessage('恢复成功！');
-      await loadBackupList();
+      showMessage('恢复成功！页面将自动刷新...');
+      // 恢复成功后刷新所有相关数据
+      await Promise.all([
+        loadBackupList(),
+        loadWebdavConfig(),
+        loadAutoBackupConfig()
+      ]);
+      // 延迟刷新页面以确保用户看到成功消息
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
     } else {
       showMessage(data.message || '恢复失败', 'error');
     }
@@ -806,7 +815,18 @@ const restoreFromWebdav = async (filename) => {
     body: JSON.stringify({ filename })
   });
   if (data.success) {
-    showMessage('从WebDAV恢复成功！');
+    showMessage('从WebDAV恢复成功！页面将自动刷新...');
+    // 恢复成功后刷新所有相关数据
+    await Promise.all([
+      loadBackupList(),
+      loadWebdavConfig(),
+      loadWebdavBackupList(),
+      loadAutoBackupConfig()
+    ]);
+    // 延迟刷新页面以确保用户看到成功消息
+    setTimeout(() => {
+      window.location.reload();
+    }, 1500);
   } else {
     showMessage(data.message || '从WebDAV恢复失败', 'error');
   }
