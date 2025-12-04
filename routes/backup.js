@@ -433,11 +433,24 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     const tempDir = path.join(__dirname, '..', `temp-restore-${Date.now()}`);
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
     
+    console.log(`[恢复] 开始解压备份文件: ${filename}`);
     const stream = fs.createReadStream(filePath);
     await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('解压超时（30秒）'));
+      }, 30000); // 30秒超时
+      
       stream.pipe(unzipper.Extract({ path: tempDir }))
-        .on('finish', resolve)
-        .on('error', reject);
+        .on('finish', () => {
+          clearTimeout(timeout);
+          console.log(`[恢复] 解压完成`);
+          resolve();
+        })
+        .on('error', (err) => {
+          clearTimeout(timeout);
+          console.error(`[恢复] 解压失败:`, err);
+          reject(err);
+        });
     });
 
     // 2. 覆盖文件（保护关键配置）
@@ -553,8 +566,29 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     });
 
   } catch (error) {
-    console.error('恢复备份失败:', error);
-    res.status(500).json({ success: false, message: '恢复备份失败', error: error.message });
+    console.error('[恢复] 恢复备份失败:', error);
+    console.error('[恢复] 错误堆栈:', error.stack);
+    
+    // 清理可能残留的临时目录
+    try {
+      const tempDirs = fs.readdirSync(path.join(__dirname, '..'))
+        .filter(name => name.startsWith('temp-restore-'));
+      for (const dir of tempDirs) {
+        const dirPath = path.join(__dirname, '..', dir);
+        if (fs.existsSync(dirPath)) {
+          fs.rmSync(dirPath, { recursive: true, force: true });
+          console.log(`[恢复] 已清理临时目录: ${dir}`);
+        }
+      }
+    } catch (cleanupError) {
+      console.error('[恢复] 清理临时目录失败:', cleanupError);
+    }
+    
+    res.status(500).json({ 
+      success: false, 
+      message: '恢复备份失败: ' + error.message, 
+      error: error.message 
+    });
   }
 });
 
@@ -935,11 +969,24 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     const tempDir = path.join(__dirname, '..', `temp-restore-${Date.now()}`);
     if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir);
     
+    console.log(`[WebDAV恢复] 开始解压备份文件: ${filename}`);
     const stream = fs.createReadStream(tempPath);
     await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('解压超时（30秒）'));
+      }, 30000); // 30秒超时
+      
       stream.pipe(unzipper.Extract({ path: tempDir }))
-        .on('finish', resolve)
-        .on('error', reject);
+        .on('finish', () => {
+          clearTimeout(timeout);
+          console.log(`[WebDAV恢复] 解压完成`);
+          resolve();
+        })
+        .on('error', (err) => {
+          clearTimeout(timeout);
+          console.error(`[WebDAV恢复] 解压失败:`, err);
+          reject(err);
+        });
     });
     
     // 恢复文件（保护关键配置）
@@ -1038,10 +1085,32 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     });
     
   } catch (error) {
-    console.error('从WebDAV恢复失败:', error);
+    console.error('[WebDAV恢复] 恢复失败:', error);
+    console.error('[WebDAV恢复] 错误堆栈:', error.stack);
+    
+    // 清理可能残留的临时文件和目录
+    try {
+      const tempFiles = fs.readdirSync(path.join(__dirname, '..'))
+        .filter(name => name.startsWith('temp-webdav-') || name.startsWith('temp-restore-'));
+      for (const file of tempFiles) {
+        const filePath = path.join(__dirname, '..', file);
+        if (fs.existsSync(filePath)) {
+          const stats = fs.statSync(filePath);
+          if (stats.isDirectory()) {
+            fs.rmSync(filePath, { recursive: true, force: true });
+          } else {
+            fs.unlinkSync(filePath);
+          }
+          console.log(`[WebDAV恢复] 已清理临时文件: ${file}`);
+        }
+      }
+    } catch (cleanupError) {
+      console.error('[WebDAV恢复] 清理临时文件失败:', cleanupError);
+    }
+    
     res.status(500).json({ 
       success: false, 
-      message: '从WebDAV恢复失败', 
+      message: '从WebDAV恢复失败: ' + error.message, 
       error: error.message 
     });
   }
