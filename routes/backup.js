@@ -448,19 +448,6 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
       
-      // 兼容旧版备份：将根目录的webdav-config.json迁移到config目录
-      if (item === 'webdav-config.json') {
-        const configDir = path.join(projectRoot, 'config');
-        if (!fs.existsSync(configDir)) {
-          fs.mkdirSync(configDir, { recursive: true });
-        }
-        const destWebdavConfig = path.join(configDir, '.webdav-config.json');
-        fs.copyFileSync(sourcePath, destWebdavConfig);
-        fs.chmodSync(destWebdavConfig, 0o600);
-        restoredFiles.push('config/.webdav-config.json (从旧版备份迁移)');
-        continue;
-      }
-      
       // 忽略 backup-info.json
       if (item === 'backup-info.json') {
         continue;
@@ -960,19 +947,6 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
-      
-      // 兼容旧版备份：将根目录的webdav-config.json迁移到config目录
-      if (item === 'webdav-config.json') {
-        const configDir = path.join(projectRoot, 'config');
-        if (!fs.existsSync(configDir)) {
-          fs.mkdirSync(configDir, { recursive: true });
-        }
-        const destWebdavConfig = path.join(configDir, '.webdav-config.json');
-        fs.copyFileSync(sourcePath, destWebdavConfig);
-        fs.chmodSync(destWebdavConfig, 0o600);
-        restoredFiles.push('config/.webdav-config.json (从旧版备份迁移)');
-        continue;
-      }
       
       // 忽略 backup-info.json
       if (item === 'backup-info.json') {
