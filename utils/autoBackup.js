@@ -335,6 +335,59 @@ function triggerDebouncedBackup() {
 }
 
 /**
+ * 检查是否需要启动时备份
+ */
+async function checkStartupBackup() {
+  try {
+    const backupDir = path.join(__dirname, '..', 'backups');
+    if (!fs.existsSync(backupDir)) {
+      // 首次运行，创建初始备份
+      console.log('[自动备份] 首次运行，创建初始备份...');
+      const result = await createBackupFile('startup');
+      console.log(`[自动备份] 初始备份完成: ${result.name} (${result.size} MB)`);
+      return;
+    }
+    
+    // 检查最后一次定时备份的时间
+    const dailyBackups = fs.readdirSync(backupDir)
+      .filter(file => file.startsWith('daily-') && file.endsWith('.zip'))
+      .map(file => ({
+        name: file,
+        time: fs.statSync(path.join(backupDir, file)).mtime.getTime()
+      }))
+      .sort((a, b) => b.time - a.time);
+    
+    if (dailyBackups.length === 0) {
+      // 没有定时备份，创建一个
+      console.log('[自动备份] 未找到定时备份，创建启动备份...');
+      const result = await createBackupFile('startup');
+      console.log(`[自动备份] 启动备份完成: ${result.name} (${result.size} MB)`);
+      return;
+    }
+    
+    // 检查最后一次备份是否超过2天
+    const lastBackupTime = dailyBackups[0].time;
+    const twoDaysAgo = Date.now() - 2 * 24 * 60 * 60 * 1000;
+    
+    if (lastBackupTime < twoDaysAgo) {
+      console.log('[自动备份] 最后备份超过2天，创建启动备份...');
+      const result = await createBackupFile('startup');
+      console.log(`[自动备份] 启动备份完成: ${result.name} (${result.size} MB)`);
+      
+      // 如果启用了WebDAV，同步启动备份
+      if (config.webdav && config.webdav.enabled && config.webdav.syncDaily) {
+        const synced = await syncToWebDAV(result.path, result.name);
+        if (synced) {
+          console.log(`[自动备份] 已同步到WebDAV: ${result.name}`);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('[自动备份] 启动检查失败:', error);
+  }
+}
+
+/**
  * 定时备份 - 每天固定时间执行
  */
 function startScheduledBackup() {
@@ -342,7 +395,12 @@ function startScheduledBackup() {
     return;
   }
   
-  // 取消之前的任�?
+  // 启动时检查是否需要备份
+  checkStartupBackup().catch(err => {
+    console.error('[自动备份] 启动备份失败:', err);
+  });
+  
+  // 取消之前的任务
   if (scheduledJob) {
     scheduledJob.cancel();
   }
@@ -367,9 +425,10 @@ function startScheduledBackup() {
         }
       }
       
-      // 自动清理本地备份
+      // 自动清理本地备份（包括daily和startup）
       if (config.autoClean) {
         cleanOldBackups('daily', config.scheduled.keep);
+        cleanOldBackups('startup', config.scheduled.keep);
       }
       
     } catch (error) {
