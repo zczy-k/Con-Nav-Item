@@ -644,28 +644,31 @@ const confirmAction = (action, backupOrFilename) => {
 
 const executeAction = async () => {
   const { action, filename, signed } = dialog;
-  dialog.processing = true;
+  
+  // 立即关闭对话框，显示操作进度
+  dialog.show = false;
+  dialog.processing = false;
 
   try {
     if (action === 'delete') {
+      showMessage('正在删除备份...');
       const data = await apiRequest(`/api/backup/delete/${filename}`, { method: 'DELETE' });
-      dialog.show = false;
       if (data.success) {
-        showMessage('✓ 删除成功！');
+        showMessage('✓ 删除成功');
         await loadBackupList();
       } else {
-        showMessage(data.message || '删除失败', 'error');
+        showMessage('✗ ' + (data.message || '删除失败'), 'error');
       }
     } else if (action === 'restore') {
+      showMessage('正在恢复备份，请稍候...');
       // 如果备份未签名，跳过签名检查
       const body = signed ? {} : { skipSignatureCheck: true };
       const data = await apiRequest(`/api/backup/restore/${filename}`, { 
         method: 'POST',
         body: JSON.stringify(body)
       });
-      dialog.show = false;
       if (data.success) {
-        showMessage('✓ 恢复成功！正在重新加载数据...');
+        showMessage('✓ 备份已恢复，正在重新加载数据...');
         // 等待数据库重连完成（后台异步执行）
         await new Promise(resolve => setTimeout(resolve, 2000));
         // 恢复成功后刷新所有相关数据
@@ -675,21 +678,19 @@ const executeAction = async () => {
           loadWebdavBackupList(),
           loadAutoBackupConfig()
         ]);
-        showMessage('✓ 恢复成功！所有数据已更新', 'success', 5000);
+        showMessage('✓ 恢复完成！数据已更新', 'success', 5000);
       } else if (data.requireConfirm) {
-        showMessage(data.message, 'error');
+        showMessage('✗ ' + data.message, 'error');
       } else {
-        showMessage(data.message || '恢复失败', 'error');
+        showMessage('✗ ' + (data.message || '恢复失败'), 'error');
       }
     } else if (action === 'webdav-restore') {
-      dialog.show = false;
       await restoreFromWebdav(filename);
     } else if (action === 'webdav-delete') {
-      dialog.show = false;
       await deleteWebdavBackup(filename);
     }
-  } finally {
-    dialog.processing = false;
+  } catch (error) {
+    showMessage('✗ 操作失败: ' + error.message, 'error');
   }
 };
 
@@ -838,39 +839,51 @@ const loadWebdavBackupList = async () => {
 };
 
 const restoreFromWebdav = async (filename) => {
+  showMessage('正在从 WebDAV 恢复备份，请稍候...');
   loading.webdavRestore = true;
-  const data = await apiRequest('/api/backup/webdav/restore', {
-    method: 'POST',
-    body: JSON.stringify({ filename })
-  });
-  if (data.success) {
-    showMessage('✓ 从WebDAV恢复成功！正在重新加载数据...');
-    // 等待数据库重连完成（后台异步执行）
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    // 恢复成功后刷新所有相关数据
-    await Promise.all([
-      loadBackupList(),
-      loadWebdavConfig(),
-      loadWebdavBackupList(),
-      loadAutoBackupConfig()
-    ]);
-    showMessage('✓ 从WebDAV恢复成功！所有数据已更新', 'success', 5000);
-  } else {
-    showMessage(data.message || '从WebDAV恢复失败', 'error');
+  try {
+    const data = await apiRequest('/api/backup/webdav/restore', {
+      method: 'POST',
+      body: JSON.stringify({ filename })
+    });
+    if (data.success) {
+      showMessage('✓ 备份已恢复，正在重新加载数据...');
+      // 等待数据库重连完成（后台异步执行）
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 恢复成功后刷新所有相关数据
+      await Promise.all([
+        loadBackupList(),
+        loadWebdavConfig(),
+        loadWebdavBackupList(),
+        loadAutoBackupConfig()
+      ]);
+      showMessage('✓ 恢复完成！数据已更新', 'success', 5000);
+    } else {
+      showMessage('✗ ' + (data.message || '从 WebDAV 恢复失败'), 'error');
+    }
+  } catch (error) {
+    showMessage('✗ 恢复失败: ' + error.message, 'error');
+  } finally {
+    loading.webdavRestore = false;
   }
-  loading.webdavRestore = false;
 };
 
 const deleteWebdavBackup = async (filename) => {
+  showMessage('正在删除 WebDAV 备份...');
   loading.webdavDelete = true;
-  const data = await apiRequest(`/api/backup/webdav/delete/${filename}`, { method: 'DELETE' });
-  if (data.success) {
-    showMessage('删除成功！');
-    await loadWebdavBackupList();
-  } else {
-    showMessage(data.message || '删除失败', 'error');
+  try {
+    const data = await apiRequest(`/api/backup/webdav/delete/${filename}`, { method: 'DELETE' });
+    if (data.success) {
+      showMessage('✓ 删除成功');
+      await loadWebdavBackupList();
+    } else {
+      showMessage('✗ ' + (data.message || '删除失败'), 'error');
+    }
+  } catch (error) {
+    showMessage('✗ 删除失败: ' + error.message, 'error');
+  } finally {
+    loading.webdavDelete = false;
   }
-  loading.webdavDelete = false;
 };
 
 // Auto-backup configuration functions
