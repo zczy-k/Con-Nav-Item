@@ -8,7 +8,8 @@
     "enabled": true,
     "hour": 2,
     "minute": 0,
-    "keep": 7
+    "keep": 7,
+    "onlyIfModified": false
   },
   "webdav": {
     "enabled": false,

@@ -250,6 +250,13 @@
                      min="1" max="30" class="form-input" />
               <small>自动清理时保留最新的N个备份，范围：1-30个</small>
             </div>
+            <div class="field-row checkbox-row">
+              <label class="checkbox-label">
+                <input type="checkbox" v-model="autoBackupConfig.scheduled.onlyIfModified" />
+                <span>仅在有修改时备份</span>
+              </label>
+              <small>如果24小时内已有增量备份，跳过定时备份（避免重复）</small>
+            </div>
           </div>
         </div>
 
@@ -489,7 +496,8 @@ const autoBackupConfig = reactive({
     enabled: true,
     hour: 2,
     minute: 0,
-    keep: 7
+    keep: 7,
+    onlyIfModified: false
   },
   webdav: {
     enabled: false,

@@ -23,9 +23,10 @@ const DEFAULT_CONFIG = {
   },
   scheduled: {
     enabled: true,
-    hour: 2,                       // 每天凌晨2�?
+    hour: 2,                       // 每天凌晨2点
     minute: 0,
-    keep: 7                        // 保留7�?
+    keep: 7,                       // 保留7个
+    onlyIfModified: false          // 仅在有修改时备份（避免重复）
   },
   webdav: {
     enabled: false,                // WebDAV 自动备份（默认禁用）
@@ -351,6 +352,16 @@ function startScheduledBackup() {
   
   scheduledJob = schedule.scheduleJob(cronExpr, async () => {
     try {
+      // 如果启用了"仅在有修改时备份"，检查是否有最近的增量备份
+      if (config.scheduled.onlyIfModified && lastDebounceBackupTime) {
+        const hoursSinceLastBackup = (Date.now() - lastDebounceBackupTime) / (1000 * 60 * 60);
+        // 如果24小时内有增量备份，跳过定时备份
+        if (hoursSinceLastBackup < 24) {
+          console.log('[自动备份] 24小时内已有增量备份，跳过定时备份');
+          return;
+        }
+      }
+      
       const result = await createBackupFile('daily');
       lastScheduledBackupTime = Date.now();
       console.log(`[自动备份] 定时备份完成: ${result.name} (${result.size} MB)`);
