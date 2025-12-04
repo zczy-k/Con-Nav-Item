@@ -382,10 +382,12 @@
     <div v-if="dialog.show" class="modal-overlay">
       <div class="modal-content">
         <h3>确认{{ dialog.title }}</h3>
-        <p>{{ dialog.message }}</p>
+        <p style="white-space: pre-line;">{{ dialog.message }}</p>
         <div class="modal-actions">
-          <button class="btn btn-secondary" @click="dialog.show = false">取消</button>
-          <button :class="['btn', dialog.confirmClass]" @click="executeAction">确认</button>
+          <button class="btn btn-secondary" @click="dialog.show = false" :disabled="loading.restore || loading.delete">取消</button>
+          <button :class="['btn', dialog.confirmClass]" @click="executeAction" :disabled="loading.restore || loading.delete">
+            {{ (loading.restore || loading.delete) ? '处理中...' : '确认' }}
+          </button>
         </div>
       </div>
     </div>
@@ -530,11 +532,13 @@ async function apiRequest(url, options = {}) {
   return response.json();
 }
 
-const showMessage = (text, type = 'success') => {
+const showMessage = (text, type = 'success', duration = 4000) => {
   message.value = { text, type };
+  // 成功消息显示4秒，错误消息显示6秒
+  const timeout = type === 'error' ? 6000 : duration;
   setTimeout(() => {
     message.value = { text: '', type: '' };
-  }, 3000);
+  }, timeout);
 };
 
 const showCreateBackupDialog = () => {
@@ -637,14 +641,14 @@ const confirmAction = (action, backupOrFilename) => {
 };
 
 const executeAction = async () => {
-  const { action, filename } = dialog;
-  dialog.show = false;
+  const { action, filename, signed } = dialog;
 
   if (action === 'delete') {
     loading.delete = true;
+    dialog.show = false;
     const data = await apiRequest(`/api/backup/delete/${filename}`, { method: 'DELETE' });
     if (data.success) {
-      showMessage('删除成功！');
+      showMessage('✓ 删除成功！');
       await loadBackupList();
     } else {
       showMessage(data.message || '删除失败', 'error');
@@ -653,13 +657,14 @@ const executeAction = async () => {
   } else if (action === 'restore') {
     loading.restore = true;
     // 如果备份未签名，跳过签名检查
-    const body = dialog.signed ? {} : { skipSignatureCheck: true };
+    const body = signed ? {} : { skipSignatureCheck: true };
     const data = await apiRequest(`/api/backup/restore/${filename}`, { 
       method: 'POST',
       body: JSON.stringify(body)
     });
+    dialog.show = false;
     if (data.success) {
-      showMessage('恢复成功！正在刷新数据...');
+      showMessage('✓ 恢复成功！正在刷新数据...');
       // 等待一小段时间让服务器文件系统同步
       await new Promise(resolve => setTimeout(resolve, 500));
       // 恢复成功后刷新所有相关数据
@@ -669,7 +674,7 @@ const executeAction = async () => {
         loadWebdavBackupList(),
         loadAutoBackupConfig()
       ]);
-      showMessage('恢复成功！所有数据已更新');
+      showMessage('✓ 恢复成功！所有数据已更新', 'success', 5000);
     } else if (data.requireConfirm) {
       // 签名验证失败，需要用户确认
       showMessage(data.message, 'error');
@@ -678,8 +683,10 @@ const executeAction = async () => {
     }
     loading.restore = false;
   } else if (action === 'webdav-restore') {
+    dialog.show = false;
     await restoreFromWebdav(filename);
   } else if (action === 'webdav-delete') {
+    dialog.show = false;
     await deleteWebdavBackup(filename);
   }
 };
@@ -1025,22 +1032,51 @@ onMounted(async () => {
 }
 
 .message {
-  padding: 12px 16px;
-  border-radius: 8px;
+  padding: 16px 20px;
+  border-radius: 10px;
   margin-bottom: 16px;
-  font-size: 14px;
+  font-size: 15px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  animation: slideIn 0.3s ease-out;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .message.success {
-  background: #d4edda;
+  background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%);
   color: #155724;
-  border: 1px solid #c3e6cb;
+  border: 1px solid #28a745;
+}
+
+.message.success::before {
+  content: '✓';
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .message.error {
-  background: #f8d7da;
+  background: linear-gradient(135deg, #f8d7da 0%, #f5c6cb 100%);
   color: #721c24;
-  border: 1px solid #f5c6cb;
+  border: 1px solid #dc3545;
+}
+
+.message.error::before {
+  content: '✕';
+  font-size: 18px;
+  font-weight: bold;
 }
 
 .empty-state {
