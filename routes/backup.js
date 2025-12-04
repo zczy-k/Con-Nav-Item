@@ -569,38 +569,42 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       // 清理失败不影响主流程
     }
 
-    // 重新连接数据库，加载恢复后的数据
-    try {
-      const db = require('../db');
-      if (db.reconnect) {
-        await db.reconnect();
-        console.log('✓ 数据库已重新连接，恢复的数据已生效');
-      }
-    } catch (e) {
-      console.error('数据库重连失败:', e);
-    }
-
-    // 清除应用缓存
-    try {
-      const app = require('../app');
-      if (app.clearCache) {
-        app.clearCache();
-      }
-    } catch (e) {
-      // 忽略缓存清除失败
-    }
-
-    let message = '备份恢复成功！请刷新页面查看最新数据。';
+    let message = '备份恢复成功！数据库将在后台重新加载。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
 
+    // 先发送响应，避免数据库重连导致请求超时
     res.json({ 
       success: true, 
       message,
       restored: restoredFiles,
       skipped: skippedFiles,
-      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null
+      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null,
+      needReload: true // 提示前端需要重新加载数据
+    });
+
+    // 在响应发送后异步重连数据库
+    setImmediate(async () => {
+      try {
+        const db = require('../db');
+        if (db.reconnect) {
+          await db.reconnect();
+          console.log('✓ 数据库已重新连接，恢复的数据已生效');
+        }
+      } catch (e) {
+        console.error('数据库重连失败:', e);
+      }
+
+      // 清除应用缓存
+      try {
+        const app = require('../app');
+        if (app.clearCache) {
+          app.clearCache();
+        }
+      } catch (e) {
+        // 忽略缓存清除失败
+      }
     });
 
   } catch (error) {
@@ -1089,37 +1093,41 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     fs.unlinkSync(tempPath);
     fs.rmSync(tempDir, { recursive: true, force: true });
     
-    // 重新连接数据库，加载恢复后的数据
-    try {
-      const db = require('../db');
-      if (db.reconnect) {
-        await db.reconnect();
-        console.log('✓ 数据库已重新连接，恢复的数据已生效');
-      }
-    } catch (e) {
-      console.error('数据库重连失败:', e);
-    }
-    
-    // 清除应用缓存
-    try {
-      const app = require('../app');
-      if (app.clearCache) {
-        app.clearCache();
-      }
-    } catch (e) {
-      // 忽略缓存清除失败
-    }
-    
-    let message = '从 WebDAV恢复成功！请刷新页面查看最新数据。';
+    let message = '从 WebDAV恢复成功！数据库将在后台重新加载。';
     if (skippedFiles.length > 0) {
       message += ` 已跳过: ${skippedFiles.join(', ')}`;
     }
     
+    // 先发送响应，避免数据库重连导致请求超时
     res.json({ 
       success: true, 
       message,
       restored: restoredFiles,
-      skipped: skippedFiles
+      skipped: skippedFiles,
+      needReload: true
+    });
+
+    // 在响应发送后异步重连数据库
+    setImmediate(async () => {
+      try {
+        const db = require('../db');
+        if (db.reconnect) {
+          await db.reconnect();
+          console.log('✓ 数据库已重新连接，恢复的数据已生效');
+        }
+      } catch (e) {
+        console.error('数据库重连失败:', e);
+      }
+      
+      // 清除应用缓存
+      try {
+        const app = require('../app');
+        if (app.clearCache) {
+          app.clearCache();
+        }
+      } catch (e) {
+        // 忽略缓存清除失败
+      }
     });
     
   } catch (error) {

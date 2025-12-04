@@ -665,9 +665,9 @@ const executeAction = async () => {
       });
       dialog.show = false;
       if (data.success) {
-        showMessage('✓ 恢复成功！正在刷新数据...');
-        // 等待一小段时间让服务器文件系统同步
-        await new Promise(resolve => setTimeout(resolve, 500));
+        showMessage('✓ 恢复成功！正在重新加载数据...');
+        // 等待数据库重连完成（后台异步执行）
+        await new Promise(resolve => setTimeout(resolve, 2000));
         // 恢复成功后刷新所有相关数据
         await Promise.all([
           loadBackupList(),
@@ -844,9 +844,9 @@ const restoreFromWebdav = async (filename) => {
     body: JSON.stringify({ filename })
   });
   if (data.success) {
-    showMessage('从WebDAV恢复成功！正在刷新数据...');
-    // 等待一小段时间让服务器文件系统同步
-    await new Promise(resolve => setTimeout(resolve, 500));
+    showMessage('✓ 从WebDAV恢复成功！正在重新加载数据...');
+    // 等待数据库重连完成（后台异步执行）
+    await new Promise(resolve => setTimeout(resolve, 2000));
     // 恢复成功后刷新所有相关数据
     await Promise.all([
       loadBackupList(),
@@ -854,7 +854,7 @@ const restoreFromWebdav = async (filename) => {
       loadWebdavBackupList(),
       loadAutoBackupConfig()
     ]);
-    showMessage('从WebDAV恢复成功！所有数据已更新');
+    showMessage('✓ 从WebDAV恢复成功！所有数据已更新', 'success', 5000);
   } else {
     showMessage(data.message || '从WebDAV恢复失败', 'error');
   }
