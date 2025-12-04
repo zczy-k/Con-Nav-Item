@@ -70,10 +70,12 @@
             <div class="backup-meta">
               <span class="backup-size">{{ backup.size }}</span>
               <span class="backup-date">{{ formatDate(backup.created) }}</span>
+              <span v-if="backup.signed" class="backup-signed" title="已签名验证">🔒</span>
+              <span v-else class="backup-unsigned" title="未签名（外部上传）">⚠️</span>
             </div>
           </div>
           <div class="backup-actions">
-             <button class="btn-icon btn-restore" @click="confirmAction('restore', backup.name)" title="恢复备份">
+             <button class="btn-icon btn-restore" @click="confirmAction('restore', backup)" title="恢复备份">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M1 4v6h6M23 20v-6h-6"/>
                 <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
@@ -474,7 +476,8 @@ const dialog = reactive({
   action: null,
   title: '',
   message: '',
-  confirmClass: ''
+  confirmClass: '',
+  signed: true
 });
 
 const webdavConfig = reactive({
@@ -600,10 +603,15 @@ const downloadBackup = (filename) => {
   window.open(`/api/backup/download/${filename}?token=${token}`, '_blank');
 };
 
-const confirmAction = (action, filename) => {
+const confirmAction = (action, backupOrFilename) => {
+  // 支持传入备份对象或文件名
+  const backup = typeof backupOrFilename === 'object' ? backupOrFilename : { name: backupOrFilename };
+  const filename = backup.name;
+  
   dialog.show = true;
   dialog.filename = filename;
   dialog.action = action;
+  dialog.signed = backup.signed;
   
   if (action === 'delete') {
     dialog.title = '删除';
@@ -611,7 +619,11 @@ const confirmAction = (action, filename) => {
     dialog.confirmClass = 'btn-danger';
   } else if (action === 'restore') {
     dialog.title = '恢复';
-    dialog.message = `确定要恢复备份文件 ${filename} 吗？`;
+    if (!backup.signed) {
+      dialog.message = `⚠️ 警告：此备份文件未签名（可能是外部上传的），无法验证其完整性。\n\n确定要恢复备份文件 ${filename} 吗？`;
+    } else {
+      dialog.message = `确定要恢复备份文件 ${filename} 吗？`;
+    }
     dialog.confirmClass = 'btn-restore';
   } else if (action === 'webdav-restore') {
     dialog.title = '从WebDAV恢复';
@@ -640,7 +652,12 @@ const executeAction = async () => {
     loading.delete = false;
   } else if (action === 'restore') {
     loading.restore = true;
-    const data = await apiRequest(`/api/backup/restore/${filename}`, { method: 'POST' });
+    // 如果备份未签名，跳过签名检查
+    const body = dialog.signed ? {} : { skipSignatureCheck: true };
+    const data = await apiRequest(`/api/backup/restore/${filename}`, { 
+      method: 'POST',
+      body: JSON.stringify(body)
+    });
     if (data.success) {
       showMessage('恢复成功！正在刷新数据...');
       // 等待一小段时间让服务器文件系统同步
@@ -653,6 +670,9 @@ const executeAction = async () => {
         loadAutoBackupConfig()
       ]);
       showMessage('恢复成功！所有数据已更新');
+    } else if (data.requireConfirm) {
+      // 签名验证失败，需要用户确认
+      showMessage(data.message, 'error');
     } else {
       showMessage(data.message || '恢复失败', 'error');
     }
@@ -1080,6 +1100,17 @@ onMounted(async () => {
   gap: 12px;
   font-size: 12px;
   color: #666;
+  align-items: center;
+}
+
+.backup-signed {
+  color: #16a34a;
+  font-size: 14px;
+}
+
+.backup-unsigned {
+  color: #f59e0b;
+  font-size: 14px;
 }
 
 .backup-actions {

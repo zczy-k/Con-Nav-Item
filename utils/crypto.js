@@ -100,9 +100,38 @@ function decryptWebDAVConfig(encryptedConfig) {
   };
 }
 
+/**
+ * 生成备份签名
+ * @param {Buffer} data - 备份文件内容
+ * @returns {string} - HMAC-SHA256 签名
+ */
+function generateBackupSignature(data) {
+  const secret = process.env.CRYPTO_SECRET || 'default-secret-key-please-change-in-production';
+  const hmac = crypto.createHmac('sha256', secret + SALT);
+  hmac.update(data);
+  return hmac.digest('hex');
+}
+
+/**
+ * 验证备份签名
+ * @param {Buffer} data - 备份文件内容
+ * @param {string} signature - 签名
+ * @returns {boolean} - 是否验证通过
+ */
+function verifyBackupSignature(data, signature) {
+  const expectedSignature = generateBackupSignature(data);
+  // 使用时间安全的比较防止时序攻击
+  return crypto.timingSafeEqual(
+    Buffer.from(expectedSignature, 'hex'),
+    Buffer.from(signature, 'hex')
+  );
+}
+
 module.exports = {
   encrypt,
   decrypt,
   encryptWebDAVConfig,
-  decryptWebDAVConfig
+  decryptWebDAVConfig,
+  generateBackupSignature,
+  verifyBackupSignature
 };

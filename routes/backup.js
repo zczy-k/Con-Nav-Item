@@ -8,7 +8,7 @@ const authMiddleware = require('./authMiddleware');
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 const { createClient } = require('webdav');
-const { encryptWebDAVConfig, decryptWebDAVConfig } = require('../utils/crypto');
+const { encryptWebDAVConfig, decryptWebDAVConfig, generateBackupSignature, verifyBackupSignature } = require('../utils/crypto');
 const multer = require('multer');
 const { backupLimiter, validateUrl } = require('../middleware/security');
 
@@ -129,14 +129,19 @@ router.post('/create', authMiddleware, backupLimiter, async (req, res) => {
     
     output.on('close', () => {
       // 确保文件完全写入并刷新文件系统缓存
-      // 使用 setImmediate 确保 I/O 操作完成
       setImmediate(() => {
         try {
-          // 强制同步文件系统（fsync）
+          // 强制同步文件系统
           const fd = fs.openSync(backupPath, 'r');
           fs.fsyncSync(fd);
           fs.closeSync(fd);
           
+          // 生成备份签名
+          const backupData = fs.readFileSync(backupPath);
+          const signature = generateBackupSignature(backupData);
+          const sigPath = backupPath.replace('.zip', '.sig');
+          fs.writeFileSync(sigPath, signature);
+          
           const stats = fs.statSync(backupPath);
           const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
           
@@ -147,23 +152,24 @@ router.post('/create', authMiddleware, backupLimiter, async (req, res) => {
               name: `${backupName}.zip`,
               path: backupPath,
               size: `${sizeInMB} MB`,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              signed: true
             }
           });
         } catch (err) {
-          console.error('文件同步失败:', err);
-          // 即使同步失败，也返回成功（文件已创建）
+          console.error('备份后处理失败:', err);
           const stats = fs.statSync(backupPath);
           const sizeInMB = (stats.size / (1024 * 1024)).toFixed(2);
           
           res.json({
             success: true,
-            message: '备份创建成功',
+            message: '备份创建成功（签名生成失败）',
             backup: {
               name: `${backupName}.zip`,
               path: backupPath,
               size: `${sizeInMB} MB`,
-              timestamp: new Date().toISOString()
+              timestamp: new Date().toISOString(),
+              signed: false
             }
           });
         }
@@ -231,12 +237,14 @@ router.get('/list', authMiddleware, (req, res) => {
       .filter(file => file.endsWith('.zip'))
       .map(file => {
         const filePath = path.join(backupDir, file);
+        const sigPath = filePath.replace('.zip', '.sig');
         const stats = fs.statSync(filePath);
         return {
           name: file,
           size: `${(stats.size / (1024 * 1024)).toFixed(2)} MB`,
           created: stats.birthtime.toISOString(),
-          modified: stats.mtime.toISOString()
+          modified: stats.mtime.toISOString(),
+          signed: fs.existsSync(sigPath)
         };
       })
       .sort((a, b) => new Date(b.created) - new Date(a.created));
@@ -293,6 +301,12 @@ router.delete('/delete/:filename', authMiddleware, (req, res) => {
     
     fs.unlinkSync(filePath);
     
+    // 同时删除签名文件（如果存在）
+    const sigPath = filePath.replace('.zip', '.sig');
+    if (fs.existsSync(sigPath)) {
+      fs.unlinkSync(sigPath);
+    }
+    
     res.json({
       success: true,
       message: '备份删除成功'
@@ -341,6 +355,13 @@ router.put('/rename/:filename', authMiddleware, (req, res) => {
     
     // 重命名文件
     fs.renameSync(filePath, newFilePath);
+    
+    // 同时重命名签名文件（如果存在）
+    const sigPath = filePath.replace('.zip', '.sig');
+    if (fs.existsSync(sigPath)) {
+      const newSigPath = newFilePath.replace('.zip', '.sig');
+      fs.renameSync(sigPath, newSigPath);
+    }
     
     res.json({
       success: true,
@@ -394,9 +415,31 @@ router.post('/upload', authMiddleware, backupLimiter, upload.single('backup'), (
 router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res) => {
   try {
     const { filename } = req.params;
-    const { skipEnv = true } = req.body; // 默认跳过.env文件
+    const { skipEnv = true, skipSignatureCheck = false } = req.body; // 默认跳过.env文件
     const filePath = validateBackupFile(filename, res);
     if (!filePath) return;
+
+    // 验证备份签名（如果存在签名文件）
+    const sigPath = filePath.replace('.zip', '.sig');
+    if (fs.existsSync(sigPath) && !skipSignatureCheck) {
+      const backupData = fs.readFileSync(filePath);
+      const signature = fs.readFileSync(sigPath, 'utf-8').trim();
+      try {
+        if (!verifyBackupSignature(backupData, signature)) {
+          return res.status(400).json({
+            success: false,
+            message: '备份文件签名验证失败，文件可能已被篡改',
+            requireConfirm: true
+          });
+        }
+      } catch (sigError) {
+        return res.status(400).json({
+          success: false,
+          message: '备份文件签名验证失败: ' + sigError.message,
+          requireConfirm: true
+        });
+      }
+    }
 
     const projectRoot = path.join(__dirname, '..');
     const preRestoreBackupDir = path.join(__dirname, '..', 'backups', 'pre-restore');
@@ -751,9 +794,16 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
             const fd = fs.openSync(backupPath, 'r');
             fs.fsyncSync(fd);
             fs.closeSync(fd);
+            
+            // 生成备份签名
+            const backupData = fs.readFileSync(backupPath);
+            const signature = generateBackupSignature(backupData);
+            const sigPath = backupPath.replace('.zip', '.sig');
+            fs.writeFileSync(sigPath, signature);
+            
             resolve();
           } catch (err) {
-            console.error('WebDAV备份文件同步失败:', err);
+            console.error('WebDAV备份文件处理失败:', err);
             resolve(); // 即使失败也继续
           }
         });
