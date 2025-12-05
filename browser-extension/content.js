@@ -72,22 +72,13 @@
                 }
                 
                 /* 折叠状态 - 变成贴边小条 */
-                #nav-float-container.collapsed {
-                    right: 0 !important;
-                    left: auto !important;
-                }
-                
-                #nav-float-container.collapsed.collapsed-left {
-                    left: 0 !important;
-                    right: auto !important;
-                }
-                
                 #nav-float-container.collapsed #nav-float-btn {
                     width: 6px;
                     height: 50px;
                     border-radius: 4px 0 0 4px;
                     box-shadow: -2px 0 8px rgba(102, 126, 234, 0.3);
-                    opacity: 0.7;
+                    opacity: 0.5;
+                    transform: none;
                 }
                 
                 #nav-float-container.collapsed.collapsed-left #nav-float-btn {
@@ -96,7 +87,8 @@
                 }
                 
                 #nav-float-container.collapsed #nav-float-btn svg {
-                    display: none;
+                    opacity: 0;
+                    transition: opacity 0.2s;
                 }
                 
                 #nav-float-container.collapsed #nav-float-btn:hover {
@@ -108,7 +100,7 @@
                 }
                 
                 #nav-float-container.collapsed #nav-float-btn:hover svg {
-                    display: block;
+                    opacity: 1;
                 }
                 
                 #nav-float-btn:active {
@@ -307,16 +299,34 @@
             return rect.left > window.innerWidth / 2;
         }
         
+        // 保存展开时的位置
+        let expandedPosition = null;
+        
         // 自动折叠功能
         function startAutoHideTimer() {
             clearTimeout(autoHideTimer);
             autoHideTimer = setTimeout(() => {
                 if (!menuVisible && !isDragging) {
-                    // 根据位置决定折叠方向
+                    // 保存当前位置
+                    expandedPosition = {
+                        left: container.style.left,
+                        top: container.style.top,
+                        right: container.style.right,
+                        bottom: container.style.bottom
+                    };
+                    
+                    // 根据位置决定折叠方向并移动到边缘
                     container.classList.remove('collapsed', 'collapsed-left');
                     container.classList.add('collapsed');
-                    if (!isOnRightSide()) {
+                    
+                    const rect = container.getBoundingClientRect();
+                    if (isOnRightSide()) {
+                        container.style.left = 'auto';
+                        container.style.right = '0px';
+                    } else {
                         container.classList.add('collapsed-left');
+                        container.style.right = 'auto';
+                        container.style.left = '0px';
                     }
                 }
             }, 1000); // 1秒后自动折叠
@@ -324,6 +334,13 @@
         
         function cancelAutoHide() {
             clearTimeout(autoHideTimer);
+            if (container.classList.contains('collapsed') && expandedPosition) {
+                // 恢复到折叠前的位置
+                container.style.left = expandedPosition.left;
+                container.style.top = expandedPosition.top;
+                container.style.right = expandedPosition.right;
+                container.style.bottom = expandedPosition.bottom;
+            }
             container.classList.remove('collapsed', 'collapsed-left');
         }
         
