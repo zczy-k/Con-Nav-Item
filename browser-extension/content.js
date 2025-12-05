@@ -72,15 +72,25 @@
                 }
                 
                 /* 折叠状态 - 变成贴边小条 */
-                #nav-float-container.collapsed #nav-float-btn {
-                    width: 8px;
-                    height: 60px;
-                    border-radius: 4px 0 0 4px;
-                    box-shadow: -2px 0 8px rgba(102, 126, 234, 0.3);
-                    opacity: 0.6;
+                #nav-float-container.collapsed {
+                    right: 0 !important;
+                    left: auto !important;
                 }
                 
-                #nav-float-container.collapsed-left #nav-float-btn {
+                #nav-float-container.collapsed.collapsed-left {
+                    left: 0 !important;
+                    right: auto !important;
+                }
+                
+                #nav-float-container.collapsed #nav-float-btn {
+                    width: 6px;
+                    height: 50px;
+                    border-radius: 4px 0 0 4px;
+                    box-shadow: -2px 0 8px rgba(102, 126, 234, 0.3);
+                    opacity: 0.7;
+                }
+                
+                #nav-float-container.collapsed.collapsed-left #nav-float-btn {
                     border-radius: 0 4px 4px 0;
                     box-shadow: 2px 0 8px rgba(102, 126, 234, 0.3);
                 }
