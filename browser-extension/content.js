@@ -319,7 +319,7 @@
                         container.classList.add('collapsed-left');
                     }
                 }
-            }, 3000); // 3秒后自动折叠
+            }, 1000); // 1秒后自动折叠
         }
         
         function cancelAutoHide() {
