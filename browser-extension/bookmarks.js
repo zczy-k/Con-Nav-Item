@@ -12,6 +12,7 @@ let autoSortInterval = null; // 自动排序定时器
 let bookmarkTags = new Map(); // 书签标签映射 {bookmarkId: [tags]}
 let allTags = new Set(); // 所有标签集合
 let currentTagFilters = []; // 当前标签筛选（支持多标签）
+let filterNoTag = false; // 是否筛选无标签书签
 let bookmarkNotes = new Map(); // 书签笔记映射 {bookmarkId: note}
 
 // 分隔符书签URL（这些不是真实书签，不参与任何操作）
@@ -565,14 +566,80 @@ async function autoTagAllBookmarks() {
         renderBookmarkList();
     }
     
-    // 显示结果
-    const message = `自动标签完成！\n\n` +
-        `✅ 成功标签: ${taggedCount} 个\n` +
-        `⏭️ 已有标签跳过: ${skippedCount} 个\n` +
-        `❌ 无法识别: ${failedCount} 个\n\n` +
-        (failedCount > 0 ? '提示: 无法识别的书签可以使用"批量标签"功能手动添加标签' : '');
+    // 显示结果弹窗
+    showAutoTagResult(taggedCount, skippedCount, failedCount);
+}
+
+// 显示自动标签结果弹窗
+function showAutoTagResult(taggedCount, skippedCount, failedCount) {
+    const resultList = document.getElementById('resultList');
+    document.getElementById('resultTitle').textContent = '🏷️ 自动标签结果';
     
-    alert(message);
+    const noTagCount = countNoTagBookmarks();
+    
+    let html = `
+        <div style="padding: 16px;">
+            <div style="display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; font-size: 14px; margin-bottom: 20px;">
+                <div style="font-size: 24px;">✅</div>
+                <div>
+                    <div style="font-weight: 600; color: #059669;">成功标签</div>
+                    <div style="color: #666;">${taggedCount} 个书签</div>
+                </div>
+                
+                <div style="font-size: 24px;">⏭️</div>
+                <div>
+                    <div style="font-weight: 600; color: #6b7280;">已有标签跳过</div>
+                    <div style="color: #666;">${skippedCount} 个书签</div>
+                </div>
+                
+                <div style="font-size: 24px;">❌</div>
+                <div>
+                    <div style="font-weight: 600; color: #dc2626;">无法识别</div>
+                    <div style="color: #666;">${failedCount} 个书签</div>
+                </div>
+            </div>
+    `;
+    
+    if (noTagCount > 0) {
+        html += `
+            <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #dc2626; margin-bottom: 8px;">📭 还有 ${noTagCount} 个书签没有标签</div>
+                <div style="color: #666; font-size: 13px; margin-bottom: 12px;">
+                    这些书签无法自动识别分类，需要手动添加标签。<br>
+                    点击下方按钮可以筛选出这些书签，然后批量添加标签。
+                </div>
+                <button class="btn btn-primary" id="btnShowNoTagBookmarks" style="width: 100%;">
+                    📭 查看无标签书签 (${noTagCount})
+                </button>
+            </div>
+        `;
+    } else {
+        html += `
+            <div style="background: #d1fae5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 16px; text-align: center;">
+                <div style="font-size: 32px; margin-bottom: 8px;">🎉</div>
+                <div style="font-weight: 600; color: #059669;">太棒了！所有书签都已有标签</div>
+            </div>
+        `;
+    }
+    
+    html += '</div>';
+    resultList.innerHTML = html;
+    
+    // 绑定查看无标签书签按钮
+    const showNoTagBtn = document.getElementById('btnShowNoTagBookmarks');
+    if (showNoTagBtn) {
+        showNoTagBtn.addEventListener('click', () => {
+            closeResultModal();
+            // 切换到无标签筛选
+            filterNoTag = true;
+            currentTagFilters = [];
+            renderTagCloud();
+            renderBookmarkList();
+        });
+    }
+    
+    document.getElementById('resultModal').classList.add('active');
+    hideResultFooterActions();
 }
 
 // 显示笔记编辑器
@@ -626,6 +693,16 @@ function showTagEditor(bookmark) {
     renderBookmarkList();
 }
 
+// 统计无标签书签数量
+function countNoTagBookmarks() {
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    return allBookmarksList.filter(b => {
+        const tags = bookmarkTags.get(b.id);
+        return !tags || tags.length === 0;
+    }).length;
+}
+
 // 渲染标签云
 function renderTagCloud() {
     const container = document.getElementById('tagCloud');
@@ -633,13 +710,62 @@ function renderTagCloud() {
     
     if (!container || !content) return;
     
-    if (allTags.size === 0) {
+    // 统计无标签书签数量
+    const noTagCount = countNoTagBookmarks();
+    
+    // 即使没有标签，如果有无标签书签也显示
+    if (allTags.size === 0 && noTagCount === 0) {
         container.style.display = 'none';
         return;
     }
     
     container.style.display = 'block';
     content.innerHTML = '';
+    
+    // 首先添加"无标签"筛选器（如果有无标签书签）
+    if (noTagCount > 0) {
+        const noTagEl = document.createElement('span');
+        noTagEl.style.cssText = `
+            display: inline-block;
+            padding: 4px 10px;
+            background: ${filterNoTag ? '#ef4444' : '#fef2f2'};
+            color: ${filterNoTag ? 'white' : '#dc2626'};
+            border-radius: 16px;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid ${filterNoTag ? '#dc2626' : '#fecaca'};
+            margin-right: 8px;
+        `;
+        noTagEl.textContent = `📭 无标签 (${noTagCount})${filterNoTag ? ' ✓' : ''}`;
+        noTagEl.title = filterNoTag ? '点击取消筛选无标签书签' : '点击筛选没有标签的书签，方便批量打标签';
+        
+        noTagEl.addEventListener('click', () => {
+            filterNoTag = !filterNoTag;
+            if (filterNoTag) {
+                // 筛选无标签时清除其他标签筛选
+                currentTagFilters = [];
+            }
+            renderTagCloud();
+            renderBookmarkList();
+        });
+        
+        noTagEl.addEventListener('mouseenter', () => {
+            if (!filterNoTag) {
+                noTagEl.style.background = '#fee2e2';
+                noTagEl.style.transform = 'translateY(-2px)';
+            }
+        });
+        
+        noTagEl.addEventListener('mouseleave', () => {
+            if (!filterNoTag) {
+                noTagEl.style.background = '#fef2f2';
+                noTagEl.style.transform = 'translateY(0)';
+            }
+        });
+        
+        content.appendChild(noTagEl);
+    }
     
     // 统计每个标签的使用次数
     const tagCounts = {};
@@ -678,6 +804,8 @@ function renderTagCloud() {
         tagEl.title = isActive ? `点击取消筛选 "${tag}"` : `点击筛选 "${tag}" 标签的书签`;
         
         tagEl.addEventListener('click', () => {
+            // 点击普通标签时取消无标签筛选
+            filterNoTag = false;
             const index = currentTagFilters.indexOf(tag);
             if (index > -1) {
                 currentTagFilters.splice(index, 1);
@@ -1008,8 +1136,16 @@ async function renderBookmarkList() {
     
     let bookmarks = getBookmarksForCurrentFolder();
     
+    // 无标签筛选
+    if (filterNoTag) {
+        bookmarks = bookmarks.filter(b => {
+            const tags = getBookmarkTags(b.id);
+            return !tags || tags.length === 0;
+        });
+        document.getElementById('currentFolderName').textContent = `📭 无标签书签 (${bookmarks.length})`;
+    }
     // 标签筛选（支持多标签：书签需包含所有选中的标签）
-    if (currentTagFilters.length > 0) {
+    else if (currentTagFilters.length > 0) {
         bookmarks = bookmarks.filter(b => {
             const tags = getBookmarkTags(b.id);
             return currentTagFilters.every(filter => tags.includes(filter));
@@ -1023,10 +1159,13 @@ async function renderBookmarkList() {
     }
     
     if (bookmarks.length === 0) {
-        const msg = currentTagFilters.length > 0 
-            ? `没有同时包含 "${currentTagFilters.join('" 和 "')}" 标签的书签` 
-            : '暂无书签';
-        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">📭</div><p>${msg}</p></div>`;
+        let msg = '暂无书签';
+        if (filterNoTag) {
+            msg = '🎉 太棒了！所有书签都已有标签';
+        } else if (currentTagFilters.length > 0) {
+            msg = `没有同时包含 "${currentTagFilters.join('" 和 "')}" 标签的书签`;
+        }
+        container.innerHTML = `<div class="empty-state"><div class="empty-state-icon">${filterNoTag ? '✅' : '📭'}</div><p>${msg}</p></div>`;
         return;
     }
     
@@ -1360,6 +1499,7 @@ function bindEvents() {
     // 清除标签筛选
     document.getElementById('btnClearTagFilter').addEventListener('click', () => {
         currentTagFilters = [];
+        filterNoTag = false;
         renderTagCloud();
         renderBookmarkList();
     });
@@ -1542,9 +1682,10 @@ function bindKeyboardShortcuts() {
                 return;
             }
             
-            // 清除标签筛选
-            if (currentTagFilters.length > 0) {
+            // 清除标签筛选（包括无标签筛选）
+            if (currentTagFilters.length > 0 || filterNoTag) {
                 currentTagFilters = [];
+                filterNoTag = false;
                 renderTagCloud();
                 renderBookmarkList();
                 return;
