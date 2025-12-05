@@ -241,186 +241,338 @@ function getBookmarkTags(bookmarkId) {
     return bookmarkTags.get(bookmarkId) || [];
 }
 
-// 自动生成标签（基于URL和标题）
+// ==================== 智能标签生成系统（增强版） ====================
+
+// 扩展的域名标签映射（200+网站）
+const DOMAIN_TAG_MAP = {
+    // 开发技术
+    'github.com': ['开发', '代码'], 'gitlab.com': ['开发', '代码'], 'bitbucket.org': ['开发', '代码'],
+    'gitee.com': ['开发', '代码'], 'coding.net': ['开发', '代码'],
+    'stackoverflow.com': ['技术', '问答'], 'stackexchange.com': ['技术', '问答'],
+    'npmjs.com': ['开发', '工具'], 'pypi.org': ['开发', '工具'], 'maven.org': ['开发', '工具'],
+    'docker.com': ['开发', '容器'], 'kubernetes.io': ['开发', '容器'],
+    'juejin.cn': ['技术', '博客'], 'csdn.net': ['技术', '博客'], 'cnblogs.com': ['技术', '博客'],
+    'segmentfault.com': ['技术', '问答'], 'oschina.net': ['技术', '开源'],
+    'dev.to': ['技术', '博客'], 'hashnode.com': ['技术', '博客'], 'hackernews.com': ['技术', '资讯'],
+    'codepen.io': ['开发', '代码'], 'jsfiddle.net': ['开发', '代码'], 'codesandbox.io': ['开发', '代码'],
+    'developer.mozilla.org': ['开发', '文档'], 'w3schools.com': ['开发', '教程'], 'runoob.com': ['开发', '教程'],
+    'leetcode.com': ['开发', '算法'], 'hackerrank.com': ['开发', '算法'], 'codeforces.com': ['开发', '算法'],
+    'vercel.com': ['开发', '部署'], 'netlify.com': ['开发', '部署'], 'heroku.com': ['开发', '部署'],
+    'rust-lang.org': ['开发', '语言'], 'golang.org': ['开发', '语言'], 'python.org': ['开发', '语言'],
+    'nodejs.org': ['开发', '语言'], 'typescriptlang.org': ['开发', '语言'],
+    
+    // 视频娱乐
+    'youtube.com': ['视频', '娱乐'], 'bilibili.com': ['视频', '娱乐'], 'youku.com': ['视频', '娱乐'],
+    'iqiyi.com': ['视频', '娱乐'], 'v.qq.com': ['视频', '娱乐'], 'mgtv.com': ['视频', '娱乐'],
+    'twitch.tv': ['直播', '游戏'], 'douyu.com': ['直播', '游戏'], 'huya.com': ['直播', '游戏'],
+    'netflix.com': ['影视', '订阅'], 'disneyplus.com': ['影视', '订阅'], 'hbomax.com': ['影视', '订阅'],
+    'primevideo.com': ['影视', '订阅'], 'hulu.com': ['影视', '订阅'],
+    'vimeo.com': ['视频', '创作'], 'dailymotion.com': ['视频'],
+    
+    // 社交媒体
+    'twitter.com': ['社交'], 'x.com': ['社交'], 'facebook.com': ['社交'],
+    'instagram.com': ['社交', '图片'], 'linkedin.com': ['职场', '社交'], 'weibo.com': ['社交'],
+    'douban.com': ['社区', '影评'], 'xiaohongshu.com': ['社交', '种草'], 'tiktok.com': ['短视频'],
+    'reddit.com': ['社区', '论坛'], 'v2ex.com': ['社区', '技术'], 'discord.com': ['社区', '聊天'],
+    'telegram.org': ['通讯'], 'slack.com': ['协作', '通讯'], 'teams.microsoft.com': ['协作', '通讯'],
+    'tieba.baidu.com': ['社区', '论坛'], 'nga.cn': ['社区', '游戏'],
+    
+    // 购物电商
+    'taobao.com': ['购物'], 'tmall.com': ['购物'], 'jd.com': ['购物'],
+    'amazon.com': ['购物'], 'amazon.cn': ['购物'], 'ebay.com': ['购物'],
+    'pinduoduo.com': ['购物'], 'suning.com': ['购物'], 'dangdang.com': ['购物', '图书'],
+    'vip.com': ['购物'], 'kaola.com': ['购物', '海淘'], 'smzdm.com': ['购物', '优惠'],
+    
+    // 知识学习
+    'zhihu.com': ['问答', '知识'], 'quora.com': ['问答', '知识'],
+    'wikipedia.org': ['百科'], 'baike.baidu.com': ['百科'],
+    'coursera.org': ['学习', '课程'], 'udemy.com': ['学习', '课程'], 'edx.org': ['学习', '课程'],
+    'mooc.cn': ['学习', '课程'], 'icourse163.org': ['学习', '课程'], 'xuetangx.com': ['学习', '课程'],
+    'khanacademy.org': ['学习', '教育'], 'duolingo.com': ['学习', '语言'],
+    'ted.com': ['学习', '演讲'], 'skillshare.com': ['学习', '技能'],
+    
+    // 设计创意
+    'figma.com': ['设计', '工具'], 'sketch.com': ['设计', '工具'], 'canva.com': ['设计', '工具'],
+    'adobe.com': ['设计', '工具'], 'photopea.com': ['设计', '工具'],
+    'dribbble.com': ['设计', '灵感'], 'behance.net': ['设计', '灵感'], 'pinterest.com': ['灵感', '图片'],
+    'unsplash.com': ['图片', '素材'], 'pexels.com': ['图片', '素材'], 'pixabay.com': ['图片', '素材'],
+    'iconfont.cn': ['设计', '图标'], 'flaticon.com': ['设计', '图标'],
+    'coolors.co': ['设计', '配色'], 'colorhunt.co': ['设计', '配色'],
+    
+    // 工具效率
+    'notion.so': ['笔记', '效率'], 'evernote.com': ['笔记'], 'onenote.com': ['笔记'],
+    'obsidian.md': ['笔记', '知识库'], 'roamresearch.com': ['笔记', '知识库'],
+    'trello.com': ['项目', '看板'], 'asana.com': ['项目', '协作'], 'monday.com': ['项目', '协作'],
+    'airtable.com': ['数据库', '协作'], 'coda.io': ['文档', '协作'],
+    'google.com': ['搜索'], 'baidu.com': ['搜索'], 'bing.com': ['搜索'], 'duckduckgo.com': ['搜索', '隐私'],
+    'translate.google.com': ['翻译'], 'deepl.com': ['翻译'], 'fanyi.baidu.com': ['翻译'],
+    'grammarly.com': ['写作', '工具'], 'hemingwayapp.com': ['写作', '工具'],
+    
+    // 音乐音频
+    'spotify.com': ['音乐'], 'music.163.com': ['音乐'], 'music.qq.com': ['音乐'],
+    'kugou.com': ['音乐'], 'kuwo.cn': ['音乐'], 'soundcloud.com': ['音乐'],
+    'music.apple.com': ['音乐'], 'tidal.com': ['音乐'],
+    'ximalaya.com': ['播客', '音频'], 'lizhi.fm': ['播客', '音频'],
+    
+    // 新闻资讯
+    'news.qq.com': ['新闻'], 'news.sina.com.cn': ['新闻'], 'thepaper.cn': ['新闻'],
+    'bbc.com': ['新闻', '国际'], 'cnn.com': ['新闻', '国际'], 'reuters.com': ['新闻', '国际'],
+    'nytimes.com': ['新闻', '国际'], 'wsj.com': ['新闻', '财经'],
+    '36kr.com': ['科技', '创业'], 'techcrunch.com': ['科技', '创业'], 'wired.com': ['科技'],
+    'huxiu.com': ['科技', '商业'], 'geekpark.net': ['科技'],
+    'toutiao.com': ['资讯'], 'ifeng.com': ['新闻'],
+    
+    // 云服务
+    'aws.amazon.com': ['云服务'], 'cloud.google.com': ['云服务'], 'azure.microsoft.com': ['云服务'],
+    'aliyun.com': ['云服务'], 'cloud.tencent.com': ['云服务'], 'huaweicloud.com': ['云服务'],
+    'digitalocean.com': ['云服务'], 'linode.com': ['云服务'], 'vultr.com': ['云服务'],
+    
+    // AI工具
+    'openai.com': ['AI'], 'chat.openai.com': ['AI', '聊天'], 'claude.ai': ['AI', '聊天'],
+    'bard.google.com': ['AI', '聊天'], 'copilot.microsoft.com': ['AI', '编程'],
+    'midjourney.com': ['AI', '绘画'], 'stability.ai': ['AI', '绘画'], 'leonardo.ai': ['AI', '绘画'],
+    'huggingface.co': ['AI', '模型'], 'replicate.com': ['AI', '模型'],
+    'runway.ml': ['AI', '视频'], 'elevenlabs.io': ['AI', '语音'],
+    'perplexity.ai': ['AI', '搜索'], 'you.com': ['AI', '搜索'],
+    
+    // 游戏
+    'steam.com': ['游戏', '平台'], 'steampowered.com': ['游戏', '平台'],
+    'epicgames.com': ['游戏', '平台'], 'gog.com': ['游戏', '平台'],
+    'itch.io': ['游戏', '独立'], 'indiedb.com': ['游戏', '独立'],
+    'playstation.com': ['游戏', '主机'], 'xbox.com': ['游戏', '主机'], 'nintendo.com': ['游戏', '主机'],
+    
+    // 博客平台
+    'medium.com': ['博客', '阅读'], 'wordpress.com': ['博客'], 'substack.com': ['博客', '订阅'],
+    'ghost.org': ['博客'], 'typecho.org': ['博客'], 'hexo.io': ['博客', '静态'],
+    
+    // 金融理财
+    'xueqiu.com': ['投资', '股票'], 'eastmoney.com': ['投资', '财经'],
+    'investing.com': ['投资', '财经'], 'tradingview.com': ['投资', '图表'],
+    'coinmarketcap.com': ['加密货币'], 'coingecko.com': ['加密货币'],
+    
+    // 政府教育
+    'gov.cn': ['政府'], 'edu.cn': ['教育']
+};
+
+// 路径关键词映射
+const PATH_KEYWORDS = {
+    '/doc': '文档', '/docs': '文档', '/documentation': '文档', '/wiki': '文档',
+    '/api': 'API', '/reference': '参考', '/spec': '规范',
+    '/blog': '博客', '/article': '文章', '/post': '文章', '/news': '新闻',
+    '/tool': '工具', '/tools': '工具', '/utility': '工具', '/app': '应用',
+    '/download': '下载', '/release': '下载', '/releases': '下载',
+    '/learn': '学习', '/tutorial': '教程', '/guide': '指南', '/course': '课程', '/lesson': '课程',
+    '/video': '视频', '/watch': '视频', '/play': '播放',
+    '/shop': '购物', '/store': '商店', '/product': '产品', '/buy': '购买',
+    '/forum': '论坛', '/community': '社区', '/discuss': '讨论', '/bbs': '论坛',
+    '/dashboard': '控制台', '/admin': '管理', '/console': '控制台', '/panel': '面板',
+    '/pricing': '定价', '/plan': '方案', '/subscribe': '订阅',
+    '/login': '登录', '/signup': '注册', '/auth': '认证', '/account': '账户',
+    '/search': '搜索', '/explore': '探索', '/discover': '发现',
+    '/settings': '设置', '/config': '配置', '/preference': '偏好',
+    '/help': '帮助', '/support': '支持', '/faq': '常见问题',
+    '/opensource': '开源', '/open-source': '开源'
+};
+
+// 标题/内容关键词映射（中英文）
+const CONTENT_KEYWORDS = {
+    // 技术开发
+    '文档': '文档', 'documentation': '文档', 'docs': '文档', 'manual': '手册', '手册': '手册',
+    'api': 'API', '接口': 'API', 'sdk': 'SDK',
+    '教程': '教程', 'tutorial': '教程', 'guide': '指南', '指南': '指南', 'getting started': '入门',
+    '工具': '工具', 'tool': '工具', 'utility': '工具', 'toolkit': '工具包',
+    '官网': '官网', 'official': '官网', 'home': '首页', '首页': '首页',
+    '开源': '开源', 'open source': '开源', 'opensource': '开源', 'oss': '开源',
+    '框架': '框架', 'framework': '框架', '库': '库', 'library': '库',
+    '插件': '插件', 'plugin': '插件', 'extension': '扩展', 'addon': '插件',
+    '模板': '模板', 'template': '模板', 'theme': '主题', '主题': '主题',
+    
+    // 内容类型
+    '视频': '视频', 'video': '视频', 'watch': '视频', '播放': '视频',
+    '音乐': '音乐', 'music': '音乐', 'song': '音乐', '歌曲': '音乐',
+    '图片': '图片', 'image': '图片', 'photo': '图片', 'gallery': '图库', '相册': '图库',
+    '新闻': '新闻', 'news': '新闻', '资讯': '资讯', '快讯': '新闻',
+    '博客': '博客', 'blog': '博客', '日志': '博客', '随笔': '博客',
+    '论坛': '论坛', 'forum': '论坛', 'bbs': '论坛', '社区': '社区', 'community': '社区',
+    
+    // 功能类型
+    '下载': '下载', 'download': '下载', '安装': '安装', 'install': '安装',
+    '在线': '在线', 'online': '在线', '免费': '免费', 'free': '免费',
+    '登录': '登录', 'login': '登录', 'signin': '登录', '注册': '注册', 'register': '注册', 'signup': '注册',
+    '购买': '购物', 'buy': '购物', 'purchase': '购物', '商城': '购物', 'shop': '购物', 'store': '商店',
+    
+    // AI相关
+    'ai': 'AI', '人工智能': 'AI', 'artificial intelligence': 'AI',
+    'chatgpt': 'AI', 'gpt': 'AI', 'llm': 'AI', '大模型': 'AI',
+    '机器学习': 'AI', 'machine learning': 'AI', 'ml': 'AI',
+    '深度学习': 'AI', 'deep learning': 'AI', 'neural': 'AI',
+    
+    // 其他
+    '游戏': '游戏', 'game': '游戏', 'gaming': '游戏', '电竞': '游戏',
+    '电影': '影视', 'movie': '影视', 'film': '影视', '剧集': '影视', 'tv': '影视',
+    '学习': '学习', 'learn': '学习', 'course': '课程', 'education': '教育', '教育': '教育',
+    '投资': '投资', 'invest': '投资', '理财': '理财', 'finance': '金融', '金融': '金融',
+    '设计': '设计', 'design': '设计', 'ui': '设计', 'ux': '设计',
+    '效率': '效率', 'productivity': '效率', '协作': '协作', 'collaboration': '协作'
+};
+
+// 子域名标签映射
+const SUBDOMAIN_TAGS = {
+    'docs': '文档', 'doc': '文档', 'api': 'API', 'developer': '开发',
+    'blog': '博客', 'news': '新闻', 'shop': '购物', 'store': '商店',
+    'app': '应用', 'dev': '开发', 'admin': '管理', 'dashboard': '控制台',
+    'learn': '学习', 'edu': '教育', 'help': '帮助', 'support': '支持',
+    'community': '社区', 'forum': '论坛', 'status': '状态', 'cdn': 'CDN',
+    'cloud': '云服务', 'console': '控制台', 'portal': '门户', 'my': '个人',
+    'mail': '邮箱', 'drive': '网盘', 'music': '音乐', 'video': '视频'
+};
+
+// 自动生成标签（基于URL和标题）- 增强版
 function autoGenerateTags(bookmark) {
-    const tags = [];
+    const tags = new Set();
     
     try {
         const url = new URL(bookmark.url);
         const domain = url.hostname.replace(/^www\./, '');
         const pathname = url.pathname.toLowerCase();
-        const fullUrl = bookmark.url.toLowerCase();
+        const title = (bookmark.title || '').toLowerCase();
+        const fullText = `${title} ${pathname}`;
         
-        // 常见网站分类（扩展版）
-        const categoryMap = {
-            // 开发相关
-            'github.com': ['开发', '代码'],
-            'gitlab.com': ['开发', '代码'],
-            'gitee.com': ['开发', '代码'],
-            'stackoverflow.com': ['开发', '问答'],
-            'juejin.cn': ['开发', '技术'],
-            'csdn.net': ['开发', '技术'],
-            'segmentfault.com': ['开发', '技术'],
-            'cnblogs.com': ['开发', '博客'],
-            'npmjs.com': ['开发', '工具'],
-            'pypi.org': ['开发', '工具'],
-            'developer.mozilla.org': ['开发', '文档'],
-            'w3schools.com': ['开发', '教程'],
-            'runoob.com': ['开发', '教程'],
-            'leetcode.com': ['开发', '算法'],
-            'codepen.io': ['开发', '代码'],
-            'codesandbox.io': ['开发', '代码'],
-            // 视频娱乐
-            'youtube.com': ['视频', '娱乐'],
-            'bilibili.com': ['视频', '娱乐'],
-            'youku.com': ['视频', '娱乐'],
-            'iqiyi.com': ['视频', '娱乐'],
-            'netflix.com': ['视频', '娱乐'],
-            'twitch.tv': ['视频', '直播'],
-            'douyu.com': ['视频', '直播'],
-            'huya.com': ['视频', '直播'],
-            // 社交社区
-            'zhihu.com': ['问答', '社区'],
-            'weibo.com': ['社交'],
-            'twitter.com': ['社交'],
-            'x.com': ['社交'],
-            'facebook.com': ['社交'],
-            'instagram.com': ['社交', '图片'],
-            'linkedin.com': ['社交', '职场'],
-            'reddit.com': ['社区', '论坛'],
-            'v2ex.com': ['社区', '技术'],
-            'tieba.baidu.com': ['社区', '论坛'],
-            'douban.com': ['社区', '影评'],
-            // 搜索引擎
-            'baidu.com': ['搜索'],
-            'google.com': ['搜索'],
-            'bing.com': ['搜索'],
-            'sogou.com': ['搜索'],
-            // 购物
-            'taobao.com': ['购物'],
-            'tmall.com': ['购物'],
-            'jd.com': ['购物'],
-            'pinduoduo.com': ['购物'],
-            'amazon.com': ['购物'],
-            'amazon.cn': ['购物'],
-            // 学习教育
-            'wikipedia.org': ['百科', '学习'],
-            'baike.baidu.com': ['百科', '学习'],
-            'coursera.org': ['学习', '课程'],
-            'udemy.com': ['学习', '课程'],
-            'mooc.cn': ['学习', '课程'],
-            'icourse163.org': ['学习', '课程'],
-            // 新闻资讯
-            'news.qq.com': ['新闻'],
-            'news.163.com': ['新闻'],
-            'sina.com.cn': ['新闻'],
-            'toutiao.com': ['新闻'],
-            'thepaper.cn': ['新闻'],
-            // 设计资源
-            'dribbble.com': ['设计', '灵感'],
-            'behance.net': ['设计', '灵感'],
-            'figma.com': ['设计', '工具'],
-            'canva.com': ['设计', '工具'],
-            'unsplash.com': ['设计', '图片'],
-            'pexels.com': ['设计', '图片'],
-            // 云服务
-            'console.cloud.google.com': ['云服务'],
-            'console.aws.amazon.com': ['云服务'],
-            'portal.azure.com': ['云服务'],
-            'cloud.tencent.com': ['云服务'],
-            'aliyun.com': ['云服务'],
-            // 博客平台
-            'medium.com': ['博客', '阅读'],
-            'wordpress.com': ['博客'],
-            'substack.com': ['博客', '订阅'],
-            // AI工具
-            'chat.openai.com': ['AI', '工具'],
-            'claude.ai': ['AI', '工具'],
-            'bard.google.com': ['AI', '工具'],
-            'midjourney.com': ['AI', '设计'],
-            // 音乐
-            'music.163.com': ['音乐'],
-            'y.qq.com': ['音乐'],
-            'spotify.com': ['音乐'],
-            'kugou.com': ['音乐']
-        };
-        
-        // 检查域名
-        for (const [site, siteTags] of Object.entries(categoryMap)) {
-            if (domain.includes(site) || domain.endsWith('.' + site)) {
-                tags.push(...siteTags);
+        // 1. 精确域名匹配
+        for (const [site, siteTags] of Object.entries(DOMAIN_TAG_MAP)) {
+            if (domain === site || domain.endsWith('.' + site)) {
+                siteTags.forEach(t => tags.add(t));
                 break;
             }
         }
         
-        // 根据URL路径分析
-        if (pathname.includes('/doc') || pathname.includes('/docs')) tags.push('文档');
-        if (pathname.includes('/api')) tags.push('API');
-        if (pathname.includes('/blog')) tags.push('博客');
-        if (pathname.includes('/tutorial')) tags.push('教程');
-        if (pathname.includes('/download')) tags.push('下载');
-        if (pathname.includes('/video') || pathname.includes('/watch')) tags.push('视频');
-        
-        // 根据标题关键词（扩展版）
-        const title = (bookmark.title || '').toLowerCase();
-        const titleKeywords = {
-            '文档': ['doc', '文档', 'documentation', '手册', 'manual', 'guide', '指南'],
-            'API': ['api', '接口'],
-            '教程': ['tutorial', '教程', '入门', 'getting started', '学习', 'learn', 'course', '课程'],
-            '博客': ['blog', '博客', '随笔', '日志'],
-            '新闻': ['news', '新闻', '资讯', '快讯', '头条'],
-            '工具': ['tool', '工具', 'utility', '在线', 'online'],
-            '下载': ['download', '下载', '安装', 'install'],
-            '视频': ['video', '视频', '播放', 'watch', '观看'],
-            '开源': ['开源', 'open source', 'opensource', 'github'],
-            '免费': ['free', '免费', '白嫖'],
-            '官网': ['官网', 'official', '官方']
-        };
-        
-        for (const [tag, keywords] of Object.entries(titleKeywords)) {
-            if (keywords.some(kw => title.includes(kw))) {
-                tags.push(tag);
+        // 2. 模糊域名匹配（如果精确匹配没有结果）
+        if (tags.size === 0) {
+            for (const [site, siteTags] of Object.entries(DOMAIN_TAG_MAP)) {
+                const siteName = site.split('.')[0];
+                if (domain.includes(siteName) && siteName.length > 3) {
+                    siteTags.forEach(t => tags.add(t));
+                    break;
+                }
             }
         }
         
-        // 根据域名后缀推断
-        if (domain.endsWith('.gov') || domain.endsWith('.gov.cn')) tags.push('政府');
-        if (domain.endsWith('.edu') || domain.endsWith('.edu.cn')) tags.push('教育');
-        if (domain.endsWith('.org')) tags.push('组织');
+        // 3. 子域名分析
+        const subdomains = domain.split('.');
+        if (subdomains.length > 2) {
+            const subdomain = subdomains[0];
+            if (SUBDOMAIN_TAGS[subdomain]) {
+                tags.add(SUBDOMAIN_TAGS[subdomain]);
+            }
+        }
+        
+        // 4. 路径关键词匹配
+        for (const [path, tag] of Object.entries(PATH_KEYWORDS)) {
+            if (pathname.includes(path)) {
+                tags.add(tag);
+                if (tags.size >= 4) break;
+            }
+        }
+        
+        // 5. 标题内容分析
+        for (const [keyword, tag] of Object.entries(CONTENT_KEYWORDS)) {
+            if (fullText.includes(keyword.toLowerCase())) {
+                tags.add(tag);
+                if (tags.size >= 4) break;
+            }
+        }
+        
+        // 6. 特殊域名后缀分析
+        if (domain.endsWith('.gov') || domain.endsWith('.gov.cn')) tags.add('政府');
+        if (domain.endsWith('.edu') || domain.endsWith('.edu.cn')) tags.add('教育');
+        if (domain.endsWith('.org')) tags.add('组织');
+        if (domain.endsWith('.io')) tags.add('开发');
+        if (domain.endsWith('.dev')) tags.add('开发');
+        if (domain.endsWith('.app')) tags.add('应用');
         
     } catch (e) {}
     
-    return [...new Set(tags)]; // 去重
+    // 返回最多4个标签
+    return Array.from(tags).slice(0, 4);
 }
 
-// 批量自动标签
+// 批量自动标签（增强版）
 async function autoTagAllBookmarks() {
     const allBookmarksList = [];
     collectAllBookmarks(allBookmarks, allBookmarksList);
     
+    // 统计信息
     let taggedCount = 0;
+    let skippedCount = 0;
+    let failedCount = 0;
     
-    for (const bookmark of allBookmarksList) {
+    // 显示进度
+    const total = allBookmarksList.length;
+    const progressDiv = document.createElement('div');
+    progressDiv.id = 'autoTagProgress';
+    progressDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 24px 32px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 10000; text-align: center; min-width: 300px;';
+    progressDiv.innerHTML = `
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">🏷️ 正在自动标签...</div>
+        <div style="background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 12px;">
+            <div id="autoTagProgressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <div id="autoTagProgressText" style="font-size: 14px; color: #666;">0 / ${total}</div>
+    `;
+    document.body.appendChild(progressDiv);
+    
+    const progressBar = document.getElementById('autoTagProgressBar');
+    const progressText = document.getElementById('autoTagProgressText');
+    
+    for (let i = 0; i < allBookmarksList.length; i++) {
+        const bookmark = allBookmarksList[i];
+        
+        // 更新进度
+        const percent = Math.round((i + 1) / total * 100);
+        progressBar.style.width = percent + '%';
+        progressText.textContent = `${i + 1} / ${total}`;
+        
         // 如果已有标签，跳过
         if (bookmarkTags.has(bookmark.id) && bookmarkTags.get(bookmark.id).length > 0) {
+            skippedCount++;
             continue;
         }
         
-        const suggestedTags = autoGenerateTags(bookmark);
-        if (suggestedTags.length > 0) {
-            bookmarkTags.set(bookmark.id, suggestedTags);
-            suggestedTags.forEach(tag => allTags.add(tag));
-            taggedCount++;
+        try {
+            const suggestedTags = autoGenerateTags(bookmark);
+            if (suggestedTags.length > 0) {
+                bookmarkTags.set(bookmark.id, suggestedTags);
+                suggestedTags.forEach(tag => allTags.add(tag));
+                taggedCount++;
+            } else {
+                failedCount++;
+            }
+        } catch (e) {
+            failedCount++;
+        }
+        
+        // 每处理50个书签，让UI有机会更新
+        if (i % 50 === 0) {
+            await new Promise(r => setTimeout(r, 10));
         }
     }
+    
+    // 移除进度条
+    progressDiv.remove();
     
     if (taggedCount > 0) {
         await saveTags();
         renderTagCloud();
-        alert(`已为 ${taggedCount} 个书签自动添加标签`);
-    } else {
-        alert('所有书签都已有标签');
+        renderBookmarkList();
     }
+    
+    // 显示结果
+    const message = `自动标签完成！\n\n` +
+        `✅ 成功标签: ${taggedCount} 个\n` +
+        `⏭️ 已有标签跳过: ${skippedCount} 个\n` +
+        `❌ 无法识别: ${failedCount} 个\n\n` +
+        (failedCount > 0 ? '提示: 无法识别的书签可以使用"批量标签"功能手动添加标签' : '');
+    
+    alert(message);
 }
 
 // 显示笔记编辑器
@@ -1079,6 +1231,7 @@ function updateSelectionUI() {
     const deleteBtn = document.getElementById('btnDeleteSelected');
     const moveBtn = document.getElementById('btnBatchMove');
     const renameBtn = document.getElementById('btnBatchRename');
+    const batchTagBtn = document.getElementById('btnBatchTag');
     const addToNavBtn = document.getElementById('btnAddToNav');
     const quickAddBtn = document.getElementById('btnQuickAddToNav');
     const selectAllCheckbox = document.getElementById('selectAllBookmarks');
@@ -1088,15 +1241,18 @@ function updateSelectionUI() {
         deleteBtn.style.display = 'block';
         moveBtn.style.display = 'block';
         renameBtn.style.display = 'block';
+        batchTagBtn.style.display = 'block';
         addToNavBtn.style.display = 'block';
         quickAddBtn.style.display = 'block';
         deleteBtn.textContent = `删除 (${selectedBookmarks.size})`;
+        batchTagBtn.textContent = `🏷️ 批量标签 (${selectedBookmarks.size})`;
         addToNavBtn.textContent = `🚀 选择分类 (${selectedBookmarks.size})`;
         quickAddBtn.textContent = `⚡ 快速添加 (${selectedBookmarks.size})`;
     } else {
         deleteBtn.style.display = 'none';
         moveBtn.style.display = 'none';
         renameBtn.style.display = 'none';
+        batchTagBtn.style.display = 'none';
         addToNavBtn.style.display = 'none';
         quickAddBtn.style.display = 'none';
     }
@@ -1160,6 +1316,14 @@ function bindEvents() {
     
     // 自动标签
     document.getElementById('btnAutoTag').addEventListener('click', autoTagAllBookmarks);
+    
+    // 批量标签
+    document.getElementById('btnBatchTag').addEventListener('click', showBatchTagModal);
+    document.getElementById('batchTagClose').addEventListener('click', closeBatchTagModal);
+    document.getElementById('btnCancelBatchTag').addEventListener('click', closeBatchTagModal);
+    document.getElementById('btnConfirmBatchTag').addEventListener('click', confirmBatchTag);
+    document.getElementById('batchTagMode').addEventListener('change', updateBatchTagUI);
+    document.getElementById('btnAutoSuggestTags').addEventListener('click', autoSuggestTagsForSelected);
     
     // 快捷键帮助
     document.getElementById('btnShowShortcuts').addEventListener('click', showShortcutsHelp);
@@ -1460,6 +1624,12 @@ function bindContextMenu() {
         showBatchRenameModal();
     });
     
+    document.getElementById('ctxBatchTag').addEventListener('click', (e) => {
+        e.stopPropagation();
+        hideContextMenu();
+        showBatchTagModal();
+    });
+    
     document.getElementById('ctxBatchDelete').addEventListener('click', (e) => {
         e.stopPropagation();
         hideContextMenu();
@@ -1474,6 +1644,7 @@ function showContextMenu(x, y) {
     // 更新菜单文本显示选中数量
     document.querySelector('#ctxBatchMove span:last-child').textContent = `批量移动 (${count})`;
     document.querySelector('#ctxBatchRename span:last-child').textContent = `批量重命名 (${count})`;
+    document.querySelector('#ctxBatchTag span:last-child').textContent = `批量标签 (${count})`;
     document.querySelector('#ctxBatchDelete span:last-child').textContent = `批量删除 (${count})`;
     
     // 显示菜单
@@ -5680,4 +5851,261 @@ async function deleteSubMenuFromSettings() {
     } catch (e) {
         statusDiv.innerHTML = `<span style="color: #dc2626;">删除失败: ${e.message}</span>`;
     }
+}
+
+
+// ==================== 批量标签功能 ====================
+
+// 显示批量标签弹窗
+function showBatchTagModal() {
+    if (selectedBookmarks.size === 0) {
+        alert('请先选择要添加标签的书签');
+        return;
+    }
+    
+    document.getElementById('batchTagCount').textContent = `将为 ${selectedBookmarks.size} 个书签操作标签`;
+    document.getElementById('batchTagInput').value = '';
+    document.getElementById('batchTagMode').value = 'add';
+    
+    // 渲染已有标签供快速选择
+    renderExistingTagsSelect();
+    
+    // 清空建议标签
+    document.getElementById('suggestedTagsSelect').innerHTML = '<span style="color: #999; font-size: 12px;">点击"智能建议"按钮生成标签建议</span>';
+    
+    updateBatchTagUI();
+    document.getElementById('batchTagModal').classList.add('active');
+}
+
+// 关闭批量标签弹窗
+function closeBatchTagModal() {
+    document.getElementById('batchTagModal').classList.remove('active');
+}
+
+// 更新批量标签UI（根据操作模式）
+function updateBatchTagUI() {
+    const mode = document.getElementById('batchTagMode').value;
+    const label = document.getElementById('batchTagInputLabel');
+    const input = document.getElementById('batchTagInput');
+    
+    switch (mode) {
+        case 'add':
+            label.textContent = '输入要添加的标签（多个标签用逗号分隔）';
+            input.placeholder = '例如: 工具, 开发, 常用';
+            break;
+        case 'replace':
+            label.textContent = '输入新标签（将替换所有现有标签）';
+            input.placeholder = '例如: 工具, 开发';
+            break;
+        case 'remove':
+            label.textContent = '输入要移除的标签';
+            input.placeholder = '例如: 临时, 待整理';
+            break;
+    }
+}
+
+// 渲染已有标签供快速选择
+function renderExistingTagsSelect() {
+    const container = document.getElementById('existingTagsSelect');
+    
+    if (allTags.size === 0) {
+        container.innerHTML = '<span style="color: #999; font-size: 12px;">暂无已有标签</span>';
+        return;
+    }
+    
+    // 统计标签使用次数并排序
+    const tagCounts = {};
+    for (const tags of bookmarkTags.values()) {
+        for (const tag of tags) {
+            tagCounts[tag] = (tagCounts[tag] || 0) + 1;
+        }
+    }
+    
+    const sortedTags = Object.entries(tagCounts)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 30); // 最多显示30个
+    
+    container.innerHTML = sortedTags.map(([tag, count]) => `
+        <span class="tag-select-item" data-tag="${escapeHtml(tag)}" style="
+            display: inline-block;
+            padding: 4px 10px;
+            background: #f0f0f0;
+            color: #333;
+            border-radius: 12px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        " title="使用 ${count} 次">${escapeHtml(tag)}</span>
+    `).join('');
+    
+    // 绑定点击事件
+    container.querySelectorAll('.tag-select-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const tag = item.dataset.tag;
+            const input = document.getElementById('batchTagInput');
+            const currentTags = input.value.split(',').map(t => t.trim()).filter(t => t);
+            
+            if (item.classList.contains('selected')) {
+                // 取消选择
+                item.classList.remove('selected');
+                item.style.background = '#f0f0f0';
+                item.style.color = '#333';
+                item.style.borderColor = 'transparent';
+                const index = currentTags.indexOf(tag);
+                if (index > -1) currentTags.splice(index, 1);
+            } else {
+                // 选择
+                item.classList.add('selected');
+                item.style.background = '#667eea';
+                item.style.color = 'white';
+                item.style.borderColor = '#5a67d8';
+                if (!currentTags.includes(tag)) currentTags.push(tag);
+            }
+            
+            input.value = currentTags.join(', ');
+        });
+    });
+}
+
+// 为选中书签智能生成标签建议
+function autoSuggestTagsForSelected() {
+    const container = document.getElementById('suggestedTagsSelect');
+    const suggestedTags = new Map(); // tag -> count
+    
+    // 获取选中的书签
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    const selectedList = allBookmarksList.filter(b => selectedBookmarks.has(b.id));
+    
+    // 为每个书签生成建议标签
+    for (const bookmark of selectedList) {
+        const tags = autoGenerateTags(bookmark);
+        for (const tag of tags) {
+            suggestedTags.set(tag, (suggestedTags.get(tag) || 0) + 1);
+        }
+    }
+    
+    if (suggestedTags.size === 0) {
+        container.innerHTML = '<span style="color: #999; font-size: 12px;">无法为选中书签生成标签建议</span>';
+        return;
+    }
+    
+    // 按出现次数排序
+    const sortedTags = Array.from(suggestedTags.entries())
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+    
+    container.innerHTML = sortedTags.map(([tag, count]) => {
+        const percent = Math.round(count / selectedList.length * 100);
+        return `
+            <span class="suggested-tag-item" data-tag="${escapeHtml(tag)}" style="
+                display: inline-block;
+                padding: 4px 10px;
+                background: #e0f2fe;
+                color: #0369a1;
+                border-radius: 12px;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s;
+                border: 1px solid transparent;
+            " title="${count}/${selectedList.length} 个书签 (${percent}%)">${escapeHtml(tag)} <small style="opacity:0.7">${percent}%</small></span>
+        `;
+    }).join('');
+    
+    // 绑定点击事件
+    container.querySelectorAll('.suggested-tag-item').forEach(item => {
+        item.addEventListener('click', () => {
+            const tag = item.dataset.tag;
+            const input = document.getElementById('batchTagInput');
+            const currentTags = input.value.split(',').map(t => t.trim()).filter(t => t);
+            
+            if (item.classList.contains('selected')) {
+                item.classList.remove('selected');
+                item.style.background = '#e0f2fe';
+                item.style.color = '#0369a1';
+                item.style.borderColor = 'transparent';
+                const index = currentTags.indexOf(tag);
+                if (index > -1) currentTags.splice(index, 1);
+            } else {
+                item.classList.add('selected');
+                item.style.background = '#0369a1';
+                item.style.color = 'white';
+                item.style.borderColor = '#075985';
+                if (!currentTags.includes(tag)) currentTags.push(tag);
+            }
+            
+            input.value = currentTags.join(', ');
+        });
+    });
+}
+
+// 确认批量标签操作
+async function confirmBatchTag() {
+    const mode = document.getElementById('batchTagMode').value;
+    const inputValue = document.getElementById('batchTagInput').value.trim();
+    
+    if (!inputValue && mode !== 'replace') {
+        alert('请输入标签');
+        return;
+    }
+    
+    const inputTags = inputValue.split(',').map(t => t.trim()).filter(t => t.length > 0);
+    
+    if (inputTags.length === 0 && mode !== 'replace') {
+        alert('请输入有效的标签');
+        return;
+    }
+    
+    // 获取选中的书签
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    const selectedList = allBookmarksList.filter(b => selectedBookmarks.has(b.id));
+    
+    let modifiedCount = 0;
+    
+    for (const bookmark of selectedList) {
+        const currentTags = bookmarkTags.get(bookmark.id) || [];
+        let newTags = [];
+        
+        switch (mode) {
+            case 'add':
+                // 添加标签（保留现有）
+                newTags = [...new Set([...currentTags, ...inputTags])];
+                break;
+            case 'replace':
+                // 替换标签
+                newTags = [...inputTags];
+                break;
+            case 'remove':
+                // 移除指定标签
+                newTags = currentTags.filter(t => !inputTags.includes(t));
+                break;
+        }
+        
+        // 检查是否有变化
+        if (JSON.stringify(currentTags.sort()) !== JSON.stringify(newTags.sort())) {
+            if (newTags.length > 0) {
+                bookmarkTags.set(bookmark.id, newTags);
+            } else {
+                bookmarkTags.delete(bookmark.id);
+            }
+            modifiedCount++;
+        }
+    }
+    
+    // 更新全局标签集合
+    allTags.clear();
+    for (const tags of bookmarkTags.values()) {
+        tags.forEach(tag => allTags.add(tag));
+    }
+    
+    await saveTags();
+    renderTagCloud();
+    renderBookmarkList();
+    closeBatchTagModal();
+    
+    // 显示结果
+    const modeText = { add: '添加', replace: '替换', remove: '移除' }[mode];
+    alert(`批量${modeText}标签完成！\n\n已修改 ${modifiedCount} 个书签的标签`);
 }

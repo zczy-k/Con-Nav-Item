@@ -180,6 +180,7 @@
                         </label>
                         <button class="btn btn-small btn-secondary" id="btnBatchMove" style="display: none;">移动</button>
                         <button class="btn btn-small btn-secondary" id="btnBatchRename" style="display: none;">重命名</button>
+                        <button class="btn btn-small btn-secondary" id="btnBatchTag" style="display: none;" title="批量添加标签">🏷️ 批量标签</button>
                         <button class="btn btn-small btn-primary" id="btnQuickAddToNav" style="display: none;" title="快速添加到上次选择的分类">⚡ 快速添加</button>
                         <button class="btn btn-small btn-secondary" id="btnAddToNav" style="display: none;" title="选择分类后添加">🚀 添加到导航页</button>
                         <button class="btn btn-small btn-danger" id="btnDeleteSelected" style="display: none;">删除</button>
@@ -504,6 +505,10 @@
             <span>✏️</span>
             <span>批量重命名</span>
         </div>
+        <div class="context-menu-item" id="ctxBatchTag">
+            <span>🏷️</span>
+            <span>批量标签</span>
+        </div>
         <div class="context-menu-divider"></div>
         <div class="context-menu-item danger" id="ctxBatchDelete">
             <span>🗑️</span>
@@ -525,6 +530,48 @@
         <div class="context-menu-item danger" id="ctxFolderDelete">
             <span>🗑️</span>
             <span>删除文件夹</span>
+        </div>
+    </div>
+
+    <!-- 批量标签弹窗 -->
+    <div class="modal" id="batchTagModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🏷️ 批量添加标签</h3>
+                <button class="modal-close" id="batchTagClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>操作方式</label>
+                    <select id="batchTagMode" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 12px;">
+                        <option value="add">添加标签（保留现有标签）</option>
+                        <option value="replace">替换标签（清除现有标签）</option>
+                        <option value="remove">移除指定标签</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label id="batchTagInputLabel">输入标签（多个标签用逗号分隔）</label>
+                    <input type="text" id="batchTagInput" placeholder="例如: 工具, 开发, 常用">
+                </div>
+                <div class="form-group">
+                    <label>快速选择已有标签</label>
+                    <div id="existingTagsSelect" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;"></div>
+                </div>
+                <div class="form-group">
+                    <label>智能建议标签</label>
+                    <div id="suggestedTagsSelect" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 80px; overflow-y: auto; padding: 8px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f0f7ff;"></div>
+                </div>
+                <p style="font-size: 13px; color: #666;" id="batchTagCount">将为 0 个书签添加标签</p>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <button class="btn btn-small btn-secondary" id="btnAutoSuggestTags" title="为选中书签智能生成标签建议">🤖 智能建议</button>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" id="btnCancelBatchTag">取消</button>
+                    <button class="btn btn-primary" id="btnConfirmBatchTag">确认</button>
+                </div>
+            </div>
         </div>
     </div>
 
