@@ -38,10 +38,24 @@
             <style>
                 #nav-float-container {
                     position: fixed;
-                    bottom: 80px;
-                    right: 20px;
                     z-index: 2147483647;
                     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                    transition: opacity 0.3s ease, transform 0.3s ease;
+                }
+                
+                #nav-float-container.auto-hide {
+                    opacity: 0.3;
+                    transform: scale(0.8);
+                }
+                
+                #nav-float-container.auto-hide:hover {
+                    opacity: 1;
+                    transform: scale(1);
+                }
+                
+                #nav-float-container.dragging {
+                    transition: none;
+                    opacity: 0.8;
                 }
                 
                 #nav-float-btn {
@@ -50,13 +64,18 @@
                     border-radius: 50%;
                     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
                     border: none;
-                    cursor: pointer;
+                    cursor: grab;
                     box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     transition: all 0.3s ease;
                     position: relative;
+                    user-select: none;
+                }
+                
+                #nav-float-btn:active {
+                    cursor: grabbing;
                 }
                 
                 #nav-float-btn:hover {
@@ -187,9 +206,10 @@
                 }
                 
                 #nav-float-toast {
-                    position: fixed;
-                    bottom: 140px;
-                    right: 20px;
+                    position: absolute;
+                    bottom: 60px;
+                    left: 50%;
+                    transform: translateX(-50%) translateY(10px);
                     background: #333;
                     color: white;
                     padding: 10px 16px;
@@ -204,7 +224,7 @@
                 
                 #nav-float-toast.show {
                     opacity: 1;
-                    transform: translateY(0);
+                    transform: translateX(-50%) translateY(0);
                 }
                 
                 #nav-float-toast.success {
@@ -234,29 +254,128 @@
         
         let menuVisible = false;
         let longPressTimer = null;
+        let autoHideTimer = null;
+        let isDragging = false;
+        let dragStartX, dragStartY, initialX, initialY;
+        let hasMoved = false;
         
-        // 点击 - 快速添加
+        // 从storage加载位置
+        chrome.storage.sync.get(['floatBtnPosition'], (result) => {
+            if (result.floatBtnPosition) {
+                container.style.left = result.floatBtnPosition.left;
+                container.style.top = result.floatBtnPosition.top;
+                container.style.right = 'auto';
+                container.style.bottom = 'auto';
+            } else {
+                // 默认位置
+                container.style.bottom = '80px';
+                container.style.right = '20px';
+            }
+        });
+        
+        // 自动隐藏功能
+        function startAutoHideTimer() {
+            clearTimeout(autoHideTimer);
+            autoHideTimer = setTimeout(() => {
+                if (!menuVisible && !isDragging) {
+                    container.classList.add('auto-hide');
+                }
+            }, 3000); // 3秒后自动隐藏
+        }
+        
+        function cancelAutoHide() {
+            clearTimeout(autoHideTimer);
+            container.classList.remove('auto-hide');
+        }
+        
+        container.addEventListener('mouseenter', cancelAutoHide);
+        container.addEventListener('mouseleave', startAutoHideTimer);
+        
+        // 初始启动自动隐藏计时器
+        startAutoHideTimer();
+        
+        // 拖动功能
+        btn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return; // 只响应左键
+            
+            isDragging = false;
+            hasMoved = false;
+            dragStartX = e.clientX;
+            dragStartY = e.clientY;
+            
+            const rect = container.getBoundingClientRect();
+            initialX = rect.left;
+            initialY = rect.top;
+            
+            // 长按计时器
+            longPressTimer = setTimeout(() => {
+                if (!hasMoved) {
+                    showMenu();
+                }
+            }, 500);
+            
+            document.addEventListener('mousemove', onDrag);
+            document.addEventListener('mouseup', onDragEnd);
+        });
+        
+        function onDrag(e) {
+            const dx = e.clientX - dragStartX;
+            const dy = e.clientY - dragStartY;
+            
+            // 移动超过5px才算拖动
+            if (Math.abs(dx) > 5 || Math.abs(dy) > 5) {
+                hasMoved = true;
+                isDragging = true;
+                clearTimeout(longPressTimer);
+                container.classList.add('dragging');
+                cancelAutoHide();
+                
+                let newX = initialX + dx;
+                let newY = initialY + dy;
+                
+                // 限制在视口内
+                const btnSize = 48;
+                newX = Math.max(0, Math.min(window.innerWidth - btnSize, newX));
+                newY = Math.max(0, Math.min(window.innerHeight - btnSize, newY));
+                
+                container.style.left = newX + 'px';
+                container.style.top = newY + 'px';
+                container.style.right = 'auto';
+                container.style.bottom = 'auto';
+            }
+        }
+        
+        function onDragEnd(e) {
+            document.removeEventListener('mousemove', onDrag);
+            document.removeEventListener('mouseup', onDragEnd);
+            clearTimeout(longPressTimer);
+            container.classList.remove('dragging');
+            
+            if (isDragging) {
+                // 保存位置
+                chrome.storage.sync.set({
+                    floatBtnPosition: {
+                        left: container.style.left,
+                        top: container.style.top
+                    }
+                });
+                isDragging = false;
+            }
+            
+            startAutoHideTimer();
+        }
+        
+        // 点击 - 快速添加（只有没有拖动时才触发）
         btn.addEventListener('click', async (e) => {
+            if (hasMoved) {
+                hasMoved = false;
+                return;
+            }
             if (menuVisible) {
                 hideMenu();
                 return;
             }
             await quickAdd();
-        });
-        
-        // 长按 - 显示分类菜单
-        btn.addEventListener('mousedown', (e) => {
-            longPressTimer = setTimeout(() => {
-                showMenu();
-            }, 500);
-        });
-        
-        btn.addEventListener('mouseup', () => {
-            clearTimeout(longPressTimer);
-        });
-        
-        btn.addEventListener('mouseleave', () => {
-            clearTimeout(longPressTimer);
         });
         
         // 点击其他地方关闭菜单
