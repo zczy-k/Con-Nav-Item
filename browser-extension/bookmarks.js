@@ -443,141 +443,131 @@ const NOISE_WORDS = [
     'the', 'a', 'an', 'and', 'or', 'of', 'to', 'for', 'in', 'on', 'at', 'by', 'with'
 ];
 
-// 标签同义词映射（将各种变体统一为标准标签）
-const TAG_SYNONYMS = {
-    // 开发相关
-    '前端': ['frontend', 'front-end', 'front end', '前端开发', 'web前端', 'fe'],
-    '后端': ['backend', 'back-end', 'back end', '后端开发', '服务端', 'be'],
-    '全栈': ['fullstack', 'full-stack', 'full stack', '全栈开发'],
-    '开发': ['development', 'dev', 'develop', '软件开发', '程序开发', 'coding', 'programming'],
-    '代码': ['code', 'source', '源码', '源代码'],
-    '文档': ['docs', 'doc', 'documentation', '手册', 'manual', 'reference', '参考'],
-    '教程': ['tutorial', 'tutorials', 'guide', 'guides', '指南', '入门', 'getting started'],
-    'API': ['api', 'apis', '接口', 'interface'],
+// ==================== 标准标签库（约60个标准标签） ====================
+// 所有自动生成的标签都必须映射到这个库中的标签，确保标签数量可控
+
+const STANDARD_TAGS = {
+    // 开发技术（10个）
+    '开发': ['development', 'dev', 'develop', 'coding', 'programming', '软件开发', '程序开发', '编程', 'code', 'source', '源码', '代码'],
+    '前端': ['frontend', 'front-end', 'front end', '前端开发', 'web前端', 'fe', 'html', 'css', 'javascript', 'js'],
+    '后端': ['backend', 'back-end', 'back end', '后端开发', '服务端', 'be', 'server'],
+    '文档': ['docs', 'doc', 'documentation', '手册', 'manual', 'reference', '参考', 'wiki', 'api', '接口'],
+    '教程': ['tutorial', 'tutorials', 'guide', 'guides', '指南', '入门', 'getting started', 'learn', 'learning', '学习'],
+    '工具': ['tool', 'tools', 'utility', 'utilities', '实用工具', '在线工具'],
+    '开源': ['opensource', 'open source', 'open-source', 'github', 'gitlab', 'gitee'],
+    '算法': ['algorithm', 'algorithms', '数据结构', 'leetcode', '刷题', 'coding'],
+    '部署': ['deploy', 'deployment', '部署', 'devops', 'ci', 'cd', 'docker', 'kubernetes'],
+    '数据库': ['database', 'db', 'sql', 'mysql', 'mongodb', 'redis', '数据库'],
     
-    // 技术栈
-    'JavaScript': ['js', 'javascript', 'ecmascript', 'es6', 'es2015'],
-    'TypeScript': ['ts', 'typescript'],
-    'Python': ['python', 'py', 'python3'],
-    'Java': ['java', 'jdk', 'jvm'],
-    'Vue': ['vue', 'vuejs', 'vue.js', 'vue3', 'vue2'],
-    'React': ['react', 'reactjs', 'react.js'],
-    'Node': ['node', 'nodejs', 'node.js'],
+    // 内容类型（8个）
+    '视频': ['video', 'videos', '影片', '短片', 'watch', '播放', '直播', 'live', 'stream'],
+    '音乐': ['music', '歌曲', 'song', 'songs', '音频', 'audio', '播客', 'podcast'],
+    '图片': ['image', 'images', 'photo', 'photos', '照片', '图像', 'picture', 'gallery', '图库'],
+    '文章': ['article', 'articles', 'post', 'posts', '帖子', 'blog', 'blogs', '博客', '日志'],
+    '新闻': ['news', '资讯', '快讯', '头条', '新闻'],
+    '影视': ['movie', 'movies', 'film', 'films', '电影', '电视剧', 'tv', '剧集', '动漫', 'anime'],
+    '电子书': ['ebook', 'book', 'books', '图书', '书籍', '阅读', 'reading', 'kindle'],
+    '素材': ['resource', 'resources', 'asset', 'assets', '资源', '模板', 'template'],
     
-    // 内容类型
-    '视频': ['video', 'videos', '影片', '短片'],
-    '音乐': ['music', '歌曲', 'song', 'songs', '音频', 'audio'],
-    '图片': ['image', 'images', 'photo', 'photos', '照片', '图像', 'picture'],
-    '文章': ['article', 'articles', 'post', 'posts', '帖子'],
-    '博客': ['blog', 'blogs', '日志', '随笔'],
-    '新闻': ['news', '资讯', '快讯', '头条'],
+    // 平台类型（8个）
+    '购物': ['shopping', 'shop', 'store', '商城', '电商', 'ecommerce', 'e-commerce', '淘宝', '京东', '购买'],
+    '社交': ['social', '社交媒体', 'sns', '微博', 'twitter', 'facebook', '朋友圈'],
+    '社区': ['community', 'forum', 'bbs', '论坛', '讨论区', '贴吧'],
+    '游戏': ['game', 'games', 'gaming', '电竞', 'esports', 'steam', '游戏'],
+    '云服务': ['cloud', '云服务', '云计算', 'aws', 'azure', 'aliyun', '阿里云', '腾讯云'],
+    '金融': ['finance', 'financial', '金融', '投资', 'invest', '理财', '股票', 'stock', '基金'],
+    '政府': ['gov', 'government', '政府', '政务'],
+    '教育': ['edu', 'education', '教育', '学校', 'university', '大学', '课程', 'course'],
     
-    // 功能类型
-    '工具': ['tool', 'tools', 'utility', 'utilities', '实用工具'],
-    '下载': ['download', 'downloads', '安装', 'install'],
-    '搜索': ['search', '查找', '检索'],
-    '翻译': ['translate', 'translation', '翻译器'],
+    // AI相关（2个）
+    'AI': ['ai', '人工智能', 'artificial intelligence', 'ml', 'machine learning', '机器学习', 'deep learning', '深度学习', 'chatgpt', 'gpt', 'llm', '大模型', 'claude', 'midjourney'],
+    '数据': ['data', '数据分析', 'analytics', 'bi', '大数据', 'bigdata'],
     
-    // 平台类型
-    '购物': ['shopping', 'shop', 'store', '商城', '电商', 'ecommerce', 'e-commerce'],
-    '社交': ['social', '社交媒体', 'sns'],
-    '社区': ['community', 'forum', 'bbs', '论坛', '讨论区'],
-    '游戏': ['game', 'games', 'gaming', '电竞', 'esports'],
-    '影视': ['movie', 'movies', 'film', 'films', '电影', '电视剧', 'tv', '剧集'],
+    // 设计相关（4个）
+    '设计': ['design', 'ui', 'ux', 'ui/ux', '界面设计', '交互设计', '平面设计', 'graphic'],
+    '图标': ['icon', 'icons', '图标库', 'iconfont', 'emoji'],
+    '配色': ['color', 'colors', '配色', '颜色', 'palette'],
+    '字体': ['font', 'fonts', '字体', 'typography'],
     
-    // AI相关
-    'AI': ['ai', '人工智能', 'artificial intelligence', 'ml', 'machine learning', '机器学习', 'deep learning', '深度学习', 'chatgpt', 'gpt', 'llm', '大模型'],
+    // 效率工具（6个）
+    '效率': ['productivity', '生产力', '提效', '效率工具'],
+    '笔记': ['note', 'notes', '记录', '备忘', 'notion', 'evernote', '印象笔记'],
+    '协作': ['collaboration', 'collaborate', '团队协作', '合作', 'teamwork'],
+    '项目': ['project', 'projects', '项目管理', 'task', 'tasks', '任务'],
+    '日历': ['calendar', '日历', '日程', 'schedule'],
+    '邮箱': ['email', 'mail', '邮箱', '邮件', 'gmail', 'outlook'],
     
-    // 设计相关
-    '设计': ['design', 'ui', 'ux', 'ui/ux', '界面设计', '交互设计'],
-    '素材': ['resource', 'resources', 'asset', 'assets', '资源'],
-    '图标': ['icon', 'icons', '图标库'],
+    // 生活服务（6个）
+    '地图': ['map', 'maps', '地图', '导航', 'navigation', '位置'],
+    '天气': ['weather', '天气', '气象'],
+    '外卖': ['food', 'delivery', '外卖', '美食', '餐饮'],
+    '出行': ['travel', 'trip', '出行', '旅行', '机票', '酒店', 'hotel', 'flight'],
+    '健康': ['health', 'fitness', '健康', '运动', '医疗', 'medical'],
+    '招聘': ['job', 'jobs', 'career', '招聘', '求职', '工作', 'hr'],
     
-    // 学习相关
-    '学习': ['learn', 'learning', 'study', '教育', 'education', 'course', 'courses', '课程'],
-    '算法': ['algorithm', 'algorithms', '数据结构', 'leetcode', '刷题'],
-    
-    // 效率相关
-    '效率': ['productivity', '生产力', '提效'],
-    '笔记': ['note', 'notes', '记录', '备忘'],
-    '协作': ['collaboration', 'collaborate', '团队协作', '合作']
+    // 其他（6个）
+    '搜索': ['search', '搜索', '查找', '检索', 'google', 'baidu', 'bing'],
+    '翻译': ['translate', 'translation', '翻译', '翻译器', 'deepl'],
+    '网盘': ['drive', 'storage', '网盘', '云盘', '存储', 'dropbox'],
+    '安全': ['security', '安全', '隐私', 'privacy', 'vpn', '加密'],
+    '浏览器': ['browser', '浏览器', 'chrome', 'firefox', 'edge', '扩展', 'extension'],
+    '百科': ['wiki', 'wikipedia', '百科', '知识', 'knowledge']
 };
 
-// 过于宽泛的标签（应该避免）
-const GENERIC_TAGS = [
-    '网页', '链接', '页面', '内容', '信息', '数据', '服务',
-    'web', 'page', 'link', 'content', 'info', 'data', 'service',
-    '其他', '杂项', '临时', '待分类', '未分类',
-    'other', 'misc', 'temp', 'uncategorized'
-];
+// 将标准标签库转换为快速查找映射
+const TAG_LOOKUP = new Map();
+for (const [standard, synonyms] of Object.entries(STANDARD_TAGS)) {
+    TAG_LOOKUP.set(standard.toLowerCase(), standard);
+    for (const syn of synonyms) {
+        TAG_LOOKUP.set(syn.toLowerCase(), standard);
+    }
+}
 
-// 规范化标签（将同义词统一为标准形式）
+// 规范化标签（只返回标准标签库中的标签）
 function normalizeTag(tag) {
     if (!tag) return null;
     
     const lowerTag = tag.toLowerCase().trim();
     
-    // 查找是否匹配某个同义词
-    for (const [standard, synonyms] of Object.entries(TAG_SYNONYMS)) {
-        if (lowerTag === standard.toLowerCase()) {
+    // 精确匹配
+    if (TAG_LOOKUP.has(lowerTag)) {
+        return TAG_LOOKUP.get(lowerTag);
+    }
+    
+    // 部分匹配（标签包含关键词）
+    for (const [keyword, standard] of TAG_LOOKUP.entries()) {
+        if (keyword.length >= 3 && lowerTag.includes(keyword)) {
             return standard;
-        }
-        for (const syn of synonyms) {
-            if (lowerTag === syn.toLowerCase()) {
-                return standard;
-            }
         }
     }
     
-    // 没有匹配的同义词，返回原标签（首字母大写处理）
-    return tag.trim();
+    // 无法映射到标准标签，返回null（将被过滤）
+    return null;
 }
 
-// 验证标签质量
+// 验证标签是否为标准标签
 function isValidTag(tag) {
     if (!tag) return false;
-    
-    const trimmed = tag.trim();
-    
-    // 长度检查：2-10个字符
-    if (trimmed.length < 2 || trimmed.length > 10) return false;
-    
-    // 纯数字检查
-    if (/^\d+$/.test(trimmed)) return false;
-    
-    // 纯特殊字符检查
-    if (/^[\s\-_\.\/\\|·:：,，;；!！?？@#$%^&*()（）\[\]【】{}]+$/.test(trimmed)) return false;
-    
-    // 版本号检查（如 v1.0, 2.3.4）
-    if (/^v?\d+(\.\d+)+$/i.test(trimmed)) return false;
-    
-    // 日期检查（如 2024, 2024-01）
-    if (/^(19|20)\d{2}(-\d{2})?(-\d{2})?$/.test(trimmed)) return false;
-    
-    // 过于宽泛的标签检查
-    if (GENERIC_TAGS.some(g => trimmed.toLowerCase() === g.toLowerCase())) return false;
-    
-    // 无意义词检查
-    if (NOISE_WORDS.some(n => trimmed.toLowerCase() === n.toLowerCase())) return false;
-    
-    return true;
+    // 只接受标准标签库中的标签
+    return Object.keys(STANDARD_TAGS).includes(tag);
 }
 
-// 处理标签列表：规范化 + 去重 + 质量过滤
+// 处理标签列表：规范化到标准标签 + 去重
 function processTagList(tags) {
     const processed = new Set();
     
     for (const tag of tags) {
-        // 规范化
+        // 规范化到标准标签
         const normalized = normalizeTag(tag);
         
-        // 质量验证
+        // 只保留标准标签
         if (normalized && isValidTag(normalized)) {
             processed.add(normalized);
         }
     }
     
-    return Array.from(processed);
+    // 返回去重后的标准标签，最多3个
+    return Array.from(processed).slice(0, 3);
 }
 
 // 从文件夹路径提取标签
@@ -752,10 +742,10 @@ function autoGenerateTags(bookmark) {
         console.warn('标签生成失败:', e);
     }
     
-    // 规范化、去重、质量过滤，返回最多4个标签
+    // 规范化到标准标签库，返回最多2个标签
     const rawTags = Array.from(tags);
     const processedTags = processTagList(rawTags);
-    return processedTags.slice(0, 4);
+    return processedTags.slice(0, 2);
 }
 
 // 批量自动标签（增强版）
