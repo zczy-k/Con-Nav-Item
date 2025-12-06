@@ -1811,16 +1811,12 @@ function bindEvents() {
     // 时间线筛选
     document.getElementById('timelineFilter').addEventListener('change', handleTimelineFilter);
     
-    // 自动标签
-    document.getElementById('btnAutoTag').addEventListener('click', autoTagAllBookmarks);
-    
     // 批量标签
     document.getElementById('btnBatchTag').addEventListener('click', showBatchTagModal);
     document.getElementById('batchTagClose').addEventListener('click', closeBatchTagModal);
     document.getElementById('btnCancelBatchTag').addEventListener('click', closeBatchTagModal);
     document.getElementById('btnConfirmBatchTag').addEventListener('click', confirmBatchTag);
     document.getElementById('batchTagMode').addEventListener('change', updateBatchTagUI);
-    document.getElementById('btnAutoSuggestTags').addEventListener('click', autoSuggestTagsForSelected);
     
     // 快捷键帮助
     document.getElementById('btnShowShortcuts').addEventListener('click', showShortcutsHelp);
@@ -6368,9 +6364,6 @@ function showBatchTagModal() {
     
     // 渲染已有标签供快速选择
     renderExistingTagsSelect();
-    
-    // 清空建议标签
-    document.getElementById('suggestedTagsSelect').innerHTML = '<span style="color: #999; font-size: 12px;">点击"智能建议"按钮生成标签建议</span>';
     
     updateBatchTagUI();
     document.getElementById('batchTagModal').classList.add('active');

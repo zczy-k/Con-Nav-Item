@@ -112,7 +112,6 @@
             <button class="btn btn-secondary" id="btnAnalyzeUsage">📊 使用分析</button>
             <button class="btn btn-secondary" id="btnFindUnused">📦 长期未使用</button>
             <button class="btn btn-secondary" id="btnStatistics">📈 统计面板</button>
-            <button class="btn btn-secondary" id="btnAutoTag">🏷️ 自动标签</button>
             <button class="btn btn-secondary" id="btnMergeFolders">📂 合并文件夹</button>
             <button class="btn btn-secondary" id="btnFindEmptyFolders">📭 空文件夹</button>
             <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin-left: auto;">
@@ -555,18 +554,12 @@
                 </div>
                 <div class="form-group">
                     <label>快速选择已有标签</label>
-                    <div id="existingTagsSelect" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; padding: 8px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;"></div>
+                    <div id="existingTagsSelect" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 200px; overflow-y: auto; padding: 8px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f9f9f9;"></div>
                 </div>
-                <div class="form-group">
-                    <label>智能建议标签</label>
-                    <div id="suggestedTagsSelect" style="display: flex; flex-wrap: wrap; gap: 6px; max-height: 80px; overflow-y: auto; padding: 8px; border: 1px solid #e0e0e0; border-radius: 8px; background: #f0f7ff;"></div>
-                </div>
-                <p style="font-size: 13px; color: #666;" id="batchTagCount">将为 0 个书签添加标签</p>
+                <p style="font-size: 13px; color: #666;" id="batchTagCount">将为 0 个书签操作标签</p>
             </div>
             <div class="modal-footer">
-                <div class="modal-footer-left">
-                    <button class="btn btn-small btn-secondary" id="btnAutoSuggestTags" title="为选中书签智能生成标签建议">🤖 智能建议</button>
-                </div>
+                <div></div>
                 <div class="modal-footer-right">
                     <button class="btn btn-secondary" id="btnCancelBatchTag">取消</button>
                     <button class="btn btn-primary" id="btnConfirmBatchTag">确认</button>
