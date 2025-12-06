@@ -1818,6 +1818,9 @@ function bindEvents() {
     document.getElementById('btnConfirmBatchTag').addEventListener('click', confirmBatchTag);
     document.getElementById('batchTagMode').addEventListener('change', updateBatchTagUI);
     
+    // 按文件夹标签
+    document.getElementById('btnTagByFolder').addEventListener('click', tagBookmarksByFolder);
+    
     // 快捷键帮助
     document.getElementById('btnShowShortcuts').addEventListener('click', showShortcutsHelp);
     
@@ -6600,4 +6603,168 @@ async function confirmBatchTag() {
     // 显示结果
     const modeText = { add: '添加', replace: '替换', remove: '移除' }[mode];
     alert(`批量${modeText}标签完成！\n\n已修改 ${modifiedCount} 个书签的标签`);
+}
+
+
+// ==================== 按文件夹标签功能 ====================
+
+// 从文件夹名称提取标签
+function extractTagFromFolderName(folderName) {
+    if (!folderName) return null;
+    
+    // 过滤系统文件夹名称
+    const systemFolders = [
+        '书签栏', '其他书签', 'bookmarks bar', 'other bookmarks', 
+        'bookmarks', '收藏夹', 'favorites', '移动设备书签',
+        'mobile bookmarks', '根目录', ''
+    ];
+    
+    const cleanName = folderName.trim();
+    if (!cleanName || systemFolders.some(sys => 
+        cleanName.toLowerCase() === sys.toLowerCase()
+    )) {
+        return null;
+    }
+    
+    // 如果文件夹名称太长，尝试提取关键词
+    if (cleanName.length > 8) {
+        // 尝试提取中文关键词（2-6个字）
+        const chineseMatch = cleanName.match(/[\u4e00-\u9fa5]{2,6}/);
+        if (chineseMatch) {
+            return chineseMatch[0];
+        }
+        
+        // 尝试提取英文单词
+        const englishMatch = cleanName.match(/[A-Za-z]{3,8}/);
+        if (englishMatch) {
+            return englishMatch[0];
+        }
+        
+        // 如果都没有，截取前6个字符
+        return cleanName.substring(0, 6);
+    }
+    
+    return cleanName;
+}
+
+// 获取书签的文件夹路径
+function getBookmarkFolderPath(bookmarkId) {
+    function findPath(nodes, targetId, path = []) {
+        for (const node of nodes) {
+            if (node.id === targetId) {
+                return path;
+            }
+            if (node.children) {
+                const newPath = node.title ? [...path, node.title] : path;
+                const result = findPath(node.children, targetId, newPath);
+                if (result) return result;
+            }
+        }
+        return null;
+    }
+    
+    return findPath(allBookmarks, bookmarkId) || [];
+}
+
+// 根据文件夹名称为书签添加标签
+async function tagBookmarksByFolder() {
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    
+    if (allBookmarksList.length === 0) {
+        alert('没有找到书签');
+        return;
+    }
+    
+    // 显示确认弹窗
+    const confirmed = confirm(
+        `🏷️ 按文件夹标签\n\n` +
+        `将根据书签所在文件夹的名称为书签添加标签。\n` +
+        `例如："前端开发"文件夹下的书签会添加"前端开发"标签。\n\n` +
+        `共 ${allBookmarksList.length} 个书签，是否继续？`
+    );
+    
+    if (!confirmed) return;
+    
+    // 显示进度
+    const progressDiv = document.createElement('div');
+    progressDiv.id = 'folderTagProgress';
+    progressDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 24px 32px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 10000; text-align: center; min-width: 300px;';
+    progressDiv.innerHTML = `
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">📁 正在按文件夹添加标签...</div>
+        <div style="background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 12px;">
+            <div id="folderTagProgressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
+        </div>
+        <div id="folderTagProgressText" style="font-size: 14px; color: #666;">0 / ${allBookmarksList.length}</div>
+    `;
+    document.body.appendChild(progressDiv);
+    
+    const progressBar = document.getElementById('folderTagProgressBar');
+    const progressText = document.getElementById('folderTagProgressText');
+    
+    let taggedCount = 0;
+    let skippedCount = 0;
+    
+    for (let i = 0; i < allBookmarksList.length; i++) {
+        const bookmark = allBookmarksList[i];
+        
+        // 更新进度
+        const percent = Math.round((i + 1) / allBookmarksList.length * 100);
+        progressBar.style.width = percent + '%';
+        progressText.textContent = `${i + 1} / ${allBookmarksList.length}`;
+        
+        // 获取文件夹路径
+        const folderPath = getBookmarkFolderPath(bookmark.id);
+        
+        // 从文件夹路径提取标签
+        const folderTags = [];
+        for (const folderName of folderPath) {
+            const tag = extractTagFromFolderName(folderName);
+            if (tag && !folderTags.includes(tag)) {
+                folderTags.push(tag);
+            }
+        }
+        
+        if (folderTags.length > 0) {
+            // 获取现有标签
+            const existingTags = bookmarkTags.get(bookmark.id) || [];
+            
+            // 合并标签（去重）
+            const newTags = [...new Set([...existingTags, ...folderTags])];
+            
+            // 如果有新标签，更新
+            if (newTags.length > existingTags.length) {
+                bookmarkTags.set(bookmark.id, newTags);
+                newTags.forEach(tag => allTags.add(tag));
+                taggedCount++;
+            } else {
+                skippedCount++;
+            }
+        } else {
+            skippedCount++;
+        }
+        
+        // 每处理50个书签，让UI有机会更新
+        if (i % 50 === 0) {
+            await new Promise(r => setTimeout(r, 10));
+        }
+    }
+    
+    // 移除进度条
+    progressDiv.remove();
+    
+    // 保存标签
+    if (taggedCount > 0) {
+        await saveTags();
+        renderTagCloud();
+        renderBookmarkList();
+    }
+    
+    // 显示结果
+    alert(
+        `📁 按文件夹标签完成！\n\n` +
+        `✅ 添加标签: ${taggedCount} 个书签\n` +
+        `⏭️ 跳过: ${skippedCount} 个书签\n\n` +
+        (taggedCount > 0 ? '标签已更新，可在标签云中查看。' : '没有新标签添加。')
+    );
 }
