@@ -760,8 +760,91 @@ function autoGenerateTags(bookmark) {
 
 // 批量自动标签（增强版）
 async function autoTagAllBookmarks() {
+    // 显示模式选择弹窗
+    const noTagCount = countNoTagBookmarks();
     const allBookmarksList = [];
     collectAllBookmarks(allBookmarks, allBookmarksList);
+    const totalCount = allBookmarksList.length;
+    const hasTagCount = totalCount - noTagCount;
+    
+    // 创建选择弹窗
+    const modeDiv = document.createElement('div');
+    modeDiv.id = 'autoTagModeSelect';
+    modeDiv.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+    modeDiv.innerHTML = `
+        <div style="background: white; border-radius: 12px; padding: 24px; max-width: 400px; width: 90%;">
+            <div style="font-size: 18px; font-weight: 600; margin-bottom: 16px;">🏷️ 自动标签模式</div>
+            <div style="margin-bottom: 20px;">
+                <label style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; margin-bottom: 12px; transition: all 0.2s;" id="modeOnlyNew">
+                    <input type="radio" name="autoTagMode" value="onlyNew" checked style="margin-top: 4px;">
+                    <div>
+                        <div style="font-weight: 500;">仅无标签书签</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 4px;">只为没有标签的 ${noTagCount} 个书签生成标签，保留已有标签</div>
+                    </div>
+                </label>
+                <label style="display: flex; align-items: flex-start; gap: 12px; padding: 12px; border: 2px solid #e0e0e0; border-radius: 8px; cursor: pointer; transition: all 0.2s;" id="modeRegenerate">
+                    <input type="radio" name="autoTagMode" value="regenerate" style="margin-top: 4px;">
+                    <div>
+                        <div style="font-weight: 500;">全部重新生成</div>
+                        <div style="font-size: 13px; color: #666; margin-top: 4px;">清除所有现有标签，为全部 ${totalCount} 个书签重新生成</div>
+                        <div style="font-size: 12px; color: #dc2626; margin-top: 4px;">⚠️ 将覆盖 ${hasTagCount} 个已有标签的书签</div>
+                    </div>
+                </label>
+            </div>
+            <div style="display: flex; gap: 12px; justify-content: flex-end;">
+                <button class="btn btn-secondary" id="btnCancelAutoTag">取消</button>
+                <button class="btn btn-primary" id="btnStartAutoTag">开始</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modeDiv);
+    
+    // 高亮选中的选项
+    const updateSelection = () => {
+        const onlyNew = document.getElementById('modeOnlyNew');
+        const regenerate = document.getElementById('modeRegenerate');
+        const onlyNewRadio = onlyNew.querySelector('input');
+        const regenerateRadio = regenerate.querySelector('input');
+        
+        onlyNew.style.borderColor = onlyNewRadio.checked ? '#667eea' : '#e0e0e0';
+        onlyNew.style.background = onlyNewRadio.checked ? '#f0f4ff' : 'white';
+        regenerate.style.borderColor = regenerateRadio.checked ? '#667eea' : '#e0e0e0';
+        regenerate.style.background = regenerateRadio.checked ? '#f0f4ff' : 'white';
+    };
+    
+    document.querySelectorAll('input[name="autoTagMode"]').forEach(radio => {
+        radio.addEventListener('change', updateSelection);
+    });
+    updateSelection();
+    
+    // 等待用户选择
+    return new Promise((resolve) => {
+        document.getElementById('btnCancelAutoTag').addEventListener('click', () => {
+            modeDiv.remove();
+            resolve();
+        });
+        
+        document.getElementById('btnStartAutoTag').addEventListener('click', async () => {
+            const mode = document.querySelector('input[name="autoTagMode"]:checked').value;
+            modeDiv.remove();
+            
+            // 执行自动标签
+            await executeAutoTag(mode === 'regenerate');
+            resolve();
+        });
+    });
+}
+
+// 执行自动标签
+async function executeAutoTag(regenerateAll = false) {
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    
+    // 如果是全部重新生成，先清除所有标签
+    if (regenerateAll) {
+        bookmarkTags.clear();
+        allTags.clear();
+    }
     
     // 统计信息
     let taggedCount = 0;
@@ -774,7 +857,7 @@ async function autoTagAllBookmarks() {
     progressDiv.id = 'autoTagProgress';
     progressDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 24px 32px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 10000; text-align: center; min-width: 300px;';
     progressDiv.innerHTML = `
-        <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">🏷️ 正在自动标签...</div>
+        <div style="font-size: 16px; font-weight: 600; margin-bottom: 16px;">🏷️ ${regenerateAll ? '正在重新生成标签...' : '正在自动标签...'}</div>
         <div style="background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 12px;">
             <div id="autoTagProgressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
@@ -793,8 +876,8 @@ async function autoTagAllBookmarks() {
         progressBar.style.width = percent + '%';
         progressText.textContent = `${i + 1} / ${total}`;
         
-        // 如果已有标签，跳过
-        if (bookmarkTags.has(bookmark.id) && bookmarkTags.get(bookmark.id).length > 0) {
+        // 如果不是重新生成模式，且已有标签，跳过
+        if (!regenerateAll && bookmarkTags.has(bookmark.id) && bookmarkTags.get(bookmark.id).length > 0) {
             skippedCount++;
             continue;
         }
@@ -828,13 +911,13 @@ async function autoTagAllBookmarks() {
     }
     
     // 显示结果弹窗
-    showAutoTagResult(taggedCount, skippedCount, failedCount);
+    showAutoTagResult(taggedCount, skippedCount, failedCount, regenerateAll);
 }
 
 // 显示自动标签结果弹窗
-function showAutoTagResult(taggedCount, skippedCount, failedCount) {
+function showAutoTagResult(taggedCount, skippedCount, failedCount, isRegenerate = false) {
     const resultList = document.getElementById('resultList');
-    document.getElementById('resultTitle').textContent = '🏷️ 自动标签结果';
+    document.getElementById('resultTitle').textContent = isRegenerate ? '🏷️ 重新生成标签结果' : '🏷️ 自动标签结果';
     
     const noTagCount = countNoTagBookmarks();
     
@@ -843,15 +926,17 @@ function showAutoTagResult(taggedCount, skippedCount, failedCount) {
             <div style="display: grid; grid-template-columns: auto 1fr; gap: 12px 16px; font-size: 14px; margin-bottom: 20px;">
                 <div style="font-size: 24px;">✅</div>
                 <div>
-                    <div style="font-weight: 600; color: #059669;">成功标签</div>
+                    <div style="font-weight: 600; color: #059669;">${isRegenerate ? '重新生成' : '成功标签'}</div>
                     <div style="color: #666;">${taggedCount} 个书签</div>
                 </div>
                 
+                ${!isRegenerate ? `
                 <div style="font-size: 24px;">⏭️</div>
                 <div>
                     <div style="font-weight: 600; color: #6b7280;">已有标签跳过</div>
                     <div style="color: #666;">${skippedCount} 个书签</div>
                 </div>
+                ` : ''}
                 
                 <div style="font-size: 24px;">❌</div>
                 <div>
