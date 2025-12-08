@@ -28,20 +28,20 @@
         .btn-danger:hover { background: #dc2626; }
         .btn-small { padding: 4px 8px; font-size: 12px; }
         
-        /* 主内容区 - 双栏布局 */
-        .main-layout { display: flex; gap: 20px; min-height: 600px; }
+        /* 主内容区 - 锚点导航布局 */
+        .main-layout { display: flex; gap: 20px; height: calc(100vh - 220px); min-height: 500px; }
         
-        /* 左侧文件夹树 */
-        .folder-panel { width: 280px; flex-shrink: 0; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-        .folder-panel-header { padding: 16px; border-bottom: 1px solid #f0f0f0; font-weight: 600; color: #333; display: flex; justify-content: space-between; align-items: center; }
+        /* 左侧文件夹导航 - 固定 */
+        .folder-panel { width: 220px; flex-shrink: 0; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; position: sticky; top: 20px; max-height: calc(100vh - 240px); }
+        .folder-panel-header { padding: 12px 16px; border-bottom: 1px solid #f0f0f0; font-weight: 600; color: #333; display: flex; justify-content: space-between; align-items: center; }
         .folder-tree { flex: 1; overflow-y: auto; padding: 8px; }
-        .folder-item { padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; transition: all 0.2s; }
+        .folder-item { padding: 8px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-bottom: 2px; transition: all 0.2s; border-left: 3px solid transparent; }
         .folder-item:hover { background: #f5f5f5; }
-        .folder-item.active { background: #eff6ff; color: #3b82f6; }
+        .folder-item.active { background: #eff6ff; color: #3b82f6; border-left-color: #3b82f6; font-weight: 500; }
         .folder-item.drag-over { background: #dbeafe; border: 2px dashed #3b82f6; }
         .folder-item .folder-icon { font-size: 14px; }
-        .folder-item .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
-        .folder-item .folder-count { font-size: 12px; color: #999; }
+        .folder-item .folder-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+        .folder-item .folder-count { font-size: 11px; color: #999; background: #f0f0f0; padding: 2px 6px; border-radius: 10px; }
         .folder-item .folder-actions { display: flex; gap: 4px; }
         .folder-item.dragging { opacity: 0.5; }
         .btn-icon { background: none; border: none; cursor: pointer; padding: 2px 4px; font-size: 12px; border-radius: 4px; transition: background 0.2s; }
@@ -61,29 +61,37 @@
         .folder-indent-2 { padding-left: 40px; }
         .folder-indent-3 { padding-left: 56px; }
         
-        /* 右侧书签列表 */
-        .bookmark-panel { flex: 1; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: flex; flex-direction: column; }
-        .bookmark-panel-header { padding: 16px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        /* 右侧书签内容区 - 滚动 */
+        .bookmark-panel { flex: 1; background: transparent; display: flex; flex-direction: column; overflow-y: auto; scroll-behavior: smooth; }
+        .bookmark-panel-header { padding: 12px 16px; background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 10; }
         .bookmark-panel-title { font-weight: 600; color: #333; }
-        .bookmark-panel-actions { display: flex; gap: 8px; }
-        .bookmark-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .bookmark-panel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+        .bookmark-list { flex: 1; }
         
-        /* 书签项 */
-        .bookmark-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 8px; margin-bottom: 4px; transition: all 0.2s; cursor: grab; border: 1px solid transparent; }
-        .bookmark-item:hover { background: #f9fafb; }
-        .bookmark-item.selected { background: #eff6ff; border-color: #bfdbfe; }
+        /* 文件夹分组 */
+        .folder-section { background: white; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 16px; overflow: hidden; }
+        .folder-section-header { padding: 14px 16px; background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .folder-section-header:hover { background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%); }
+        .folder-section-title { font-weight: 600; color: #334155; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+        .folder-section-count { font-size: 12px; color: #64748b; background: white; padding: 2px 8px; border-radius: 10px; }
+        .folder-section-bookmarks { padding: 8px; display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 8px; }
+        
+        /* 书签项 - 卡片式 */
+        .bookmark-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; transition: all 0.2s; cursor: grab; border: 1px solid #e5e7eb; background: white; }
+        .bookmark-item:hover { background: #f9fafb; border-color: #d1d5db; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .bookmark-item.selected { background: #eff6ff; border-color: #93c5fd; }
         .bookmark-item.dragging { opacity: 0.5; }
-        .bookmark-checkbox { width: 18px; height: 18px; cursor: pointer; }
-        .bookmark-favicon { width: 20px; height: 20px; flex-shrink: 0; }
+        .bookmark-checkbox { width: 16px; height: 16px; cursor: pointer; flex-shrink: 0; }
+        .bookmark-favicon { width: 20px; height: 20px; flex-shrink: 0; border-radius: 4px; }
         .bookmark-info { flex: 1; min-width: 0; }
-        .bookmark-title { font-size: 14px; color: #333; margin-bottom: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bookmark-title { font-size: 13px; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; line-height: 1.4; }
         .bookmark-title a { color: inherit; text-decoration: none; }
         .bookmark-title a:hover { color: #667eea; }
-        .bookmark-url { font-size: 12px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .bookmark-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
-        .bookmark-tag { display: inline-block; padding: 2px 8px; background: #e0e7ff; color: #4f46e5; border-radius: 10px; font-size: 11px; }
-        .bookmark-note { font-size: 11px; color: #666; margin-top: 4px; font-style: italic; background: #fef3c7; padding: 2px 6px; border-radius: 4px; display: inline-block; }
-        .bookmark-actions { display: none; gap: 4px; }
+        .bookmark-url { font-size: 11px; color: #9ca3af; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 2px; }
+        .bookmark-tags { display: flex; flex-wrap: wrap; gap: 3px; margin-top: 4px; }
+        .bookmark-tag { display: inline-block; padding: 1px 6px; background: #e0e7ff; color: #4f46e5; border-radius: 8px; font-size: 10px; }
+        .bookmark-note { font-size: 10px; color: #666; margin-top: 3px; font-style: italic; background: #fef3c7; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+        .bookmark-actions { display: none; gap: 4px; flex-shrink: 0; }
         .bookmark-item:hover .bookmark-actions { display: flex; }
 </style>
 </head>

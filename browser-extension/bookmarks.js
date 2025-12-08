@@ -1292,6 +1292,15 @@ function createFolderItem(folder, level, isAll = false) {
         
         document.querySelectorAll('.folder-item').forEach(el => el.classList.remove('active'));
         div.classList.add('active');
+        
+        // 锚点导航模式：滚动到对应区域
+        if (anchorNavMode && !isAll && folder.id) {
+            currentFolderId = null; // 保持全部书签模式
+            scrollToFolderSection(folder.id);
+            return;
+        }
+        
+        // 传统模式：切换文件夹
         currentFolderId = folder.id || null;
         document.getElementById('currentFolderName').textContent = folder.title || '全部书签';
         selectedBookmarks.clear();
@@ -1466,9 +1475,33 @@ function countFolderBookmarks(folder) {
 
 
 // ==================== 书签列表渲染 ====================
+// 锚点导航模式：显示所有文件夹的书签，按分组展示
+let anchorNavMode = true; // 锚点导航模式开关
+let scrollListenerBound = false; // 滚动监听是否已绑定
+
 async function renderBookmarkList() {
     const container = document.getElementById('bookmarkList');
     container.innerHTML = '<div class="loading">加载中...</div>';
+    
+    // 如果有标签筛选或无标签筛选，使用传统列表模式
+    if (filterNoTag || currentTagFilters.length > 0) {
+        await renderBookmarkListTraditional();
+        return;
+    }
+    
+    // 锚点导航模式：按文件夹分组显示所有书签
+    if (anchorNavMode && currentFolderId === null) {
+        await renderBookmarkListByFolder();
+        return;
+    }
+    
+    // 单文件夹模式
+    await renderBookmarkListTraditional();
+}
+
+// 传统列表渲染（用于筛选模式或单文件夹模式）
+async function renderBookmarkListTraditional() {
+    const container = document.getElementById('bookmarkList');
     
     let bookmarks = getBookmarksForCurrentFolder();
     
@@ -1506,9 +1539,160 @@ async function renderBookmarkList() {
     }
     
     container.innerHTML = '';
+    
+    // 如果是单文件夹模式，创建一个分组容器
+    const section = document.createElement('div');
+    section.className = 'folder-section';
+    section.innerHTML = `<div class="folder-section-bookmarks"></div>`;
+    const bookmarksContainer = section.querySelector('.folder-section-bookmarks');
+    
     for (const bookmark of bookmarks) {
         const item = createBookmarkItem(bookmark);
-        container.appendChild(item);
+        bookmarksContainer.appendChild(item);
+    }
+    
+    container.appendChild(section);
+}
+
+// 按文件夹分组渲染（锚点导航模式）
+async function renderBookmarkListByFolder() {
+    const container = document.getElementById('bookmarkList');
+    container.innerHTML = '';
+    
+    document.getElementById('currentFolderName').textContent = '全部书签';
+    
+    // 收集所有文件夹及其书签
+    const folderGroups = [];
+    collectFolderGroups(allBookmarks, folderGroups, '');
+    
+    if (folderGroups.length === 0) {
+        container.innerHTML = '<div class="empty-state"><div class="empty-state-icon">📭</div><p>暂无书签</p></div>';
+        return;
+    }
+    
+    // 渲染每个文件夹分组
+    for (const group of folderGroups) {
+        if (group.bookmarks.length === 0) continue;
+        
+        // 排序书签
+        const sortedBookmarks = await sortBookmarks(group.bookmarks, currentSortOrder);
+        
+        const section = document.createElement('div');
+        section.className = 'folder-section';
+        section.id = `folder-section-${group.id}`;
+        section.dataset.folderId = group.id;
+        
+        section.innerHTML = `
+            <div class="folder-section-header" data-folder-id="${group.id}">
+                <div class="folder-section-title">
+                    <span>📁</span>
+                    <span>${escapeHtml(group.title)}</span>
+                </div>
+                <span class="folder-section-count">${sortedBookmarks.length} 个书签</span>
+            </div>
+            <div class="folder-section-bookmarks"></div>
+        `;
+        
+        const bookmarksContainer = section.querySelector('.folder-section-bookmarks');
+        for (const bookmark of sortedBookmarks) {
+            const item = createBookmarkItem(bookmark);
+            bookmarksContainer.appendChild(item);
+        }
+        
+        // 点击标题可以折叠/展开
+        const header = section.querySelector('.folder-section-header');
+        header.addEventListener('click', () => {
+            const bookmarksDiv = section.querySelector('.folder-section-bookmarks');
+            if (bookmarksDiv.style.display === 'none') {
+                bookmarksDiv.style.display = 'grid';
+                header.querySelector('.folder-section-title span:first-child').textContent = '📁';
+            } else {
+                bookmarksDiv.style.display = 'none';
+                header.querySelector('.folder-section-title span:first-child').textContent = '📂';
+            }
+        });
+        
+        container.appendChild(section);
+    }
+    
+    // 绑定滚动监听
+    bindScrollListener();
+}
+
+// 收集文件夹分组
+function collectFolderGroups(nodes, groups, parentPath) {
+    for (const node of nodes) {
+        if (node.children) {
+            const path = parentPath ? `${parentPath} / ${node.title}` : node.title;
+            const bookmarks = node.children.filter(c => c.url && !isSeparatorBookmark(c.url));
+            
+            if (bookmarks.length > 0) {
+                groups.push({
+                    id: node.id,
+                    title: path || '未命名',
+                    bookmarks: bookmarks
+                });
+            }
+            
+            // 递归处理子文件夹
+            collectFolderGroups(node.children, groups, path);
+        }
+    }
+}
+
+// 绑定滚动监听，实现左侧导航高亮
+function bindScrollListener() {
+    if (scrollListenerBound) return;
+    
+    const panel = document.querySelector('.bookmark-panel');
+    if (!panel) return;
+    
+    panel.addEventListener('scroll', debounce(() => {
+        updateActiveFolderOnScroll();
+    }, 100));
+    
+    scrollListenerBound = true;
+}
+
+// 根据滚动位置更新左侧导航高亮
+function updateActiveFolderOnScroll() {
+    const panel = document.querySelector('.bookmark-panel');
+    if (!panel) return;
+    
+    const sections = document.querySelectorAll('.folder-section');
+    if (sections.length === 0) return;
+    
+    const panelTop = panel.scrollTop + 100; // 偏移量
+    
+    let activeId = null;
+    for (const section of sections) {
+        const rect = section.getBoundingClientRect();
+        const panelRect = panel.getBoundingClientRect();
+        const relativeTop = rect.top - panelRect.top + panel.scrollTop;
+        
+        if (relativeTop <= panelTop) {
+            activeId = section.dataset.folderId;
+        }
+    }
+    
+    // 更新左侧导航高亮
+    if (activeId) {
+        document.querySelectorAll('.folder-item').forEach(el => {
+            el.classList.remove('active');
+            if (el.dataset.folderId === activeId) {
+                el.classList.add('active');
+            }
+        });
+    }
+}
+
+// 滚动到指定文件夹区域
+function scrollToFolderSection(folderId) {
+    const section = document.getElementById(`folder-section-${folderId}`);
+    if (section) {
+        const panel = document.querySelector('.bookmark-panel');
+        const sectionTop = section.offsetTop - 60; // 留出header空间
+        panel.scrollTo({ top: sectionTop, behavior: 'smooth' });
     }
 }
 
