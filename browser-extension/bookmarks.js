@@ -1689,18 +1689,22 @@ function updateActiveFolderOnScroll() {
 // 滚动到指定文件夹区域
 function scrollToFolderSection(folderId) {
     const section = document.getElementById(`folder-section-${folderId}`);
-    if (section) {
-        // 使用scrollIntoView更可靠
-        section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        
-        // 稍微向上偏移，留出header空间
-        setTimeout(() => {
-            const panel = document.querySelector('.bookmark-panel');
-            if (panel) {
-                panel.scrollTop -= 70;
-            }
-        }, 300);
-    }
+    const panel = document.querySelector('.bookmark-panel');
+    
+    if (!section || !panel) return;
+    
+    // 计算section相对于panel的位置
+    const panelRect = panel.getBoundingClientRect();
+    const sectionRect = section.getBoundingClientRect();
+    
+    // 计算需要滚动的距离
+    const scrollOffset = sectionRect.top - panelRect.top + panel.scrollTop - 80; // 80px留给header
+    
+    // 平滑滚动
+    panel.scrollTo({
+        top: Math.max(0, scrollOffset),
+        behavior: 'smooth'
+    });
 }
 
 // 排序书签
