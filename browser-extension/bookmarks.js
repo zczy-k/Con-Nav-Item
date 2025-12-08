@@ -3908,13 +3908,15 @@ async function deleteSelectedResults() {
     const checked = document.querySelectorAll('.result-checkbox:checked');
     if (checked.length === 0) return;
     
-    if (!confirm(`确定要删除选中的 ${checked.length} 个书签吗？`)) return;
+    if (!confirm(`确定要删除选中的 ${checked.length} 项吗？`)) return;
     
     const ids = [];
     checked.forEach(cb => {
         const item = cb.closest('.result-item');
-        if (item && item.dataset.bookmarkId) {
-            ids.push(item.dataset.bookmarkId);
+        if (item) {
+            // 支持书签ID和文件夹ID
+            const id = item.dataset.bookmarkId || item.dataset.folderId;
+            if (id) ids.push(id);
         }
     });
     
