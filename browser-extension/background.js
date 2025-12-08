@@ -804,7 +804,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 // ==================== 自动更新热门书签 ====================
 
 const HOT_FOLDER_NAME = '🔥 热门书签';
-const HOT_UPDATE_INTERVAL = 15 * 60 * 1000; // 15分钟
+const HOT_UPDATE_INTERVAL = 5 * 60 * 1000; // 5分钟
 const HOT_BOOKMARKS_COUNT = 20; // 热门书签数量
 
 // 特殊文件夹名称（这些文件夹中的书签不参与热门计算）
@@ -832,7 +832,7 @@ async function initHotBookmarksAutoUpdate() {
         clearInterval(hotBookmarksTimer);
     }
     hotBookmarksTimer = setInterval(autoUpdateHotBookmarks, HOT_UPDATE_INTERVAL);
-    console.log('热门书签自动更新已启动，间隔15分钟');
+    console.log('热门书签自动更新已启动，间隔5分钟');
 }
 
 // 自动更新热门书签
