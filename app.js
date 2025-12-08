@@ -16,6 +16,7 @@ const wallpaperRoutes = require('./routes/wallpaper');
 const searchEngineRoutes = require('./routes/searchEngine');
 const backupRoutes = require('./routes/backup');
 const tagRoutes = require('./routes/tag');
+const bookmarkSyncRoutes = require('./routes/bookmarkSync');
 const compression = require('compression');
 const { helmetConfig, sanitizeMiddleware, generalLimiter } = require('./middleware/security');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -126,6 +127,7 @@ app.use('/api/wallpaper', wallpaperRoutes);
 app.use('/api/search-engines', searchEngineRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/bookmark-sync', bookmarkSyncRoutes);
 
 // 启动定时备份任务
 try {

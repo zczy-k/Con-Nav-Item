@@ -2152,6 +2152,15 @@ function bindEvents() {
     document.getElementById('btnUpdateHotBookmarks').addEventListener('click', updateHotBookmarks);
     document.getElementById('autoUpdateHotEnabled').addEventListener('change', toggleAutoUpdateHot);
     
+    // 云备份
+    document.getElementById('btnCloudBackup').addEventListener('click', showCloudBackupModal);
+    document.getElementById('cloudBackupClose').addEventListener('click', closeCloudBackupModal);
+    document.getElementById('btnCloseCloudBackup').addEventListener('click', closeCloudBackupModal);
+    document.getElementById('btnTestBackupServer').addEventListener('click', testBackupServerConnection);
+    document.getElementById('btnUploadBackup').addEventListener('click', uploadBookmarkBackup);
+    document.getElementById('btnRestoreBackup').addEventListener('click', restoreBookmarkBackup);
+    document.getElementById('cloudBackupSelect').addEventListener('change', onBackupSelectChange);
+    
     // 空文件夹检测
     document.getElementById('btnFindEmptyFolders').addEventListener('click', findEmptyFolders);
     
@@ -7442,5 +7451,352 @@ async function toggleAutoUpdateHot(e) {
         chrome.runtime.sendMessage({ action: 'setAutoUpdateHotBookmarks', enabled });
     } catch (e) {
         console.error('保存自动更新热门设置失败:', e);
+    }
+}
+
+
+// ==================== 云端书签备份功能 ====================
+
+let cloudBackupServerUrl = '';
+let cloudBackupPassword = '';
+
+// 显示云备份弹窗
+async function showCloudBackupModal() {
+    // 加载保存的服务器地址和密码
+    try {
+        const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupPassword']);
+        if (result.cloudBackupServer) {
+            cloudBackupServerUrl = result.cloudBackupServer;
+            document.getElementById('cloudBackupServer').value = result.cloudBackupServer;
+        }
+        if (result.backupDeviceName) {
+            document.getElementById('backupDeviceName').value = result.backupDeviceName;
+        }
+        if (result.cloudBackupPassword) {
+            cloudBackupPassword = result.cloudBackupPassword;
+            document.getElementById('cloudBackupPassword').value = result.cloudBackupPassword;
+        }
+    } catch (e) {}
+    
+    // 更新当前书签统计
+    document.getElementById('currentBookmarkCount').textContent = bookmarkCount;
+    document.getElementById('currentFolderCount').textContent = folderCount;
+    
+    document.getElementById('cloudBackupModal').classList.add('active');
+    document.getElementById('cloudBackupStatus').textContent = '';
+    
+    // 如果已有服务器地址，自动加载备份列表
+    if (cloudBackupServerUrl) {
+        await loadCloudBackupList();
+    }
+}
+
+// 关闭云备份弹窗
+function closeCloudBackupModal() {
+    document.getElementById('cloudBackupModal').classList.remove('active');
+}
+
+// 测试服务器连接
+async function testBackupServerConnection() {
+    const serverUrl = document.getElementById('cloudBackupServer').value.trim();
+    const statusEl = document.getElementById('backupServerStatus');
+    
+    if (!serverUrl) {
+        statusEl.textContent = '❌ 请输入服务器地址';
+        statusEl.style.color = '#dc2626';
+        return;
+    }
+    
+    statusEl.textContent = '⏳ 正在测试连接...';
+    statusEl.style.color = '#666';
+    
+    try {
+        const response = await fetch(`${serverUrl}/api/bookmark-sync/list`, {
+            method: 'GET',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        if (response.ok) {
+            cloudBackupServerUrl = serverUrl;
+            // 保存服务器地址
+            await chrome.storage.local.set({ cloudBackupServer: serverUrl });
+            
+            statusEl.textContent = '✅ 连接成功';
+            statusEl.style.color = '#059669';
+            
+            // 加载备份列表
+            await loadCloudBackupList();
+        } else {
+            const data = await response.json();
+            statusEl.textContent = `❌ 连接失败: ${data.message || '未知错误'}`;
+            statusEl.style.color = '#dc2626';
+        }
+    } catch (error) {
+        statusEl.textContent = `❌ 连接失败: ${error.message}`;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+// 加载云端备份列表
+async function loadCloudBackupList() {
+    if (!cloudBackupServerUrl) return;
+    
+    const listEl = document.getElementById('cloudBackupList');
+    const selectEl = document.getElementById('cloudBackupSelect');
+    
+    listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>';
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/list`);
+        const data = await response.json();
+        
+        if (data.success && data.backups) {
+            if (data.backups.length === 0) {
+                listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无备份</div>';
+                selectEl.innerHTML = '<option value="">-- 暂无备份 --</option>';
+                return;
+            }
+            
+            // 更新下拉选择
+            selectEl.innerHTML = '<option value="">-- 选择备份 --</option>' +
+                data.backups.map(b => `<option value="${b.filename}">${b.deviceName || '未知设备'} - ${formatBackupTime(b.backupTime)}</option>`).join('');
+            
+            // 更新列表
+            listEl.innerHTML = data.backups.map(b => `
+                <div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; gap: 12px;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-weight: 500; color: #333;">${b.deviceName || '未知设备'}</div>
+                        <div style="font-size: 12px; color: #666; margin-top: 2px;">
+                            ${b.bookmarkCount || 0} 个书签, ${b.folderCount || 0} 个文件夹 · ${b.size}
+                        </div>
+                        <div style="font-size: 11px; color: #999; margin-top: 2px;">${formatBackupTime(b.backupTime)}</div>
+                    </div>
+                    <button class="btn btn-small btn-danger" onclick="deleteCloudBackup('${b.filename}')" title="删除">🗑️</button>
+                </div>
+            `).join('');
+        } else {
+            listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #dc2626;">${data.message || '加载失败'}</div>`;
+        }
+    } catch (error) {
+        listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #dc2626;">加载失败: ${error.message}</div>`;
+    }
+}
+
+// 格式化备份时间
+function formatBackupTime(isoString) {
+    if (!isoString) return '未知时间';
+    try {
+        const date = new Date(isoString);
+        return date.toLocaleString('zh-CN', {
+            year: 'numeric', month: '2-digit', day: '2-digit',
+            hour: '2-digit', minute: '2-digit'
+        });
+    } catch (e) {
+        return isoString;
+    }
+}
+
+// 备份选择变化
+async function onBackupSelectChange() {
+    const filename = document.getElementById('cloudBackupSelect').value;
+    const infoEl = document.getElementById('selectedBackupInfo');
+    
+    if (!filename) {
+        infoEl.textContent = '';
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/download/${filename}`);
+        const data = await response.json();
+        
+        if (data.success && data.backup) {
+            const b = data.backup;
+            infoEl.innerHTML = `
+                <div>📊 ${b.stats?.bookmarkCount || 0} 个书签, ${b.stats?.folderCount || 0} 个文件夹</div>
+                <div>📅 ${formatBackupTime(b.timestamp)}</div>
+            `;
+        }
+    } catch (e) {
+        infoEl.textContent = '无法加载备份信息';
+    }
+}
+
+// 上传书签备份
+async function uploadBookmarkBackup() {
+    if (!cloudBackupServerUrl) {
+        alert('请先测试服务器连接');
+        return;
+    }
+    
+    const deviceName = document.getElementById('backupDeviceName').value.trim() || '未命名设备';
+    const password = document.getElementById('cloudBackupPassword').value;
+    const statusEl = document.getElementById('cloudBackupStatus');
+    
+    if (!password) {
+        alert('上传备份需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
+        return;
+    }
+    
+    // 保存设备名称和密码
+    await chrome.storage.local.set({ backupDeviceName: deviceName, cloudBackupPassword: password });
+    
+    statusEl.textContent = '⏳ 正在备份...';
+    
+    try {
+        // 获取所有书签
+        const tree = await chrome.bookmarks.getTree();
+        
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookmarks: tree,
+                deviceName: deviceName,
+                password: password
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusEl.textContent = `✅ 备份成功！${data.backup?.bookmarkCount || 0} 个书签`;
+            statusEl.style.color = '#059669';
+            // 刷新列表
+            await loadCloudBackupList();
+        } else {
+            statusEl.textContent = `❌ 备份失败: ${data.message}`;
+            statusEl.style.color = '#dc2626';
+        }
+    } catch (error) {
+        statusEl.textContent = `❌ 备份失败: ${error.message}`;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+// 恢复书签备份
+async function restoreBookmarkBackup() {
+    const filename = document.getElementById('cloudBackupSelect').value;
+    const statusEl = document.getElementById('cloudBackupStatus');
+    
+    if (!filename) {
+        alert('请选择要恢复的备份');
+        return;
+    }
+    
+    const confirmed = confirm(
+        '⚠️ 恢复书签将会：\n\n' +
+        '• 在书签栏创建"云端恢复"文件夹\n' +
+        '• 将备份的书签导入到该文件夹\n' +
+        '• 不会删除现有书签\n\n' +
+        '是否继续？'
+    );
+    
+    if (!confirmed) return;
+    
+    statusEl.textContent = '⏳ 正在恢复...';
+    
+    try {
+        // 获取备份数据
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/download/${filename}`);
+        const data = await response.json();
+        
+        if (!data.success || !data.backup) {
+            throw new Error(data.message || '获取备份失败');
+        }
+        
+        const backupData = data.backup;
+        
+        // 获取书签栏
+        const tree = await chrome.bookmarks.getTree();
+        const bookmarkBar = tree[0]?.children?.[0];
+        
+        if (!bookmarkBar) {
+            throw new Error('无法找到书签栏');
+        }
+        
+        // 创建恢复文件夹
+        const timestamp = new Date().toLocaleString('zh-CN', {
+            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+        }).replace(/[\/\s:]/g, '-');
+        
+        const restoreFolder = await chrome.bookmarks.create({
+            parentId: bookmarkBar.id,
+            title: `云端恢复-${backupData.deviceName || '未知'}-${timestamp}`
+        });
+        
+        // 递归导入书签
+        let importedCount = 0;
+        
+        async function importBookmarks(nodes, parentId) {
+            for (const node of nodes) {
+                if (node.children) {
+                    // 文件夹
+                    const folder = await chrome.bookmarks.create({
+                        parentId: parentId,
+                        title: node.title || '未命名文件夹'
+                    });
+                    await importBookmarks(node.children, folder.id);
+                } else if (node.url) {
+                    // 书签
+                    await chrome.bookmarks.create({
+                        parentId: parentId,
+                        title: node.title || node.url,
+                        url: node.url
+                    });
+                    importedCount++;
+                }
+            }
+        }
+        
+        // 从备份数据的根节点开始导入
+        const bookmarksToImport = backupData.bookmarks || [];
+        for (const root of bookmarksToImport) {
+            if (root.children) {
+                await importBookmarks(root.children, restoreFolder.id);
+            }
+        }
+        
+        statusEl.textContent = `✅ 恢复成功！导入了 ${importedCount} 个书签`;
+        statusEl.style.color = '#059669';
+        
+        // 刷新书签列表
+        await loadBookmarks();
+        
+    } catch (error) {
+        statusEl.textContent = `❌ 恢复失败: ${error.message}`;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+// 删除云端备份
+async function deleteCloudBackup(filename) {
+    const password = document.getElementById('cloudBackupPassword').value;
+    
+    if (!password) {
+        alert('删除备份需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
+        return;
+    }
+    
+    if (!confirm('确定要删除这个备份吗？')) return;
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/delete/${filename}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            await loadCloudBackupList();
+        } else {
+            alert('删除失败: ' + (data.message || '未知错误'));
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
     }
 }

@@ -144,6 +144,7 @@
                 <span>自动排序</span>
             </label>
             <button class="btn btn-primary" id="btnNavSettings" title="导航页设置">🚀 导航页设置</button>
+            <button class="btn btn-secondary" id="btnCloudBackup" title="云端备份/恢复书签">☁️ 云备份</button>
             <button class="btn btn-secondary" id="btnShowShortcuts" title="查看快捷键">⌨️</button>
         </div>
         
@@ -594,6 +595,69 @@
                 <div class="modal-footer-right">
                     <button class="btn btn-secondary" id="btnCancelBatchTag">取消</button>
                     <button class="btn btn-primary" id="btnConfirmBatchTag">确认</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 云备份弹窗 -->
+    <div class="modal" id="cloudBackupModal">
+        <div class="modal-content modal-large">
+            <div class="modal-header">
+                <h3>☁️ 云端书签备份</h3>
+                <button class="modal-close" id="cloudBackupClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>服务器地址</label>
+                    <div style="display: flex; gap: 8px;">
+                        <input type="text" id="cloudBackupServer" placeholder="例如: http://localhost:3000" style="flex: 1;">
+                        <button class="btn btn-secondary" id="btnTestBackupServer">测试连接</button>
+                    </div>
+                    <div id="backupServerStatus" style="font-size: 12px; margin-top: 4px; color: #666;"></div>
+                </div>
+                <div class="form-group">
+                    <label>管理密码（上传/删除需要）</label>
+                    <input type="password" id="cloudBackupPassword" placeholder="输入导航站管理密码">
+                    <div style="font-size: 11px; color: #999; margin-top: 4px;">密码仅用于上传和删除操作，查看和恢复无需密码</div>
+                </div>
+                <div style="display: flex; gap: 16px; margin-top: 20px;">
+                    <div style="flex: 1; background: #f0fdf4; border-radius: 12px; padding: 16px;">
+                        <div style="font-weight: 600; color: #166534; margin-bottom: 12px;">📤 备份到云端</div>
+                        <div class="form-group">
+                            <label>设备名称</label>
+                            <input type="text" id="backupDeviceName" placeholder="例如: 我的电脑">
+                        </div>
+                        <div style="font-size: 13px; color: #666; margin-bottom: 12px;">
+                            当前书签: <span id="currentBookmarkCount">0</span> 个，<span id="currentFolderCount">0</span> 个文件夹
+                        </div>
+                        <button class="btn btn-primary" id="btnUploadBackup" style="width: 100%;">上传备份</button>
+                    </div>
+                    <div style="flex: 1; background: #eff6ff; border-radius: 12px; padding: 16px;">
+                        <div style="font-weight: 600; color: #1e40af; margin-bottom: 12px;">📥 从云端恢复</div>
+                        <div class="form-group">
+                            <label>选择备份</label>
+                            <select id="cloudBackupSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px;">
+                                <option value="">-- 请先测试连接 --</option>
+                            </select>
+                        </div>
+                        <div id="selectedBackupInfo" style="font-size: 12px; color: #666; margin-bottom: 12px; min-height: 36px;"></div>
+                        <button class="btn btn-primary" id="btnRestoreBackup" style="width: 100%;">恢复书签</button>
+                    </div>
+                </div>
+                <div style="margin-top: 20px;">
+                    <div style="font-weight: 500; margin-bottom: 8px;">📋 云端备份列表</div>
+                    <div id="cloudBackupList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
+                        <div style="padding: 20px; text-align: center; color: #999;">请先测试连接以加载备份列表</div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <span id="cloudBackupStatus" style="font-size: 13px; color: #666;"></span>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" id="btnCloseCloudBackup">关闭</button>
                 </div>
             </div>
         </div>
