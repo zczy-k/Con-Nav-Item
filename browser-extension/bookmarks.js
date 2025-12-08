@@ -4502,6 +4502,12 @@ async function confirmMergeFolders() {
 
 
 // ==================== 空文件夹检测 ====================
+
+// 浏览器系统文件夹ID（这些文件夹无法删除）
+// Chrome: 1=书签栏, 2=其他书签, 3=移动设备书签(如果有)
+// Edge类似
+const SYSTEM_FOLDER_IDS = ['0', '1', '2', '3'];
+
 async function findEmptyFolders() {
     const resultList = document.getElementById('resultList');
     document.getElementById('resultTitle').textContent = '📭 空文件夹检测';
@@ -4517,8 +4523,8 @@ async function findEmptyFolders() {
     const emptyFolders = [];
     
     for (const folder of allFolders) {
-        // 跳过根节点
-        if (!folder.id || folder.id === '0') continue;
+        // 跳过根节点和系统文件夹（书签栏、其他书签等无法删除）
+        if (!folder.id || SYSTEM_FOLDER_IDS.includes(folder.id)) continue;
         
         try {
             const children = await chrome.bookmarks.getChildren(folder.id);
