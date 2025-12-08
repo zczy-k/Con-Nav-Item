@@ -799,3 +799,235 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         return true;
     }
 });
+
+
+// ==================== 自动更新热门书签 ====================
+
+const HOT_FOLDER_NAME = '🔥 热门书签';
+const HOT_UPDATE_INTERVAL = 15 * 60 * 1000; // 15分钟
+const HOT_BOOKMARKS_COUNT = 20; // 热门书签数量
+
+// 特殊文件夹名称（这些文件夹中的书签不参与热门计算）
+const SHORTCUT_FOLDER_NAMES = ['🔥 热门书签', '⭐ 常用', '🕐 最近使用'];
+
+// 启动时设置定时器
+let hotBookmarksTimer = null;
+
+// 初始化热门书签自动更新
+async function initHotBookmarksAutoUpdate() {
+    // 检查是否启用自动更新
+    const settings = await chrome.storage.local.get(['autoUpdateHotBookmarks']);
+    if (settings.autoUpdateHotBookmarks === false) {
+        console.log('热门书签自动更新已禁用');
+        return;
+    }
+    
+    // 启动时先更新一次
+    setTimeout(() => {
+        autoUpdateHotBookmarks();
+    }, 30000); // 延迟30秒，等待浏览器完全启动
+    
+    // 设置定时器
+    if (hotBookmarksTimer) {
+        clearInterval(hotBookmarksTimer);
+    }
+    hotBookmarksTimer = setInterval(autoUpdateHotBookmarks, HOT_UPDATE_INTERVAL);
+    console.log('热门书签自动更新已启动，间隔15分钟');
+}
+
+// 自动更新热门书签
+async function autoUpdateHotBookmarks() {
+    try {
+        console.log('开始自动更新热门书签...');
+        
+        // 获取所有书签
+        const tree = await chrome.bookmarks.getTree();
+        const allBookmarks = [];
+        collectBookmarks(tree, allBookmarks);
+        
+        // 过滤掉特殊文件夹中的书签
+        const normalBookmarks = allBookmarks.filter(b => !isInSpecialFolder(b, tree));
+        
+        if (normalBookmarks.length === 0) {
+            console.log('没有找到普通书签');
+            return;
+        }
+        
+        // 计算每个书签的热度分数
+        const now = Date.now();
+        const dayMs = 24 * 60 * 60 * 1000;
+        
+        const scoredBookmarks = [];
+        for (const bookmark of normalBookmarks) {
+            try {
+                const visits = await chrome.history.getVisits({ url: bookmark.url });
+                const usage = visits.length;
+                const lastVisit = visits.length > 0 ? Math.max(...visits.map(v => v.visitTime || 0)) : 0;
+                
+                // 频率分数
+                const frequencyScore = Math.min(usage * 10, 100);
+                
+                // 时间分数
+                let recencyScore = 0;
+                if (lastVisit > 0) {
+                    const daysAgo = (now - lastVisit) / dayMs;
+                    if (daysAgo < 1) recencyScore = 100;
+                    else if (daysAgo < 3) recencyScore = 80;
+                    else if (daysAgo < 7) recencyScore = 60;
+                    else if (daysAgo < 30) recencyScore = 40;
+                    else if (daysAgo < 90) recencyScore = 20;
+                    else recencyScore = 10;
+                }
+                
+                const totalScore = frequencyScore * 0.6 + recencyScore * 0.4;
+                
+                if (totalScore > 0) {
+                    scoredBookmarks.push({ bookmark, score: totalScore });
+                }
+            } catch (e) {
+                // 忽略单个书签的错误
+            }
+        }
+        
+        // 按分数排序，取TOP N
+        scoredBookmarks.sort((a, b) => b.score - a.score);
+        const topBookmarks = scoredBookmarks.slice(0, HOT_BOOKMARKS_COUNT);
+        
+        if (topBookmarks.length === 0) {
+            console.log('没有找到有访问记录的书签');
+            return;
+        }
+        
+        // 获取或创建热门书签文件夹
+        const bookmarkBar = tree[0]?.children?.[0];
+        if (!bookmarkBar) {
+            console.log('无法找到书签栏');
+            return;
+        }
+        
+        let hotFolder = bookmarkBar.children?.find(c => c.title === HOT_FOLDER_NAME);
+        
+        if (hotFolder) {
+            // 获取最新的文件夹内容
+            const [updatedFolder] = await chrome.bookmarks.getSubTree(hotFolder.id);
+            
+            // 清空现有热门书签
+            if (updatedFolder.children) {
+                for (const child of updatedFolder.children) {
+                    try {
+                        await chrome.bookmarks.remove(child.id);
+                    } catch (e) {}
+                }
+            }
+        } else {
+            // 创建热门书签文件夹
+            hotFolder = await chrome.bookmarks.create({
+                parentId: bookmarkBar.id,
+                title: HOT_FOLDER_NAME,
+                index: 0
+            });
+        }
+        
+        // 添加TOP N书签的副本
+        for (const item of topBookmarks) {
+            await chrome.bookmarks.create({
+                parentId: hotFolder.id,
+                title: item.bookmark.title,
+                url: item.bookmark.url
+            });
+        }
+        
+        console.log(`热门书签已更新，共 ${topBookmarks.length} 个`);
+        
+        // 记录更新时间
+        await chrome.storage.local.set({ lastHotBookmarksUpdate: Date.now() });
+        
+    } catch (error) {
+        console.error('自动更新热门书签失败:', error);
+    }
+}
+
+// 收集所有书签
+function collectBookmarks(nodes, bookmarks) {
+    for (const node of nodes) {
+        if (node.children) {
+            collectBookmarks(node.children, bookmarks);
+        } else if (node.url) {
+            bookmarks.push(node);
+        }
+    }
+}
+
+// 检查书签是否在特殊文件夹中
+function isInSpecialFolder(bookmark, tree) {
+    let parentId = bookmark.parentId;
+    
+    while (parentId && parentId !== '0') {
+        const parent = findNodeById(tree, parentId);
+        if (!parent) break;
+        
+        if (SHORTCUT_FOLDER_NAMES.includes(parent.title)) {
+            return true;
+        }
+        
+        parentId = parent.parentId;
+    }
+    
+    return false;
+}
+
+// 在书签树中查找节点
+function findNodeById(nodes, id) {
+    for (const node of nodes) {
+        if (node.id === id) return node;
+        if (node.children) {
+            const found = findNodeById(node.children, id);
+            if (found) return found;
+        }
+    }
+    return null;
+}
+
+// 监听设置变化
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.autoUpdateHotBookmarks) {
+        if (changes.autoUpdateHotBookmarks.newValue === false) {
+            // 禁用自动更新
+            if (hotBookmarksTimer) {
+                clearInterval(hotBookmarksTimer);
+                hotBookmarksTimer = null;
+            }
+            console.log('热门书签自动更新已禁用');
+        } else {
+            // 启用自动更新
+            initHotBookmarksAutoUpdate();
+        }
+    }
+});
+
+// 扩展启动时初始化
+chrome.runtime.onStartup.addListener(() => {
+    initHotBookmarksAutoUpdate();
+});
+
+// 扩展安装/更新时初始化
+chrome.runtime.onInstalled.addListener(() => {
+    initHotBookmarksAutoUpdate();
+});
+
+// 监听手动触发更新的消息
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (request.action === 'updateHotBookmarks') {
+        autoUpdateHotBookmarks()
+            .then(() => sendResponse({ success: true }))
+            .catch(e => sendResponse({ success: false, error: e.message }));
+        return true;
+    }
+    
+    if (request.action === 'setAutoUpdateHotBookmarks') {
+        chrome.storage.local.set({ autoUpdateHotBookmarks: request.enabled })
+            .then(() => sendResponse({ success: true }))
+            .catch(e => sendResponse({ success: false, error: e.message }));
+        return true;
+    }
+});
