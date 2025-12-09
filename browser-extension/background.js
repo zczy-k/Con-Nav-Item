@@ -1156,37 +1156,74 @@ chrome.bookmarks.onMoved.addListener(() => {
     });
 });
 
-// 检查并执行每日备份
-async function checkDailyBackup() {
+// 获取周数
+function getWeekNumber(date) {
+    const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+    const dayNum = d.getUTCDay() || 7;
+    d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
+}
+
+// 检查并执行定时备份（每日/每周/每月）
+async function checkScheduledBackups() {
     const now = new Date();
     const hour = now.getHours();
     
-    if (hour === DAILY_BACKUP_HOUR) {
-        const today = now.toISOString().slice(0, 10);
-        const result = await chrome.storage.local.get(['lastDailyBackupDate']);
-        
-        if (result.lastDailyBackupDate !== today) {
-            console.log('[自动备份] 执行每日备份...');
-            const backupResult = await performAutoBackup('daily');
-            
-            if (backupResult.success) {
-                await chrome.storage.local.set({ lastDailyBackupDate: today });
-            }
+    // 只在凌晨2点执行定时备份
+    if (hour !== DAILY_BACKUP_HOUR) return;
+    
+    const today = now.toISOString().slice(0, 10);
+    const currentWeek = `${now.getFullYear()}-W${String(getWeekNumber(now)).padStart(2, '0')}`;
+    const currentMonth = now.toISOString().slice(0, 7);
+    const dayOfWeek = now.getDay(); // 0=周日, 1=周一...
+    const dayOfMonth = now.getDate();
+    
+    const result = await chrome.storage.local.get([
+        'lastDailyBackupDate',
+        'lastWeeklyBackupWeek',
+        'lastMonthlyBackupMonth'
+    ]);
+    
+    // 每日备份
+    if (result.lastDailyBackupDate !== today) {
+        console.log('[自动备份] 执行每日备份...');
+        const backupResult = await performAutoBackup('daily');
+        if (backupResult.success) {
+            await chrome.storage.local.set({ lastDailyBackupDate: today });
+        }
+    }
+    
+    // 每周备份（周一执行）
+    if (dayOfWeek === 1 && result.lastWeeklyBackupWeek !== currentWeek) {
+        console.log('[自动备份] 执行每周备份...');
+        const backupResult = await performAutoBackup('weekly');
+        if (backupResult.success) {
+            await chrome.storage.local.set({ lastWeeklyBackupWeek: currentWeek });
+        }
+    }
+    
+    // 每月备份（每月1号执行）
+    if (dayOfMonth === 1 && result.lastMonthlyBackupMonth !== currentMonth) {
+        console.log('[自动备份] 执行每月备份...');
+        const backupResult = await performAutoBackup('monthly');
+        if (backupResult.success) {
+            await chrome.storage.local.set({ lastMonthlyBackupMonth: currentMonth });
         }
     }
 }
 
-// 初始化每日备份定时器
-function initDailyBackupTimer() {
-    // 每小时检查一次是否需要执行每日备份
+// 初始化定时备份定时器
+function initScheduledBackupTimer() {
+    // 每小时检查一次是否需要执行定时备份
     if (dailyBackupTimer) {
         clearInterval(dailyBackupTimer);
     }
     
-    dailyBackupTimer = setInterval(checkDailyBackup, 60 * 60 * 1000);
+    dailyBackupTimer = setInterval(checkScheduledBackups, 60 * 60 * 1000);
     
-    // 启动时也检查一次
-    setTimeout(checkDailyBackup, 60000);
+    // 启动时也检查一次（延迟1分钟）
+    setTimeout(checkScheduledBackups, 60000);
 }
 
 // 监听自动备份设置变化
@@ -1197,7 +1234,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
             console.log(`[自动备份] ${enabled ? '已启用' : '已禁用'}`);
             
             if (enabled) {
-                initDailyBackupTimer();
+                initScheduledBackupTimer();
             } else {
                 if (dailyBackupTimer) {
                     clearInterval(dailyBackupTimer);
@@ -1216,7 +1253,7 @@ chrome.storage.onChanged.addListener((changes, area) => {
 chrome.runtime.onStartup.addListener(async () => {
     const config = await loadAutoBackupConfig();
     if (config.enabled) {
-        initDailyBackupTimer();
+        initScheduledBackupTimer();
         console.log('[自动备份] 已初始化');
     }
 });
@@ -1225,7 +1262,7 @@ chrome.runtime.onStartup.addListener(async () => {
 chrome.runtime.onInstalled.addListener(async () => {
     const config = await loadAutoBackupConfig();
     if (config.enabled) {
-        initDailyBackupTimer();
+        initScheduledBackupTimer();
     }
 });
 

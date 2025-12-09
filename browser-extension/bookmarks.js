@@ -7551,8 +7551,10 @@ async function loadCloudBackupList() {
     
     const listEl = document.getElementById('cloudBackupList');
     const selectEl = document.getElementById('cloudBackupSelect');
+    const statsEl = document.getElementById('backupStats');
     
     listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">加载中...</div>';
+    if (statsEl) statsEl.textContent = '';
     
     try {
         const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/list`);
@@ -7562,7 +7564,26 @@ async function loadCloudBackupList() {
             if (data.backups.length === 0) {
                 listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">暂无备份</div>';
                 selectEl.innerHTML = '<option value="">-- 暂无备份 --</option>';
+                if (statsEl) statsEl.textContent = '';
                 return;
+            }
+            
+            // 统计各类型备份数量
+            const typeCounts = { auto: 0, daily: 0, weekly: 0, monthly: 0, manual: 0 };
+            data.backups.forEach(b => {
+                const type = b.type || 'manual';
+                if (typeCounts[type] !== undefined) typeCounts[type]++;
+            });
+            
+            // 显示统计信息
+            if (statsEl) {
+                const parts = [];
+                if (typeCounts.auto > 0) parts.push(`自动${typeCounts.auto}`);
+                if (typeCounts.daily > 0) parts.push(`每日${typeCounts.daily}`);
+                if (typeCounts.weekly > 0) parts.push(`每周${typeCounts.weekly}`);
+                if (typeCounts.monthly > 0) parts.push(`每月${typeCounts.monthly}`);
+                if (typeCounts.manual > 0) parts.push(`手动${typeCounts.manual}`);
+                statsEl.textContent = `共 ${data.backups.length} 个备份（${parts.join('/')}）`;
             }
             
             // 更新下拉选择
@@ -8130,7 +8151,15 @@ async function toggleAutoBackup(e) {
 function updateAutoBackupStatus(enabled) {
     const statusEl = document.getElementById('autoBackupStatus');
     if (enabled) {
-        statusEl.textContent = '✅ 已启用 - 书签变化后5分钟自动备份，每天凌晨2点执行每日备份';
+        statusEl.innerHTML = `
+            <div style="color: #059669; font-weight: 500;">✅ 自动备份已启用</div>
+            <div style="font-size: 12px; color: #666; margin-top: 4px; line-height: 1.6;">
+                • 书签变化后5分钟自动备份（保留最近10个）<br>
+                • 每天凌晨2点执行每日备份（保留7天）<br>
+                • 每周一执行每周备份（保留4周）<br>
+                • 每月1号执行每月备份（保留3个月）
+            </div>
+        `;
     } else {
         statusEl.textContent = '未启用 - 开启后将自动备份书签变化';
     }
