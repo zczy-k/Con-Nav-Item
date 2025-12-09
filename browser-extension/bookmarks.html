@@ -609,78 +609,87 @@
             </div>
             <div class="modal-body">
                 <!-- WebDAV状态提示 -->
-                <div id="webdavStatusBanner" style="display: none; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;">
-                </div>
-                <div class="form-group">
-                    <label>服务器地址</label>
-                    <div style="display: flex; gap: 8px;">
-                        <input type="url" id="cloudBackupServer" placeholder="例如: https://nav.example.com" style="flex: 1;" maxlength="200" autocomplete="off" spellcheck="false">
-                        <button class="btn btn-secondary" id="btnTestBackupServer">测试连接</button>
+                <div id="webdavStatusBanner" style="display: none; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;"></div>
+                
+                <!-- 服务器配置区 -->
+                <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label style="font-size: 12px; color: #666;">服务器地址</label>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="url" id="cloudBackupServer" placeholder="https://nav.example.com" style="flex: 1; padding: 8px 12px;" maxlength="200" autocomplete="off" spellcheck="false">
+                            <button class="btn btn-secondary btn-small" id="btnTestBackupServer" style="padding: 8px 12px;">测试</button>
+                        </div>
+                        <div id="backupServerStatus" style="font-size: 11px; margin-top: 2px; color: #666;"></div>
                     </div>
-                    <div id="backupServerStatus" style="font-size: 12px; margin-top: 4px; color: #666;"></div>
-                    <div style="font-size: 11px; color: #999; margin-top: 2px;">只支持 http:// 或 https:// 协议</div>
-                </div>
-                <div class="form-group">
-                    <label>管理密码（上传/删除需要）</label>
-                    <input type="password" id="cloudBackupPassword" placeholder="输入导航站管理密码" maxlength="100" autocomplete="new-password">
-                    <div style="font-size: 11px; color: #999; margin-top: 4px;">密码仅用于上传和删除操作，查看和恢复无需密码</div>
-                </div>
-                <div style="display: flex; gap: 16px; margin-top: 20px;">
-                    <div style="flex: 1; background: #f0fdf4; border-radius: 12px; padding: 16px;">
-                        <div style="font-weight: 600; color: #166534; margin-bottom: 12px;">📤 备份到云端</div>
-                        <div class="form-group">
-                            <label>设备名称</label>
-                            <input type="text" id="backupDeviceName" placeholder="例如: 我的电脑" maxlength="30" pattern="[a-zA-Z0-9\u4e00-\u9fa5_\-\s]+" title="只允许字母、数字、中文、下划线和连字符">
-                            <div style="font-size: 11px; color: #999; margin-top: 2px;">只允许字母、数字、中文、下划线和连字符</div>
-                        </div>
-                        <div style="font-size: 13px; color: #666; margin-bottom: 12px;">
-                            当前书签: <span id="currentBookmarkCount">0</span> 个，<span id="currentFolderCount">0</span> 个文件夹
-                        </div>
-                        <button class="btn btn-primary" id="btnUploadBackup" style="width: 100%;">上传备份</button>
-                    </div>
-                    <div style="flex: 1; background: #eff6ff; border-radius: 12px; padding: 16px;">
-                        <div style="font-weight: 600; color: #1e40af; margin-bottom: 12px;">📥 从云端恢复</div>
-                        <div class="form-group">
-                            <label>选择备份</label>
-                            <select id="cloudBackupSelect" style="width: 100%; padding: 10px 12px; border: 1px solid #e0e0e0; border-radius: 8px;">
-                                <option value="">-- 请先测试连接 --</option>
-                            </select>
-                        </div>
-                        <div id="selectedBackupInfo" style="font-size: 12px; color: #666; margin-bottom: 12px; min-height: 36px;"></div>
-                        <button class="btn btn-primary" id="btnRestoreBackup" style="width: 100%;">恢复书签</button>
+                    <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                        <label style="font-size: 12px; color: #666;">管理密码 <span style="color: #999; font-weight: normal;">(上传/删除需要)</span></label>
+                        <input type="password" id="cloudBackupPassword" placeholder="输入管理密码" style="padding: 8px 12px;" maxlength="100" autocomplete="new-password">
                     </div>
                 </div>
-                <div style="margin-top: 20px; padding: 16px; background: #fefce8; border-radius: 12px; border: 1px solid #fef08a;">
+                
+                <!-- 备份/恢复操作区 -->
+                <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+                    <div style="flex: 1; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-radius: 12px; padding: 16px; border: 1px solid #bbf7d0;">
+                        <div style="font-weight: 600; color: #166534; margin-bottom: 12px; font-size: 14px;">📤 备份到云端</div>
+                        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+                            <input type="text" id="backupDeviceName" placeholder="设备名称" style="flex: 1; padding: 8px 12px; font-size: 13px;" maxlength="30">
+                        </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                            <span style="font-size: 12px; color: #666;">当前: <strong id="currentBookmarkCount">0</strong> 书签, <strong id="currentFolderCount">0</strong> 文件夹</span>
+                        </div>
+                        <button class="btn btn-primary" id="btnUploadBackup" style="width: 100%; padding: 10px;">上传备份</button>
+                    </div>
+                    <div style="flex: 1; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border-radius: 12px; padding: 16px; border: 1px solid #bfdbfe;">
+                        <div style="font-weight: 600; color: #1e40af; margin-bottom: 12px; font-size: 14px;">📥 从云端恢复</div>
+                        <select id="cloudBackupSelect" style="width: 100%; padding: 8px 12px; border: 1px solid #93c5fd; border-radius: 8px; font-size: 13px; margin-bottom: 10px; background: white;">
+                            <option value="">-- 请先测试连接 --</option>
+                        </select>
+                        <div id="selectedBackupInfo" style="font-size: 12px; color: #666; margin-bottom: 12px; min-height: 20px;"></div>
+                        <button class="btn btn-primary" id="btnRestoreBackup" style="width: 100%; padding: 10px;">恢复书签</button>
+                    </div>
+                </div>
+                
+                <!-- 备份列表区 -->
+                <div style="background: #f8fafc; border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0; margin-bottom: 16px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <div style="display: flex; align-items: center; gap: 10px;">
+                            <span style="font-weight: 600; font-size: 14px; color: #334155;">📋 备份历史</span>
+                            <div style="display: flex; gap: 2px; background: #e2e8f0; border-radius: 6px; padding: 2px;">
+                                <button class="btn btn-small backup-source-btn active" data-source="local" style="font-size: 11px; padding: 4px 10px; border-radius: 4px;">本地</button>
+                                <button class="btn btn-small backup-source-btn" data-source="webdav" style="font-size: 11px; padding: 4px 10px; border-radius: 4px;">WebDAV</button>
+                            </div>
+                            <span id="backupStats" style="font-size: 12px; color: #64748b;"></span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <button class="btn btn-small" id="btnSyncToWebDAV" title="将本地备份上传到WebDAV云端" style="font-size: 11px; padding: 5px 10px; background: #8b5cf6; color: white;">
+                                ☁️ 上传到云
+                            </button>
+                            <button class="btn btn-small btn-secondary" id="btnSyncFromWebDAV" title="从WebDAV云端下载备份到本地" style="font-size: 11px; padding: 5px 10px;">
+                                📥 从云下载
+                            </button>
+                        </div>
+                    </div>
+                    <div id="cloudBackupList" style="max-height: 180px; overflow-y: auto; background: white; border: 1px solid #e2e8f0; border-radius: 8px;">
+                        <div style="padding: 20px; text-align: center; color: #94a3b8;">请先测试连接以加载备份列表</div>
+                    </div>
+                </div>
+                
+                <!-- 自动备份设置区 -->
+                <div style="background: linear-gradient(135deg, #fefce8 0%, #fef9c3 100%); border-radius: 12px; padding: 14px 16px; border: 1px solid #fde047;">
                     <div style="display: flex; justify-content: space-between; align-items: center;">
-                        <div>
-                            <div style="font-weight: 600; color: #854d0e; margin-bottom: 4px;">⚡ 自动备份</div>
-                            <div style="font-size: 12px; color: #a16207;">书签变化后自动备份，每天凌晨2点执行每日备份</div>
-                        </div>
-                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                            <input type="checkbox" id="autoBackupEnabled" style="width: 18px; height: 18px;">
-                            <span style="font-size: 13px; color: #854d0e;">启用</span>
-                        </label>
-                    </div>
-                    <div id="autoBackupStatus" style="font-size: 11px; color: #a16207; margin-top: 8px;"></div>
-                </div>
-                <div style="margin-top: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <div style="display: flex; align-items: center; gap: 12px;">
-                            <div style="font-weight: 500;">📋 备份列表</div>
-                            <div style="display: flex; gap: 4px;">
-                                <button class="btn btn-small backup-source-btn active" data-source="local" style="font-size: 11px; padding: 4px 10px;">本地服务器</button>
-                                <button class="btn btn-small backup-source-btn" data-source="webdav" style="font-size: 11px; padding: 4px 10px;">WebDAV</button>
+                            <span style="font-size: 18px;">⚡</span>
+                            <div>
+                                <div style="font-weight: 600; color: #854d0e; font-size: 14px;">自动备份</div>
+                                <div style="font-size: 11px; color: #a16207; margin-top: 2px;">书签变化5分钟后自动备份 · 每日/周/月定时备份</div>
                             </div>
                         </div>
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <div id="backupStats" style="font-size: 12px; color: #666;"></div>
-                            <button class="btn btn-small btn-secondary" id="btnSyncToWebDAV" title="将本地备份同步到WebDAV" style="font-size: 11px; padding: 4px 8px;">📤 上传到云</button>
-                            <button class="btn btn-small btn-secondary" id="btnSyncFromWebDAV" title="从WebDAV同步到本地" style="font-size: 11px; padding: 4px 8px;">📥 从云下载</button>
-                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; background: white; padding: 6px 12px; border-radius: 20px; border: 1px solid #fde047;">
+                            <input type="checkbox" id="autoBackupEnabled" style="width: 16px; height: 16px; accent-color: #eab308;">
+                            <span style="font-size: 13px; color: #854d0e; font-weight: 500;">启用</span>
+                        </label>
                     </div>
-                    <div id="cloudBackupList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
-                        <div style="padding: 20px; text-align: center; color: #999;">请先测试连接以加载备份列表</div>
-                    </div>
+                    <div id="autoBackupStatus" style="font-size: 11px; color: #a16207; margin-top: 8px; padding-left: 30px;"></div>
                 </div>
             </div>
             <div class="modal-footer">
