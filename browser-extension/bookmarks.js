@@ -2164,6 +2164,11 @@ function bindEvents() {
     document.getElementById('btnRestoreBackup').addEventListener('click', restoreBookmarkBackup);
     document.getElementById('cloudBackupSelect').addEventListener('change', onBackupSelectChange);
     document.getElementById('autoBackupEnabled').addEventListener('change', toggleAutoBackup);
+    document.getElementById('btnSyncFromWebDAV').addEventListener('click', syncFromWebDAV);
+    // 备份来源切换
+    document.querySelectorAll('.backup-source-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchBackupSource(btn.dataset.source));
+    });
     
     // 空文件夹检测
     document.getElementById('btnFindEmptyFolders').addEventListener('click', findEmptyFolders);
@@ -7746,180 +7751,6 @@ async function uploadBookmarkBackup() {
     }
 }
 
-// 恢复书签备份
-async function restoreBookmarkBackup() {
-    const filename = document.getElementById('cloudBackupSelect').value;
-    const statusEl = document.getElementById('cloudBackupStatus');
-    const password = document.getElementById('cloudBackupPassword').value;
-    
-    if (!filename) {
-        alert('请选择要恢复的备份');
-        return;
-    }
-    
-    if (!password) {
-        alert('恢复书签需要输入管理密码');
-        document.getElementById('cloudBackupPassword').focus();
-        return;
-    }
-    
-    // 让用户选择恢复模式
-    const restoreMode = await showRestoreModeDialog();
-    if (!restoreMode) return;
-    
-    statusEl.textContent = '⏳ 正在分析备份数据...';
-    
-    try {
-        // 获取备份数据
-        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/download/${filename}`);
-        const data = await response.json();
-        
-        if (!data.success || !data.backup) {
-            throw new Error(data.message || '获取备份失败');
-        }
-        
-        const backupData = data.backup;
-        
-        // 获取当前浏览器的书签树
-        const tree = await chrome.bookmarks.getTree();
-        const bookmarkBar = tree[0]?.children?.[0];
-        const otherBookmarks = tree[0]?.children?.[1];
-        
-        if (!bookmarkBar) {
-            throw new Error('无法找到书签栏');
-        }
-        
-        // 收集本地所有书签URL
-        const localBookmarks = [];
-        collectAllBookmarks(tree, localBookmarks);
-        const localUrlMap = new Map(); // url -> bookmark
-        localBookmarks.forEach(b => {
-            if (b.url) localUrlMap.set(b.url, b);
-        });
-        
-        // 收集备份中的所有书签
-        const backupBookmarksList = [];
-        function collectBackupBookmarks(nodes) {
-            for (const node of nodes) {
-                if (node.children) {
-                    collectBackupBookmarks(node.children);
-                } else if (node.url) {
-                    backupBookmarksList.push(node);
-                }
-            }
-        }
-        const bookmarksToImport = backupData.bookmarks || [];
-        for (const root of bookmarksToImport) {
-            if (root.children) collectBackupBookmarks(root.children);
-        }
-        
-        // 检测冲突（相同URL的书签）
-        const conflicts = [];
-        const newBookmarks = [];
-        
-        for (const backupItem of backupBookmarksList) {
-            if (localUrlMap.has(backupItem.url)) {
-                conflicts.push({
-                    backup: backupItem,
-                    local: localUrlMap.get(backupItem.url)
-                });
-            } else {
-                newBookmarks.push(backupItem);
-            }
-        }
-        
-        // 如果有冲突，让用户选择处理方式
-        let skipUrls = new Set();
-        if (conflicts.length > 0 && restoreMode === 'direct') {
-            statusEl.textContent = `发现 ${conflicts.length} 个冲突书签...`;
-            const conflictResult = await showConflictDialog(conflicts);
-            if (!conflictResult) return; // 用户取消
-            skipUrls = conflictResult.skipUrls;
-        }
-        
-        statusEl.textContent = '⏳ 正在恢复...';
-        
-        // 递归导入书签（带冲突检测）
-        let importedCount = 0;
-        let skippedCount = 0;
-        
-        async function importBookmarks(nodes, parentId) {
-            for (const node of nodes) {
-                if (node.children) {
-                    const folder = await chrome.bookmarks.create({
-                        parentId: parentId,
-                        title: node.title || '未命名文件夹'
-                    });
-                    await importBookmarks(node.children, folder.id);
-                } else if (node.url) {
-                    // 检查是否需要跳过
-                    if (skipUrls.has(node.url)) {
-                        skippedCount++;
-                        continue;
-                    }
-                    await chrome.bookmarks.create({
-                        parentId: parentId,
-                        title: node.title || node.url,
-                        url: node.url
-                    });
-                    importedCount++;
-                }
-            }
-        }
-        
-        // 执行恢复
-        if (restoreMode === 'folder') {
-            const timestamp = new Date().toLocaleString('zh-CN', {
-                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-            }).replace(/[\/\s:]/g, '-');
-            
-            const restoreFolder = await chrome.bookmarks.create({
-                parentId: bookmarkBar.id,
-                title: `云端恢复-${backupData.deviceName || '未知'}-${timestamp}`
-            });
-            
-            for (const root of bookmarksToImport) {
-                if (root.children) {
-                    for (const topFolder of root.children) {
-                        if (topFolder.children && topFolder.children.length > 0) {
-                            await importBookmarks(topFolder.children, restoreFolder.id);
-                        }
-                    }
-                }
-            }
-        } else {
-            for (const root of bookmarksToImport) {
-                if (root.children) {
-                    for (const topFolder of root.children) {
-                        const isBookmarkBar = topFolder.id === '1';
-                        const isOtherBookmarks = topFolder.id === '2';
-                        
-                        let targetFolder = bookmarkBar;
-                        if (isOtherBookmarks && otherBookmarks) {
-                            targetFolder = otherBookmarks;
-                        }
-                        
-                        if (topFolder.children && topFolder.children.length > 0) {
-                            await importBookmarks(topFolder.children, targetFolder.id);
-                        }
-                    }
-                }
-            }
-        }
-        
-        let msg = `✅ 恢复成功！导入了 ${importedCount} 个书签`;
-        if (skippedCount > 0) msg += `，跳过 ${skippedCount} 个重复`;
-        statusEl.textContent = msg;
-        statusEl.style.color = '#059669';
-        
-        await loadBookmarks();
-        
-    } catch (error) {
-        statusEl.textContent = `❌ 恢复失败: ${error.message}`;
-        statusEl.style.color = '#dc2626';
-    }
-}
-
 // 显示冲突处理对话框
 function showConflictDialog(conflicts) {
     return new Promise((resolve) => {
@@ -8162,5 +7993,364 @@ function updateAutoBackupStatus(enabled) {
         `;
     } else {
         statusEl.textContent = '未启用 - 开启后将自动备份书签变化';
+    }
+}
+
+// ==================== WebDAV独立备份功能 ====================
+
+let currentBackupSource = 'local'; // 当前备份来源: 'local' 或 'webdav'
+
+// 切换备份来源
+async function switchBackupSource(source) {
+    currentBackupSource = source;
+    
+    // 更新按钮状态
+    document.querySelectorAll('.backup-source-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.source === source);
+        btn.classList.toggle('btn-primary', btn.dataset.source === source);
+        btn.classList.toggle('btn-secondary', btn.dataset.source !== source);
+    });
+    
+    // 加载对应来源的备份列表
+    if (source === 'webdav') {
+        await loadWebDAVBackupList();
+    } else {
+        await loadCloudBackupList();
+    }
+}
+
+// 加载WebDAV备份列表
+async function loadWebDAVBackupList() {
+    if (!cloudBackupServerUrl) {
+        document.getElementById('cloudBackupList').innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">请先测试服务器连接</div>';
+        return;
+    }
+    
+    const listEl = document.getElementById('cloudBackupList');
+    const selectEl = document.getElementById('cloudBackupSelect');
+    const statsEl = document.getElementById('backupStats');
+    
+    listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #666;">正在从WebDAV加载...</div>';
+    if (statsEl) statsEl.textContent = '';
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/webdav/list`);
+        const data = await response.json();
+        
+        if (!data.success) {
+            listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #f59e0b;">⚠️ ${data.message || 'WebDAV未配置'}</div>`;
+            selectEl.innerHTML = '<option value="">-- WebDAV未配置 --</option>';
+            return;
+        }
+        
+        if (!data.backups || data.backups.length === 0) {
+            listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: #999;">WebDAV上暂无书签备份</div>';
+            selectEl.innerHTML = '<option value="">-- 暂无备份 --</option>';
+            if (statsEl) statsEl.textContent = '';
+            return;
+        }
+        
+        // 统计各类型备份数量
+        const typeCounts = { auto: 0, daily: 0, weekly: 0, monthly: 0, manual: 0 };
+        data.backups.forEach(b => {
+            const type = b.type || 'manual';
+            if (typeCounts[type] !== undefined) typeCounts[type]++;
+        });
+        
+        // 显示统计信息
+        if (statsEl) {
+            const parts = [];
+            if (typeCounts.auto > 0) parts.push(`自动${typeCounts.auto}`);
+            if (typeCounts.daily > 0) parts.push(`每日${typeCounts.daily}`);
+            if (typeCounts.weekly > 0) parts.push(`每周${typeCounts.weekly}`);
+            if (typeCounts.monthly > 0) parts.push(`每月${typeCounts.monthly}`);
+            if (typeCounts.manual > 0) parts.push(`手动${typeCounts.manual}`);
+            statsEl.innerHTML = `<span style="color: #7c3aed;">WebDAV</span> ${data.backups.length} 个（${parts.join('/')}）`;
+        }
+        
+        // 更新下拉选择
+        selectEl.innerHTML = '<option value="">-- 选择备份 --</option>' +
+            data.backups.map(b => `<option value="${b.filename}" data-source="webdav">${b.deviceName || '未知设备'} - ${formatBackupTime(b.lastmod)}</option>`).join('');
+        
+        // 更新列表
+        listEl.innerHTML = data.backups.map(b => `
+            <div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; gap: 12px;">
+                <div style="flex: 1; min-width: 0;">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-weight: 500; color: #333;">${b.deviceName || '未知设备'}</span>
+                        <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; ${getBackupTypeStyle(b.type)}">${getBackupTypeLabel(b.type)}</span>
+                        <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; background: #f3e8ff; color: #7c3aed;">WebDAV</span>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 2px;">${b.size}</div>
+                    <div style="font-size: 11px; color: #999; margin-top: 2px;">${formatBackupTime(b.lastmod)}</div>
+                </div>
+                <button class="btn btn-small btn-danger btn-delete-webdav-backup" data-filename="${b.filename}" title="删除">🗑️</button>
+            </div>
+        `).join('');
+        
+        // 绑定删除按钮事件
+        listEl.querySelectorAll('.btn-delete-webdav-backup').forEach(btn => {
+            btn.addEventListener('click', () => {
+                deleteWebDAVBackup(btn.dataset.filename);
+            });
+        });
+        
+    } catch (error) {
+        listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #dc2626;">加载失败: ${error.message}</div>`;
+    }
+}
+
+// 删除WebDAV备份
+async function deleteWebDAVBackup(filename) {
+    const password = document.getElementById('cloudBackupPassword').value;
+    
+    if (!password) {
+        alert('删除备份需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
+        return;
+    }
+    
+    if (!confirm('确定要从WebDAV删除这个备份吗？')) return;
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/webdav/delete/${filename}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            await loadWebDAVBackupList();
+        } else {
+            alert('删除失败: ' + (data.message || '未知错误'));
+        }
+    } catch (error) {
+        alert('删除失败: ' + error.message);
+    }
+}
+
+// 从WebDAV同步备份到本地
+async function syncFromWebDAV() {
+    if (!cloudBackupServerUrl) {
+        alert('请先测试服务器连接');
+        return;
+    }
+    
+    const password = document.getElementById('cloudBackupPassword').value;
+    if (!password) {
+        alert('同步需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
+        return;
+    }
+    
+    const statusEl = document.getElementById('cloudBackupStatus');
+    statusEl.textContent = '⏳ 正在从WebDAV同步...';
+    statusEl.style.color = '#666';
+    
+    try {
+        const response = await fetch(`${cloudBackupServerUrl}/api/bookmark-sync/webdav/sync-to-local`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: password })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            statusEl.textContent = `✅ ${data.message}`;
+            statusEl.style.color = '#059669';
+            // 刷新本地备份列表
+            if (currentBackupSource === 'local') {
+                await loadCloudBackupList();
+            }
+        } else {
+            statusEl.textContent = `❌ 同步失败: ${data.message}`;
+            statusEl.style.color = '#dc2626';
+        }
+    } catch (error) {
+        statusEl.textContent = `❌ 同步失败: ${error.message}`;
+        statusEl.style.color = '#dc2626';
+    }
+}
+
+// 修改恢复函数以支持WebDAV来源
+async function restoreBookmarkBackup() {
+    const selectEl = document.getElementById('cloudBackupSelect');
+    const filename = selectEl.value;
+    const statusEl = document.getElementById('cloudBackupStatus');
+    const password = document.getElementById('cloudBackupPassword').value;
+    
+    if (!filename) {
+        alert('请选择要恢复的备份');
+        return;
+    }
+    
+    if (!password) {
+        alert('恢复书签需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
+        return;
+    }
+    
+    // 检查是否是WebDAV来源
+    const selectedOption = selectEl.options[selectEl.selectedIndex];
+    const isWebDAV = selectedOption.dataset.source === 'webdav' || currentBackupSource === 'webdav';
+    
+    // 让用户选择恢复模式
+    const restoreMode = await showRestoreModeDialog();
+    if (!restoreMode) return;
+    
+    statusEl.textContent = '⏳ 正在分析备份数据...';
+    
+    try {
+        // 根据来源获取备份数据
+        const apiPath = isWebDAV 
+            ? `${cloudBackupServerUrl}/api/bookmark-sync/webdav/download/${filename}`
+            : `${cloudBackupServerUrl}/api/bookmark-sync/download/${filename}`;
+        
+        const response = await fetch(apiPath);
+        const data = await response.json();
+        
+        if (!data.success || !data.backup) {
+            throw new Error(data.message || '获取备份失败');
+        }
+        
+        const backupData = data.backup;
+        
+        // 获取当前浏览器的书签树
+        const tree = await chrome.bookmarks.getTree();
+        const bookmarkBar = tree[0]?.children?.[0];
+        const otherBookmarks = tree[0]?.children?.[1];
+        
+        if (!bookmarkBar) {
+            throw new Error('无法找到书签栏');
+        }
+        
+        // 收集本地所有书签URL
+        const localBookmarks = [];
+        collectAllBookmarks(tree, localBookmarks);
+        const localUrlMap = new Map();
+        localBookmarks.forEach(b => {
+            if (b.url) localUrlMap.set(b.url, b);
+        });
+        
+        // 收集备份中的所有书签
+        const backupBookmarksList = [];
+        function collectBackupBookmarks(nodes) {
+            for (const node of nodes) {
+                if (node.children) {
+                    collectBackupBookmarks(node.children);
+                } else if (node.url) {
+                    backupBookmarksList.push(node);
+                }
+            }
+        }
+        const bookmarksToImport = backupData.bookmarks || [];
+        for (const root of bookmarksToImport) {
+            if (root.children) collectBackupBookmarks(root.children);
+        }
+        
+        // 检测冲突
+        const conflicts = [];
+        for (const backupItem of backupBookmarksList) {
+            if (localUrlMap.has(backupItem.url)) {
+                conflicts.push({
+                    backup: backupItem,
+                    local: localUrlMap.get(backupItem.url)
+                });
+            }
+        }
+        
+        // 如果有冲突，让用户选择处理方式
+        let skipUrls = new Set();
+        if (conflicts.length > 0 && restoreMode === 'direct') {
+            statusEl.textContent = `发现 ${conflicts.length} 个冲突书签...`;
+            const conflictResult = await showConflictDialog(conflicts);
+            if (!conflictResult) return;
+            skipUrls = conflictResult.skipUrls;
+        }
+        
+        statusEl.textContent = '⏳ 正在恢复...';
+        
+        // 递归导入书签
+        let importedCount = 0;
+        let skippedCount = 0;
+        
+        async function importBookmarks(nodes, parentId) {
+            for (const node of nodes) {
+                if (node.children) {
+                    const folder = await chrome.bookmarks.create({
+                        parentId: parentId,
+                        title: node.title || '未命名文件夹'
+                    });
+                    await importBookmarks(node.children, folder.id);
+                } else if (node.url) {
+                    if (skipUrls.has(node.url)) {
+                        skippedCount++;
+                        continue;
+                    }
+                    await chrome.bookmarks.create({
+                        parentId: parentId,
+                        title: node.title || node.url,
+                        url: node.url
+                    });
+                    importedCount++;
+                }
+            }
+        }
+        
+        // 执行恢复
+        if (restoreMode === 'folder') {
+            const timestamp = new Date().toLocaleString('zh-CN', {
+                month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
+            }).replace(/[\/\s:]/g, '-');
+            
+            const sourceName = isWebDAV ? 'WebDAV' : '云端';
+            const restoreFolder = await chrome.bookmarks.create({
+                parentId: bookmarkBar.id,
+                title: `${sourceName}恢复-${backupData.deviceName || '未知'}-${timestamp}`
+            });
+            
+            for (const root of bookmarksToImport) {
+                if (root.children) {
+                    for (const topFolder of root.children) {
+                        if (topFolder.children && topFolder.children.length > 0) {
+                            await importBookmarks(topFolder.children, restoreFolder.id);
+                        }
+                    }
+                }
+            }
+        } else {
+            for (const root of bookmarksToImport) {
+                if (root.children) {
+                    for (const topFolder of root.children) {
+                        const isBookmarkBar = topFolder.id === '1';
+                        const isOtherBookmarks = topFolder.id === '2';
+                        
+                        let targetFolder = bookmarkBar;
+                        if (isOtherBookmarks && otherBookmarks) {
+                            targetFolder = otherBookmarks;
+                        }
+                        
+                        if (topFolder.children && topFolder.children.length > 0) {
+                            await importBookmarks(topFolder.children, targetFolder.id);
+                        }
+                    }
+                }
+            }
+        }
+        
+        let msg = `✅ 恢复成功！导入了 ${importedCount} 个书签`;
+        if (skippedCount > 0) msg += `，跳过 ${skippedCount} 个重复`;
+        if (isWebDAV) msg += ' (来自WebDAV)';
+        statusEl.textContent = msg;
+        statusEl.style.color = '#059669';
+        
+        await loadBookmarks();
+        
+    } catch (error) {
+        statusEl.textContent = `❌ 恢复失败: ${error.message}`;
+        statusEl.style.color = '#dc2626';
     }
 }

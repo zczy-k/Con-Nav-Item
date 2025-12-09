@@ -660,8 +660,17 @@
                 </div>
                 <div style="margin-top: 20px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                        <div style="font-weight: 500;">📋 云端备份列表</div>
-                        <div id="backupStats" style="font-size: 12px; color: #666;"></div>
+                        <div style="display: flex; align-items: center; gap: 12px;">
+                            <div style="font-weight: 500;">📋 备份列表</div>
+                            <div style="display: flex; gap: 4px;">
+                                <button class="btn btn-small backup-source-btn active" data-source="local" style="font-size: 11px; padding: 4px 10px;">本地服务器</button>
+                                <button class="btn btn-small backup-source-btn" data-source="webdav" style="font-size: 11px; padding: 4px 10px;">WebDAV</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div id="backupStats" style="font-size: 12px; color: #666;"></div>
+                            <button class="btn btn-small btn-secondary" id="btnSyncFromWebDAV" title="从WebDAV同步到本地" style="font-size: 11px; padding: 4px 8px;">🔄 同步</button>
+                        </div>
                     </div>
                     <div id="cloudBackupList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">
                         <div style="padding: 20px; text-align: center; color: #999;">请先测试连接以加载备份列表</div>

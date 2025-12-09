@@ -435,16 +435,16 @@ router.delete('/delete/:filename', flexAuthMiddleware, async (req, res) => {
 router.get('/stats', async (req, res) => {
     try {
         ensureDir();
-        
+
         const files = fs.readdirSync(BOOKMARKS_DIR).filter(f => f.endsWith('.json'));
         const stats = { auto: 0, daily: 0, weekly: 0, monthly: 0, manual: 0, total: 0, totalSize: 0 };
-        
+
         for (const file of files) {
             const filePath = path.join(BOOKMARKS_DIR, file);
             const fileStats = fs.statSync(filePath);
             stats.totalSize += fileStats.size;
             stats.total++;
-            
+
             // 从文件名解析类型
             if (file.includes('-auto-')) stats.auto++;
             else if (file.includes('-daily-')) stats.daily++;
@@ -452,12 +452,210 @@ router.get('/stats', async (req, res) => {
             else if (file.includes('-monthly-')) stats.monthly++;
             else stats.manual++;
         }
-        
+
         stats.totalSize = `${(stats.totalSize / 1024).toFixed(2)} KB`;
         stats.retention = BACKUP_RETENTION;
-        
+
         res.json({ success: true, stats });
-        
+
+    } catch (error) {
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// ==================== WebDAV独立备份功能 ====================
+
+// 获取WebDAV上的书签备份列表
+router.get('/webdav/list', async (req, res) => {
+    try {
+        const client = await getWebDAVClient();
+        if (!client) {
+            return res.json({ success: false, message: 'WebDAV未配置', backups: [] });
+        }
+
+        // 检查目录是否存在
+        let dirExists = false;
+        try {
+            dirExists = await client.exists(WEBDAV_BOOKMARK_DIR);
+        } catch (e) {
+            dirExists = false;
+        }
+
+        if (!dirExists) {
+            return res.json({ success: true, backups: [], message: 'WebDAV上暂无书签备份' });
+        }
+
+        // 获取文件列表
+        const contents = await client.getDirectoryContents(WEBDAV_BOOKMARK_DIR);
+        const backups = contents
+            .filter(item => item.type === 'file' && item.basename.endsWith('.json'))
+            .map(item => {
+                // 从文件名解析信息
+                const filename = item.basename;
+                let type = 'manual';
+                let deviceName = 'unknown';
+
+                // 解析文件名: bookmarks-设备名-类型-时间戳.json
+                const match = filename.match(/^bookmarks-(.+?)-(auto|daily|weekly|monthly|manual)-/);
+                if (match) {
+                    deviceName = match[1];
+                    type = match[2];
+                }
+
+                return {
+                    filename,
+                    size: `${(item.size / 1024).toFixed(2)} KB`,
+                    lastmod: item.lastmod,
+                    type,
+                    deviceName,
+                    source: 'webdav'
+                };
+            })
+            .sort((a, b) => new Date(b.lastmod) - new Date(a.lastmod));
+
+        res.json({ success: true, backups });
+
+    } catch (error) {
+        console.error('获取WebDAV书签备份列表失败:', error);
+        res.status(500).json({ success: false, message: error.message, backups: [] });
+    }
+});
+
+// 从WebDAV下载书签备份
+router.get('/webdav/download/:filename', async (req, res) => {
+    try {
+        const { filename } = req.params;
+
+        if (!filename.endsWith('.json') || filename.includes('..')) {
+            return res.status(400).json({ success: false, message: '无效的文件名' });
+        }
+
+        const client = await getWebDAVClient();
+        if (!client) {
+            return res.status(400).json({ success: false, message: 'WebDAV未配置' });
+        }
+
+        const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
+
+        // 检查文件是否存在
+        const exists = await client.exists(remotePath);
+        if (!exists) {
+            return res.status(404).json({ success: false, message: 'WebDAV上不存在该备份' });
+        }
+
+        // 下载文件内容
+        const content = await client.getFileContents(remotePath, { format: 'text' });
+        const data = JSON.parse(content);
+
+        res.json({ success: true, backup: data, source: 'webdav' });
+
+    } catch (error) {
+        console.error('从WebDAV下载书签备份失败:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 从WebDAV删除书签备份
+router.delete('/webdav/delete/:filename', flexAuthMiddleware, async (req, res) => {
+    try {
+        const { filename } = req.params;
+
+        if (!filename.endsWith('.json') || filename.includes('..')) {
+            return res.status(400).json({ success: false, message: '无效的文件名' });
+        }
+
+        const client = await getWebDAVClient();
+        if (!client) {
+            return res.status(400).json({ success: false, message: 'WebDAV未配置' });
+        }
+
+        const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
+        await client.deleteFile(remotePath);
+
+        res.json({ success: true, message: '删除成功' });
+
+    } catch (error) {
+        console.error('从WebDAV删除书签备份失败:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 从WebDAV同步备份到本地
+router.post('/webdav/sync-to-local', flexAuthMiddleware, async (req, res) => {
+    try {
+        const client = await getWebDAVClient();
+        if (!client) {
+            return res.status(400).json({ success: false, message: 'WebDAV未配置' });
+        }
+
+        ensureDir();
+
+        // 获取WebDAV上的文件列表
+        let dirExists = false;
+        try {
+            dirExists = await client.exists(WEBDAV_BOOKMARK_DIR);
+        } catch (e) {
+            dirExists = false;
+        }
+
+        if (!dirExists) {
+            return res.json({ success: true, synced: 0, message: 'WebDAV上暂无书签备份' });
+        }
+
+        const contents = await client.getDirectoryContents(WEBDAV_BOOKMARK_DIR);
+        const remoteFiles = contents
+            .filter(item => item.type === 'file' && item.basename.endsWith('.json'))
+            .map(item => item.basename);
+
+        // 获取本地文件列表
+        const localFiles = fs.readdirSync(BOOKMARKS_DIR).filter(f => f.endsWith('.json'));
+
+        // 找出本地没有的文件
+        const toSync = remoteFiles.filter(f => !localFiles.includes(f));
+
+        let synced = 0;
+        for (const filename of toSync) {
+            try {
+                const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
+                const content = await client.getFileContents(remotePath, { format: 'text' });
+                const localPath = path.join(BOOKMARKS_DIR, filename);
+                fs.writeFileSync(localPath, content);
+                synced++;
+                console.log(`[书签备份] 从WebDAV同步: ${filename}`);
+            } catch (e) {
+                console.error(`[书签备份] 同步失败: ${filename}`, e.message);
+            }
+        }
+
+        res.json({
+            success: true,
+            synced,
+            total: remoteFiles.length,
+            message: synced > 0 ? `已从WebDAV同步 ${synced} 个备份` : '本地已是最新'
+        });
+
+    } catch (error) {
+        console.error('从WebDAV同步备份失败:', error);
+        res.status(500).json({ success: false, message: error.message });
+    }
+});
+
+// 检查WebDAV配置状态
+router.get('/webdav/status', async (req, res) => {
+    try {
+        const client = await getWebDAVClient();
+        if (!client) {
+            return res.json({ success: true, configured: false, message: 'WebDAV未配置' });
+        }
+
+        // 测试连接
+        try {
+            await client.exists('/');
+            return res.json({ success: true, configured: true, connected: true });
+        } catch (e) {
+            return res.json({ success: true, configured: true, connected: false, message: '连接失败: ' + e.message });
+        }
+
     } catch (error) {
         res.status(500).json({ success: false, message: error.message });
     }
