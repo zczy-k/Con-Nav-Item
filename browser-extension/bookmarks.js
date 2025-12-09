@@ -7762,10 +7762,17 @@ async function restoreBookmarkBackup() {
         }
         
         // 从备份数据的根节点开始导入
+        // 备份结构: [{children: [{title: "书签栏", children: [...]}, {title: "其他书签", children: [...]}]}]
         const bookmarksToImport = backupData.bookmarks || [];
         for (const root of bookmarksToImport) {
             if (root.children) {
-                await importBookmarks(root.children, restoreFolder.id);
+                // 遍历书签栏、其他书签等顶级文件夹
+                for (const topFolder of root.children) {
+                    if (topFolder.children && topFolder.children.length > 0) {
+                        // 直接导入顶级文件夹的内容，不创建额外的包装文件夹
+                        await importBookmarks(topFolder.children, restoreFolder.id);
+                    }
+                }
             }
         }
         
