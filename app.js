@@ -49,6 +49,7 @@ app.use((req, res, next) => {
   // 排除不应该缓存的路径
   const noCachePaths = [
     '/api/backup',      // 备份相关 API
+    '/api/bookmark-sync', // 书签云同步 API
     '/api/users/profile', // 用户信息
     '/api/cards/detect-duplicates' // 去重检测（需要实时数据）
   ];
