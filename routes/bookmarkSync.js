@@ -6,16 +6,85 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const db = require('../db');
 const config = require('../config');
+const { createClient } = require('webdav');
+const { decryptWebDAVConfig } = require('../utils/crypto');
 
 const JWT_SECRET = config.server.jwtSecret;
 
 // 书签备份存储目录
 const BOOKMARKS_DIR = path.join(__dirname, '..', 'backups', 'bookmarks');
+const WEBDAV_BOOKMARK_DIR = '/Con-Nav-Item-Backups/bookmarks';
 
 // 确保目录存在
 function ensureDir() {
     if (!fs.existsSync(BOOKMARKS_DIR)) {
         fs.mkdirSync(BOOKMARKS_DIR, { recursive: true });
+    }
+}
+
+// 获取WebDAV客户端
+async function getWebDAVClient() {
+    const webdavConfigPath = path.join(__dirname, '..', 'config', '.webdav-config.json');
+    if (!fs.existsSync(webdavConfigPath)) {
+        return null;
+    }
+    
+    try {
+        const encryptedConfig = JSON.parse(fs.readFileSync(webdavConfigPath, 'utf-8'));
+        const webdavConfig = decryptWebDAVConfig(encryptedConfig);
+        
+        if (!webdavConfig) {
+            return null;
+        }
+        
+        return createClient(webdavConfig.url, {
+            username: webdavConfig.username,
+            password: webdavConfig.password
+        });
+    } catch (e) {
+        console.error('WebDAV客户端创建失败:', e.message);
+        return null;
+    }
+}
+
+// 同步书签备份到WebDAV
+async function syncBookmarkToWebDAV(filename, content) {
+    try {
+        const client = await getWebDAVClient();
+        if (!client) return false;
+        
+        // 确保目录存在
+        try {
+            await client.createDirectory('/Con-Nav-Item-Backups');
+        } catch (e) {}
+        try {
+            await client.createDirectory(WEBDAV_BOOKMARK_DIR);
+        } catch (e) {}
+        
+        // 上传文件
+        const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
+        await client.putFileContents(remotePath, content);
+        console.log(`[书签备份] 已同步到WebDAV: ${filename}`);
+        return true;
+    } catch (error) {
+        console.error('[书签备份] WebDAV同步失败:', error.message);
+        return false;
+    }
+}
+
+// 从WebDAV删除书签备份
+async function deleteBookmarkFromWebDAV(filename) {
+    try {
+        const client = await getWebDAVClient();
+        if (!client) return false;
+        
+        const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
+        await client.deleteFile(remotePath);
+        console.log(`[书签备份] 已从WebDAV删除: ${filename}`);
+        return true;
+    } catch (error) {
+        console.error('[书签备份] WebDAV删除失败:', error.message);
+        return false;
     }
 }
 
@@ -120,7 +189,13 @@ router.post('/upload', flexAuthMiddleware, async (req, res) => {
             bookmarks
         };
         
-        fs.writeFileSync(filePath, JSON.stringify(backupData, null, 2));
+        const jsonContent = JSON.stringify(backupData, null, 2);
+        fs.writeFileSync(filePath, jsonContent);
+        
+        // 同步到WebDAV（异步，不阻塞响应）
+        syncBookmarkToWebDAV(filename, jsonContent).catch(e => {
+            console.error('WebDAV同步失败:', e.message);
+        });
         
         res.json({
             success: true,
@@ -287,6 +362,11 @@ router.delete('/delete/:filename', flexAuthMiddleware, async (req, res) => {
         }
         
         fs.unlinkSync(filePath);
+        
+        // 同时从WebDAV删除（异步，不阻塞响应）
+        deleteBookmarkFromWebDAV(filename).catch(e => {
+            console.error('WebDAV删除失败:', e.message);
+        });
         
         res.json({
             success: true,
