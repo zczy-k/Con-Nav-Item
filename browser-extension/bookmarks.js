@@ -834,6 +834,9 @@ async function executeAutoTag(regenerateAll = false) {
     const allBookmarksList = [];
     collectAllBookmarks(allBookmarks, allBookmarksList);
     
+    // 排除热门书签等快捷方式文件夹中的副本书签
+    const normalBookmarks = allBookmarksList.filter(b => !isInShortcutFolder(b));
+    
     // 如果是全部重新生成，先清除所有标签
     if (regenerateAll) {
         bookmarkTags.clear();
@@ -846,7 +849,7 @@ async function executeAutoTag(regenerateAll = false) {
     let failedCount = 0;
     
     // 显示进度
-    const total = allBookmarksList.length;
+    const total = normalBookmarks.length;
     const progressDiv = document.createElement('div');
     progressDiv.id = 'autoTagProgress';
     progressDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 24px 32px; border-radius: 12px; box-shadow: 0 8px 32px rgba(0,0,0,0.2); z-index: 10000; text-align: center; min-width: 300px;';
@@ -862,8 +865,8 @@ async function executeAutoTag(regenerateAll = false) {
     const progressBar = document.getElementById('autoTagProgressBar');
     const progressText = document.getElementById('autoTagProgressText');
     
-    for (let i = 0; i < allBookmarksList.length; i++) {
-        const bookmark = allBookmarksList[i];
+    for (let i = 0; i < normalBookmarks.length; i++) {
+        const bookmark = normalBookmarks[i];
         
         // 更新进度
         const percent = Math.round((i + 1) / total * 100);
@@ -7021,7 +7024,10 @@ async function tagBookmarksByFolder() {
     const allBookmarksList = [];
     collectAllBookmarks(allBookmarks, allBookmarksList);
     
-    if (allBookmarksList.length === 0) {
+    // 排除热门书签等快捷方式文件夹中的副本书签
+    const normalBookmarks = allBookmarksList.filter(b => !isInShortcutFolder(b));
+    
+    if (normalBookmarks.length === 0) {
         alert('没有找到书签');
         return;
     }
@@ -7031,7 +7037,7 @@ async function tagBookmarksByFolder() {
         `🏷️ 按文件夹标签\n\n` +
         `将根据书签所在文件夹的名称为书签添加标签。\n` +
         `例如："前端开发"文件夹下的书签会添加"前端开发"标签。\n\n` +
-        `共 ${allBookmarksList.length} 个书签，是否继续？`
+        `共 ${normalBookmarks.length} 个书签，是否继续？`
     );
     
     if (!confirmed) return;
@@ -7045,7 +7051,7 @@ async function tagBookmarksByFolder() {
         <div style="background: #e0e0e0; border-radius: 8px; height: 8px; overflow: hidden; margin-bottom: 12px;">
             <div id="folderTagProgressBar" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); height: 100%; width: 0%; transition: width 0.3s;"></div>
         </div>
-        <div id="folderTagProgressText" style="font-size: 14px; color: #666;">0 / ${allBookmarksList.length}</div>
+        <div id="folderTagProgressText" style="font-size: 14px; color: #666;">0 / ${normalBookmarks.length}</div>
     `;
     document.body.appendChild(progressDiv);
     
@@ -7055,13 +7061,13 @@ async function tagBookmarksByFolder() {
     let taggedCount = 0;
     let skippedCount = 0;
     
-    for (let i = 0; i < allBookmarksList.length; i++) {
-        const bookmark = allBookmarksList[i];
+    for (let i = 0; i < normalBookmarks.length; i++) {
+        const bookmark = normalBookmarks[i];
         
         // 更新进度
-        const percent = Math.round((i + 1) / allBookmarksList.length * 100);
+        const percent = Math.round((i + 1) / normalBookmarks.length * 100);
         progressBar.style.width = percent + '%';
-        progressText.textContent = `${i + 1} / ${allBookmarksList.length}`;
+        progressText.textContent = `${i + 1} / ${normalBookmarks.length}`;
         
         // 获取文件夹路径
         const folderPath = getBookmarkFolderPath(bookmark.id);
