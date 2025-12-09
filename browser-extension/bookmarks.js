@@ -7569,7 +7569,10 @@ async function loadCloudBackupList() {
             listEl.innerHTML = data.backups.map(b => `
                 <div style="display: flex; align-items: center; padding: 10px 12px; border-bottom: 1px solid #f0f0f0; gap: 12px;">
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-weight: 500; color: #333;">${b.deviceName || '未知设备'}</div>
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <span style="font-weight: 500; color: #333;">${b.deviceName || '未知设备'}</span>
+                            <span style="font-size: 10px; padding: 2px 6px; border-radius: 4px; ${getBackupTypeStyle(b.type)}">${getBackupTypeLabel(b.type)}</span>
+                        </div>
                         <div style="font-size: 12px; color: #666; margin-top: 2px;">
                             ${b.bookmarkCount || 0} 个书签, ${b.folderCount || 0} 个文件夹 · ${b.size}
                         </div>
@@ -7591,6 +7594,30 @@ async function loadCloudBackupList() {
     } catch (error) {
         listEl.innerHTML = `<div style="padding: 20px; text-align: center; color: #dc2626;">加载失败: ${error.message}</div>`;
     }
+}
+
+// 获取备份类型标签
+function getBackupTypeLabel(type) {
+    const labels = {
+        auto: '自动',
+        daily: '每日',
+        weekly: '每周',
+        monthly: '每月',
+        manual: '手动'
+    };
+    return labels[type] || '手动';
+}
+
+// 获取备份类型样式
+function getBackupTypeStyle(type) {
+    const styles = {
+        auto: 'background: #dbeafe; color: #1d4ed8;',
+        daily: 'background: #dcfce7; color: #166534;',
+        weekly: 'background: #fef3c7; color: #92400e;',
+        monthly: 'background: #f3e8ff; color: #7c3aed;',
+        manual: 'background: #f3f4f6; color: #374151;'
+    };
+    return styles[type] || styles.manual;
 }
 
 // 格式化备份时间
@@ -7665,16 +7692,24 @@ async function uploadBookmarkBackup() {
             body: JSON.stringify({
                 bookmarks: tree,
                 deviceName: deviceName,
-                password: password
+                password: password,
+                type: 'manual',  // 手动备份
+                skipIfSame: false  // 手动备份不跳过
             })
         });
         
         const data = await response.json();
         
         if (data.success) {
-            statusEl.textContent = `✅ 备份成功！${data.backup?.bookmarkCount || 0} 个书签`;
-            statusEl.style.color = '#059669';
-            // 刷新列表
+            if (data.skipped) {
+                statusEl.textContent = '📋 书签无变化，已跳过备份';
+                statusEl.style.color = '#f59e0b';
+            } else {
+                let msg = `✅ 备份成功！${data.backup?.bookmarkCount || 0} 个书签`;
+                if (data.cleaned > 0) msg += `，清理了 ${data.cleaned} 个旧备份`;
+                statusEl.textContent = msg;
+                statusEl.style.color = '#059669';
+            }
             await loadCloudBackupList();
         } else {
             statusEl.textContent = `❌ 备份失败: ${data.message}`;
