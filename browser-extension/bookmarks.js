@@ -4727,9 +4727,7 @@ async function autoSortBookmarkBar() {
         // 2. 对所有子文件夹排序
         await sortAllFolders();
         
-        // 3. 同步常用和最近使用文件夹
-        await syncFavoritesFolder();
-        await syncRecentFolder();
+        // 注：已移除自动创建"常用"和"最近使用"文件夹的功能
         
         // 保存使用数据
         await saveUsageData();
