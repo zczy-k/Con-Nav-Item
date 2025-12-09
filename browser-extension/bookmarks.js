@@ -7698,9 +7698,9 @@ async function restoreBookmarkBackup() {
     
     const confirmed = confirm(
         '⚠️ 恢复书签将会：\n\n' +
-        '• 在书签栏创建"云端恢复"文件夹\n' +
-        '• 将备份的书签导入到该文件夹\n' +
-        '• 不会删除现有书签\n\n' +
+        '• 将备份的书签直接恢复到书签栏\n' +
+        '• 保持原有的文件夹结构\n' +
+        '• 不会删除现有书签（可能产生重复）\n\n' +
         '是否继续？'
     );
     
@@ -7719,23 +7719,14 @@ async function restoreBookmarkBackup() {
         
         const backupData = data.backup;
         
-        // 获取书签栏
+        // 获取当前浏览器的书签树
         const tree = await chrome.bookmarks.getTree();
-        const bookmarkBar = tree[0]?.children?.[0];
+        const bookmarkBar = tree[0]?.children?.[0]; // 书签栏 (id: "1")
+        const otherBookmarks = tree[0]?.children?.[1]; // 其他书签 (id: "2")
         
         if (!bookmarkBar) {
             throw new Error('无法找到书签栏');
         }
-        
-        // 创建恢复文件夹
-        const timestamp = new Date().toLocaleString('zh-CN', {
-            month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit'
-        }).replace(/[\/\s:]/g, '-');
-        
-        const restoreFolder = await chrome.bookmarks.create({
-            parentId: bookmarkBar.id,
-            title: `云端恢复-${backupData.deviceName || '未知'}-${timestamp}`
-        });
         
         // 递归导入书签
         let importedCount = 0;
@@ -7763,32 +7754,25 @@ async function restoreBookmarkBackup() {
         
         // 从备份数据的根节点开始导入
         // 备份结构: [{id: "0", children: [{id: "1", title: "书签栏", children: [...]}, {id: "2", title: "其他书签", children: [...]}]}]
-        // 不同浏览器的系统文件夹名称不同，但结构相同：
-        // - id "0" 是根节点
-        // - id "1" 是书签栏（Chrome/Edge/Firefox 第一个子节点）
-        // - id "2" 是其他书签（第二个子节点）
         const bookmarksToImport = backupData.bookmarks || [];
         
         for (const root of bookmarksToImport) {
             if (root.children) {
                 // 遍历顶级系统文件夹（书签栏、其他书签等）
                 for (const topFolder of root.children) {
-                    // 通过 id 或位置判断是否为系统文件夹
-                    const isSystemFolder = topFolder.id === '1' || topFolder.id === '2' || 
-                                          topFolder.id === '3' || // 移动设备书签
-                                          !topFolder.url; // 没有 url 的顶级节点都是系统文件夹
+                    // 判断是书签栏还是其他书签
+                    const isBookmarkBar = topFolder.id === '1';
+                    const isOtherBookmarks = topFolder.id === '2';
                     
-                    if (isSystemFolder && topFolder.children && topFolder.children.length > 0) {
-                        // 直接导入系统文件夹的内容，不创建额外的包装文件夹
-                        await importBookmarks(topFolder.children, restoreFolder.id);
-                    } else if (topFolder.url) {
-                        // 如果顶级节点是书签（理论上不会出现），直接导入
-                        await chrome.bookmarks.create({
-                            parentId: restoreFolder.id,
-                            title: topFolder.title || topFolder.url,
-                            url: topFolder.url
-                        });
-                        importedCount++;
+                    // 确定目标文件夹
+                    let targetFolder = bookmarkBar; // 默认恢复到书签栏
+                    if (isOtherBookmarks && otherBookmarks) {
+                        targetFolder = otherBookmarks;
+                    }
+                    
+                    if (topFolder.children && topFolder.children.length > 0) {
+                        // 直接恢复到对应的系统文件夹
+                        await importBookmarks(topFolder.children, targetFolder.id);
                     }
                 }
             }
