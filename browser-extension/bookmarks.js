@@ -7690,9 +7690,16 @@ async function uploadBookmarkBackup() {
 async function restoreBookmarkBackup() {
     const filename = document.getElementById('cloudBackupSelect').value;
     const statusEl = document.getElementById('cloudBackupStatus');
+    const password = document.getElementById('cloudBackupPassword').value;
     
     if (!filename) {
         alert('请选择要恢复的备份');
+        return;
+    }
+    
+    if (!password) {
+        alert('恢复书签需要输入管理密码');
+        document.getElementById('cloudBackupPassword').focus();
         return;
     }
     
