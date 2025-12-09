@@ -7552,6 +7552,9 @@ async function showAuthLoginDialog() {
     if (!password) return;
     
     const statusEl = document.getElementById('cloudBackupStatus');
+    const authStatusEl = document.getElementById('authStatus');
+    const btnEl = document.getElementById('btnAuthLogin');
+    
     statusEl.textContent = '⏳ 正在授权...';
     statusEl.style.color = '#666';
     
@@ -7567,9 +7570,15 @@ async function showAuthLoginDialog() {
         if (data.success && data.token) {
             cloudBackupToken = data.token;
             await chrome.storage.local.set({ cloudBackupToken: data.token });
+            
+            // 立即更新界面状态，无需再次验证
             statusEl.textContent = '✅ 授权成功';
             statusEl.style.color = '#10b981';
-            await updateAuthStatusDisplay();
+            authStatusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
+            authStatusEl.style.borderColor = '#a7f3d0';
+            authStatusEl.style.background = '#ecfdf5';
+            btnEl.textContent = '重新授权';
+            btnEl.style.background = '#6b7280';
         } else {
             statusEl.textContent = `❌ 授权失败: ${data.message || '密码错误'}`;
             statusEl.style.color = '#ef4444';
