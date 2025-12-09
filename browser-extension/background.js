@@ -1031,3 +1031,217 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         return true;
     }
 });
+
+
+// ==================== 自动书签云备份 ====================
+
+const BACKUP_DEBOUNCE_MS = 5 * 60 * 1000; // 5分钟防抖
+const DAILY_BACKUP_HOUR = 2; // 每天凌晨2点
+let backupDebounceTimer = null;
+let dailyBackupTimer = null;
+
+// 自动备份配置
+let autoBackupConfig = {
+    enabled: false,
+    serverUrl: '',
+    deviceName: '',
+    password: ''
+};
+
+// 加载自动备份配置
+async function loadAutoBackupConfig() {
+    try {
+        const result = await chrome.storage.local.get([
+            'autoBookmarkBackupEnabled',
+            'cloudBackupServer',
+            'backupDeviceName',
+            'cloudBackupPassword'
+        ]);
+        
+        autoBackupConfig = {
+            enabled: result.autoBookmarkBackupEnabled || false,
+            serverUrl: result.cloudBackupServer || '',
+            deviceName: result.backupDeviceName || '',
+            password: result.cloudBackupPassword || ''
+        };
+        
+        return autoBackupConfig;
+    } catch (e) {
+        console.error('加载自动备份配置失败:', e);
+        return autoBackupConfig;
+    }
+}
+
+// 执行自动备份
+async function performAutoBackup(type = 'auto') {
+    try {
+        await loadAutoBackupConfig();
+        
+        if (!autoBackupConfig.enabled || !autoBackupConfig.serverUrl || !autoBackupConfig.password) {
+            return { success: false, reason: '自动备份未配置' };
+        }
+        
+        console.log(`[自动备份] 开始${type}备份...`);
+        
+        // 获取所有书签
+        const tree = await chrome.bookmarks.getTree();
+        
+        // 上传备份
+        const response = await fetch(`${autoBackupConfig.serverUrl}/api/bookmark-sync/upload`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                bookmarks: tree,
+                deviceName: autoBackupConfig.deviceName || 'Chrome',
+                password: autoBackupConfig.password,
+                type: type,
+                skipIfSame: true
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            if (data.skipped) {
+                console.log(`[自动备份] 书签无变化，已跳过`);
+            } else {
+                console.log(`[自动备份] ${type}备份成功: ${data.backup?.bookmarkCount || 0} 个书签`);
+            }
+            return { success: true, data };
+        } else {
+            console.error(`[自动备份] 失败: ${data.message}`);
+            return { success: false, message: data.message };
+        }
+    } catch (error) {
+        console.error('[自动备份] 错误:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+// 防抖备份（书签变化时触发）
+function triggerDebouncedBackup() {
+    if (backupDebounceTimer) {
+        clearTimeout(backupDebounceTimer);
+    }
+    
+    backupDebounceTimer = setTimeout(async () => {
+        await performAutoBackup('auto');
+    }, BACKUP_DEBOUNCE_MS);
+    
+    console.log('[自动备份] 检测到书签变化，将在5分钟后备份');
+}
+
+// 监听书签变化
+chrome.bookmarks.onCreated.addListener(() => {
+    loadAutoBackupConfig().then(config => {
+        if (config.enabled) triggerDebouncedBackup();
+    });
+});
+
+chrome.bookmarks.onRemoved.addListener(() => {
+    loadAutoBackupConfig().then(config => {
+        if (config.enabled) triggerDebouncedBackup();
+    });
+});
+
+chrome.bookmarks.onChanged.addListener(() => {
+    loadAutoBackupConfig().then(config => {
+        if (config.enabled) triggerDebouncedBackup();
+    });
+});
+
+chrome.bookmarks.onMoved.addListener(() => {
+    loadAutoBackupConfig().then(config => {
+        if (config.enabled) triggerDebouncedBackup();
+    });
+});
+
+// 检查并执行每日备份
+async function checkDailyBackup() {
+    const now = new Date();
+    const hour = now.getHours();
+    
+    if (hour === DAILY_BACKUP_HOUR) {
+        const today = now.toISOString().slice(0, 10);
+        const result = await chrome.storage.local.get(['lastDailyBackupDate']);
+        
+        if (result.lastDailyBackupDate !== today) {
+            console.log('[自动备份] 执行每日备份...');
+            const backupResult = await performAutoBackup('daily');
+            
+            if (backupResult.success) {
+                await chrome.storage.local.set({ lastDailyBackupDate: today });
+            }
+        }
+    }
+}
+
+// 初始化每日备份定时器
+function initDailyBackupTimer() {
+    // 每小时检查一次是否需要执行每日备份
+    if (dailyBackupTimer) {
+        clearInterval(dailyBackupTimer);
+    }
+    
+    dailyBackupTimer = setInterval(checkDailyBackup, 60 * 60 * 1000);
+    
+    // 启动时也检查一次
+    setTimeout(checkDailyBackup, 60000);
+}
+
+// 监听自动备份设置变化
+chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local') {
+        if (changes.autoBookmarkBackupEnabled) {
+            const enabled = changes.autoBookmarkBackupEnabled.newValue;
+            console.log(`[自动备份] ${enabled ? '已启用' : '已禁用'}`);
+            
+            if (enabled) {
+                initDailyBackupTimer();
+            } else {
+                if (dailyBackupTimer) {
+                    clearInterval(dailyBackupTimer);
+                    dailyBackupTimer = null;
+                }
+                if (backupDebounceTimer) {
+                    clearTimeout(backupDebounceTimer);
+                    backupDebounceTimer = null;
+                }
+            }
+        }
+    }
+});
+
+// 扩展启动时初始化自动备份
+chrome.runtime.onStartup.addListener(async () => {
+    const config = await loadAutoBackupConfig();
+    if (config.enabled) {
+        initDailyBackupTimer();
+        console.log('[自动备份] 已初始化');
+    }
+});
+
+// 扩展安装/更新时初始化
+chrome.runtime.onInstalled.addListener(async () => {
+    const config = await loadAutoBackupConfig();
+    if (config.enabled) {
+        initDailyBackupTimer();
+    }
+});
+
+// 监听手动触发备份的消息
+chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
+    if (request.action === 'triggerAutoBackup') {
+        performAutoBackup(request.type || 'manual')
+            .then(result => sendResponse(result))
+            .catch(e => sendResponse({ success: false, error: e.message }));
+        return true;
+    }
+    
+    if (request.action === 'getAutoBackupConfig') {
+        loadAutoBackupConfig()
+            .then(config => sendResponse({ success: true, config }))
+            .catch(e => sendResponse({ success: false, error: e.message }));
+        return true;
+    }
+});

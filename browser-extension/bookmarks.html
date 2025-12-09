@@ -645,6 +645,19 @@
                         <button class="btn btn-primary" id="btnRestoreBackup" style="width: 100%;">恢复书签</button>
                     </div>
                 </div>
+                <div style="margin-top: 20px; padding: 16px; background: #fefce8; border-radius: 12px; border: 1px solid #fef08a;">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-weight: 600; color: #854d0e; margin-bottom: 4px;">⚡ 自动备份</div>
+                            <div style="font-size: 12px; color: #a16207;">书签变化后自动备份，每天凌晨2点执行每日备份</div>
+                        </div>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="autoBackupEnabled" style="width: 18px; height: 18px;">
+                            <span style="font-size: 13px; color: #854d0e;">启用</span>
+                        </label>
+                    </div>
+                    <div id="autoBackupStatus" style="font-size: 11px; color: #a16207; margin-top: 8px;"></div>
+                </div>
                 <div style="margin-top: 20px;">
                     <div style="font-weight: 500; margin-bottom: 8px;">📋 云端备份列表</div>
                     <div id="cloudBackupList" style="max-height: 200px; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 8px;">

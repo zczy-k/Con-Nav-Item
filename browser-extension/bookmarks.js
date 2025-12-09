@@ -2163,6 +2163,7 @@ function bindEvents() {
     document.getElementById('btnUploadBackup').addEventListener('click', uploadBookmarkBackup);
     document.getElementById('btnRestoreBackup').addEventListener('click', restoreBookmarkBackup);
     document.getElementById('cloudBackupSelect').addEventListener('change', onBackupSelectChange);
+    document.getElementById('autoBackupEnabled').addEventListener('change', toggleAutoBackup);
     
     // 空文件夹检测
     document.getElementById('btnFindEmptyFolders').addEventListener('click', findEmptyFolders);
@@ -7468,7 +7469,7 @@ let cloudBackupPassword = '';
 async function showCloudBackupModal() {
     // 加载保存的服务器地址和密码
     try {
-        const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupPassword']);
+        const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupPassword', 'autoBookmarkBackupEnabled']);
         if (result.cloudBackupServer) {
             cloudBackupServerUrl = result.cloudBackupServer;
             document.getElementById('cloudBackupServer').value = result.cloudBackupServer;
@@ -7480,6 +7481,9 @@ async function showCloudBackupModal() {
             cloudBackupPassword = result.cloudBackupPassword;
             document.getElementById('cloudBackupPassword').value = result.cloudBackupPassword;
         }
+        // 加载自动备份状态
+        document.getElementById('autoBackupEnabled').checked = result.autoBookmarkBackupEnabled || false;
+        updateAutoBackupStatus(result.autoBookmarkBackupEnabled || false);
     } catch (e) {}
     
     // 更新当前书签统计
@@ -8077,5 +8081,57 @@ async function deleteCloudBackup(filename) {
         }
     } catch (error) {
         alert('删除失败: ' + error.message);
+    }
+}
+
+// ==================== 自动备份功能 ====================
+
+// 切换自动备份
+async function toggleAutoBackup(e) {
+    const enabled = e.target.checked;
+    const serverUrl = document.getElementById('cloudBackupServer').value.trim();
+    const password = document.getElementById('cloudBackupPassword').value;
+    const deviceName = document.getElementById('backupDeviceName').value.trim();
+    
+    if (enabled) {
+        // 检查必要配置
+        if (!serverUrl) {
+            alert('请先配置服务器地址');
+            e.target.checked = false;
+            return;
+        }
+        if (!password) {
+            alert('请先输入管理密码');
+            e.target.checked = false;
+            return;
+        }
+    }
+    
+    // 保存配置
+    await chrome.storage.local.set({
+        autoBookmarkBackupEnabled: enabled,
+        cloudBackupServer: serverUrl,
+        cloudBackupPassword: password,
+        backupDeviceName: deviceName || 'Chrome'
+    });
+    
+    updateAutoBackupStatus(enabled);
+    
+    if (enabled) {
+        document.getElementById('cloudBackupStatus').textContent = '✅ 自动备份已启用';
+        document.getElementById('cloudBackupStatus').style.color = '#059669';
+    } else {
+        document.getElementById('cloudBackupStatus').textContent = '自动备份已关闭';
+        document.getElementById('cloudBackupStatus').style.color = '#666';
+    }
+}
+
+// 更新自动备份状态显示
+function updateAutoBackupStatus(enabled) {
+    const statusEl = document.getElementById('autoBackupStatus');
+    if (enabled) {
+        statusEl.textContent = '✅ 已启用 - 书签变化后5分钟自动备份，每天凌晨2点执行每日备份';
+    } else {
+        statusEl.textContent = '未启用 - 开启后将自动备份书签变化';
     }
 }
