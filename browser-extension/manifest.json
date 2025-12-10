@@ -11,7 +11,8 @@
     "contextMenus",
     "notifications",
     "activeTab",
-    "scripting"
+    "scripting",
+    "alarms"
   ],
   "host_permissions": [
     "http://*/",

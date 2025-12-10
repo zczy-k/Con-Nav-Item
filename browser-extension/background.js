@@ -1046,9 +1046,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 
 // ==================== 自动书签云备份 ====================
 
-const BACKUP_DEBOUNCE_MS = 5 * 60 * 1000; // 5分钟防抖
 const DAILY_BACKUP_HOUR = 2; // 每天凌晨2点
-let backupDebounceTimer = null;
 let dailyBackupTimer = null;
 
 // 自动备份配置（使用Token认证）
@@ -1149,18 +1147,27 @@ async function performAutoBackup(type = 'auto') {
     }
 }
 
-// 防抖备份（书签变化时触发）
-function triggerDebouncedBackup() {
-    if (backupDebounceTimer) {
-        clearTimeout(backupDebounceTimer);
-    }
+// 防抖备份（使用 Chrome Alarms API，避免 Service Worker 休眠导致 setTimeout 失效）
+const BACKUP_ALARM_NAME = 'bookmarkAutoBackup';
+
+async function triggerDebouncedBackup() {
+    // 清除之前的定时器
+    await chrome.alarms.clear(BACKUP_ALARM_NAME);
     
     console.log('[书签备份] 书签变化，将在5分钟后执行备份...');
-    backupDebounceTimer = setTimeout(async () => {
+    // 使用 alarms API 设置5分钟后触发
+    chrome.alarms.create(BACKUP_ALARM_NAME, {
+        delayInMinutes: 5
+    });
+}
+
+// 监听 alarm 触发
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === BACKUP_ALARM_NAME) {
         console.log('[书签备份] 防抖时间到，开始执行备份');
         await performAutoBackup('auto');
-    }, BACKUP_DEBOUNCE_MS);
-}
+    }
+});
 
 // 监听书签变化
 chrome.bookmarks.onCreated.addListener(() => {
@@ -1172,18 +1179,21 @@ chrome.bookmarks.onCreated.addListener(() => {
 });
 
 chrome.bookmarks.onRemoved.addListener(() => {
+    console.log('[书签备份] 检测到书签删除');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
 });
 
 chrome.bookmarks.onChanged.addListener(() => {
+    console.log('[书签备份] 检测到书签修改');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
 });
 
 chrome.bookmarks.onMoved.addListener(() => {
+    console.log('[书签备份] 检测到书签移动');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
