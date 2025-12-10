@@ -1047,7 +1047,6 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
 // ==================== 自动书签云备份 ====================
 
 const DAILY_BACKUP_HOUR = 2; // 每天凌晨2点
-let dailyBackupTimer = null;
 
 // 自动备份配置（使用Token认证）
 let autoBackupConfig = {
@@ -1147,17 +1146,20 @@ async function performAutoBackup(type = 'auto') {
     }
 }
 
-// 防抖备份（使用 Chrome Alarms API，避免 Service Worker 休眠导致 setTimeout 失效）
+// 防抖备份常量
 const BACKUP_ALARM_NAME = 'bookmarkAutoBackup';
+const BACKUP_DEBOUNCE_MINUTES = 5; // 5分钟防抖
 
+// 防抖备份（使用 Chrome Alarms API，即使 Service Worker 休眠也能触发）
 async function triggerDebouncedBackup() {
     // 清除之前的定时器
     await chrome.alarms.clear(BACKUP_ALARM_NAME);
     
-    console.log('[书签备份] 书签变化，将在5分钟后执行备份...');
-    // 使用 alarms API 设置5分钟后触发
+    console.log(`[书签备份] 书签变化，将在${BACKUP_DEBOUNCE_MINUTES}分钟后执行备份...`);
+    
+    // 创建新的 alarm（分钟为单位）
     chrome.alarms.create(BACKUP_ALARM_NAME, {
-        delayInMinutes: 5
+        delayInMinutes: BACKUP_DEBOUNCE_MINUTES
     });
 }
 
@@ -1166,6 +1168,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === BACKUP_ALARM_NAME) {
         console.log('[书签备份] 防抖时间到，开始执行备份');
         await performAutoBackup('auto');
+    }
+    
+    // 定时备份 alarm
+    if (alarm.name === 'dailyBackupCheck') {
+        await checkScheduledBackups();
     }
 });
 
@@ -1253,17 +1260,18 @@ async function checkScheduledBackups() {
     }
 }
 
-// 初始化定时备份定时器
-function initScheduledBackupTimer() {
+// 初始化定时备份（使用 Chrome Alarms API）
+async function initScheduledBackupTimer() {
+    // 清除旧的 alarm
+    await chrome.alarms.clear('dailyBackupCheck');
+    
     // 每小时检查一次是否需要执行定时备份
-    if (dailyBackupTimer) {
-        clearInterval(dailyBackupTimer);
-    }
+    chrome.alarms.create('dailyBackupCheck', {
+        delayInMinutes: 1,      // 1分钟后首次检查
+        periodInMinutes: 60     // 之后每60分钟检查一次
+    });
     
-    dailyBackupTimer = setInterval(checkScheduledBackups, 60 * 60 * 1000);
-    
-    // 启动时也检查一次（延迟1分钟）
-    setTimeout(checkScheduledBackups, 60000);
+    console.log('[书签备份] 定时备份检查已初始化（每小时检查一次）');
 }
 
 // 监听自动备份设置变化
