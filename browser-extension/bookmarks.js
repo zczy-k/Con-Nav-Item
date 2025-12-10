@@ -7455,12 +7455,22 @@ async function toggleAutoUpdateHot(e) {
 
 let cloudBackupServerUrl = '';
 let cloudBackupToken = ''; // 使用Token替代密码
+let lastLoginTime = 0; // 最后登录时间戳（用于防止刚登录后验证失败清除Token）
 
 // 显示云备份弹窗
 async function showCloudBackupModal() {
+    console.log('[云备份弹窗] 开始打开弹窗');
+    
     // 加载保存的服务器地址和Token
     try {
-        const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupToken', 'autoBookmarkBackupEnabled']);
+        const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupToken', 'autoBookmarkBackupEnabled', 'cloudBackupLastLoginTime']);
+        console.log('[云备份弹窗] 从storage加载配置:', {
+            hasServer: !!result.cloudBackupServer,
+            hasToken: !!result.cloudBackupToken,
+            tokenLength: result.cloudBackupToken ? result.cloudBackupToken.length : 0,
+            lastLoginTime: result.cloudBackupLastLoginTime
+        });
+        
         if (result.cloudBackupServer) {
             cloudBackupServerUrl = result.cloudBackupServer;
             document.getElementById('cloudBackupServer').value = result.cloudBackupServer;
@@ -7470,11 +7480,14 @@ async function showCloudBackupModal() {
         }
         // 始终从storage同步Token状态（包括清空的情况）
         cloudBackupToken = result.cloudBackupToken || '';
+        lastLoginTime = result.cloudBackupLastLoginTime || 0;
+        console.log('[云备份弹窗] 内存Token已更新:', cloudBackupToken ? '有Token' : '无Token');
         
         // 加载自动备份状态
         document.getElementById('autoBackupEnabled').checked = result.autoBookmarkBackupEnabled || false;
         updateAutoBackupStatus(result.autoBookmarkBackupEnabled || false);
     } catch (e) {
+        console.error('[云备份弹窗] 加载配置失败:', e);
         // 加载失败时重置Token
         cloudBackupToken = '';
     }
@@ -7487,6 +7500,7 @@ async function showCloudBackupModal() {
     document.getElementById('cloudBackupStatus').textContent = '';
     
     // 更新授权状态显示
+    console.log('[云备份弹窗] 准备更新授权状态显示');
     await updateAuthStatusDisplay();
     
     // 如果已有服务器地址，自动加载备份列表并检查WebDAV状态
@@ -7498,19 +7512,63 @@ async function showCloudBackupModal() {
         const banner = document.getElementById('webdavStatusBanner');
         if (banner) banner.style.display = 'none';
     }
+    
+    console.log('[云备份弹窗] 弹窗打开完成');
 }
 
 // 更新授权状态显示
 async function updateAuthStatusDisplay() {
+    console.log('[授权状态] 开始更新授权状态显示');
+    
     const statusEl = document.getElementById('authStatus');
     const btnEl = document.getElementById('btnAuthLogin');
     
+    // 先从storage重新读取Token和登录时间，确保使用最新的值
+    try {
+        const result = await chrome.storage.local.get(['cloudBackupToken', 'cloudBackupLastLoginTime']);
+        if (result.cloudBackupToken && result.cloudBackupToken !== cloudBackupToken) {
+            console.log('[授权状态] 从storage同步最新Token');
+            cloudBackupToken = result.cloudBackupToken;
+        }
+        if (result.cloudBackupLastLoginTime) {
+            lastLoginTime = result.cloudBackupLastLoginTime;
+        }
+    } catch (e) {
+        console.error('[授权状态] 读取storage失败:', e);
+    }
+    
+    // 检查是否是最近登录的（60秒内）
+    const isRecentLogin = lastLoginTime && (Date.now() - lastLoginTime < 60000);
+    
+    console.log('[授权状态] 当前状态:', {
+        hasToken: !!cloudBackupToken,
+        hasServer: !!cloudBackupServerUrl,
+        tokenLength: cloudBackupToken ? cloudBackupToken.length : 0,
+        lastLoginTime: lastLoginTime,
+        isRecentLogin: isRecentLogin
+    });
+    
     if (!cloudBackupToken || !cloudBackupServerUrl) {
+        console.log('[授权状态] 无Token或无服务器，显示未授权');
         statusEl.innerHTML = '<span style="color: #ef4444;">❌ 未授权</span>';
         statusEl.style.borderColor = '#fecaca';
         statusEl.style.background = '#fef2f2';
         btnEl.textContent = '授权';
         btnEl.style.background = '#10b981';
+        btnEl.disabled = false;
+        btnEl.style.opacity = '1';
+        return;
+    }
+    
+    // 如果是最近登录的，直接显示已授权，不再验证
+    // 这是因为登录成功本身就证明了Token是有效的
+    if (isRecentLogin) {
+        console.log('[授权状态] 最近登录，跳过验证，直接显示已授权');
+        statusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
+        statusEl.style.borderColor = '#a7f3d0';
+        statusEl.style.background = '#ecfdf5';
+        btnEl.textContent = '重新授权';
+        btnEl.style.background = '#6b7280';
         btnEl.disabled = false;
         btnEl.style.opacity = '1';
         return;
@@ -7525,21 +7583,28 @@ async function updateAuthStatusDisplay() {
     
     // 验证Token是否有效
     try {
+        console.log('[授权状态] 开始验证Token有效性');
         const response = await fetch(`${cloudBackupServerUrl}/api/extension/verify`, {
             headers: { 'Authorization': `Bearer ${cloudBackupToken}` }
         });
         const data = await response.json();
+        console.log('[授权状态] 验证响应:', data);
         
         if (data.success && data.valid) {
+            console.log('[授权状态] Token有效，显示已授权');
             statusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
             statusEl.style.borderColor = '#a7f3d0';
             statusEl.style.background = '#ecfdf5';
             btnEl.textContent = '重新授权';
             btnEl.style.background = '#6b7280';
         } else {
-            // Token无效，清除本地Token
+            console.log('[授权状态] Token无效，原因:', data.reason);
+            
+            // Token确实无效，清除本地Token和登录时间
             cloudBackupToken = '';
-            chrome.storage.local.remove('cloudBackupToken').catch(console.error);
+            lastLoginTime = 0;
+            await chrome.storage.local.remove(['cloudBackupToken', 'cloudBackupLastLoginTime']);
+            console.log('[授权状态] 已清除无效Token');
             
             // 显示需要重新授权的提示
             const message = data.reason === 'password_changed' 
@@ -7552,6 +7617,8 @@ async function updateAuthStatusDisplay() {
             btnEl.style.background = '#f59e0b';
         }
     } catch (e) {
+        console.error('[授权状态] 验证Token时出错:', e);
+        // 网络错误时不清除Token，保持当前状态
         statusEl.innerHTML = '<span style="color: #6b7280;">⚠️ 网络错误，无法验证</span>';
         statusEl.style.borderColor = '#e5e7eb';
         statusEl.style.background = '#f9fafb';
@@ -7562,6 +7629,7 @@ async function updateAuthStatusDisplay() {
     // 恢复按钮状态
     btnEl.disabled = false;
     btnEl.style.opacity = '1';
+    console.log('[授权状态] 授权状态更新完成');
 }
 
 // 显示授权登录弹窗
@@ -7597,15 +7665,38 @@ async function showAuthLoginDialog() {
         const data = await response.json();
         
         if (data.success && data.token) {
+            console.log('[授权] 登录成功，准备保存Token');
+            
+            // 记录登录时间
+            const loginTime = Date.now();
+            
+            // 先保存到storage，确保持久化（同时保存登录时间）
+            try {
+                await chrome.storage.local.set({ 
+                    cloudBackupToken: data.token,
+                    cloudBackupLastLoginTime: loginTime
+                });
+                console.log('[授权] Token和登录时间已保存到storage');
+                
+                // 验证是否真的保存成功
+                const verify = await chrome.storage.local.get(['cloudBackupToken', 'cloudBackupLastLoginTime']);
+                console.log('[授权] 验证storage:', {
+                    hasToken: !!verify.cloudBackupToken,
+                    loginTime: verify.cloudBackupLastLoginTime
+                });
+                
+                if (!verify.cloudBackupToken) {
+                    throw new Error('Token保存验证失败');
+                }
+            } catch (e) {
+                console.error('[授权] 保存Token失败:', e);
+                throw new Error('保存Token失败: ' + e.message);
+            }
+            
             // 更新内存变量
             cloudBackupToken = data.token;
-            
-            // 先保存到storage，确保持久化
-            try {
-                await chrome.storage.local.set({ cloudBackupToken: data.token });
-            } catch (e) {
-                console.error('保存Token失败:', e);
-            }
+            lastLoginTime = loginTime;
+            console.log('[授权] 内存变量已更新');
             
             // 更新界面状态
             statusEl.textContent = '✅ 授权成功';
@@ -7617,7 +7708,10 @@ async function showAuthLoginDialog() {
             btnEl.style.background = '#6b7280';
             btnEl.disabled = false;
             btnEl.style.opacity = '1';
+            
+            console.log('[授权] 授权流程完成');
         } else {
+            console.log('[授权] 登录失败:', data.message);
             statusEl.textContent = `❌ 授权失败: ${data.message || '密码错误'}`;
             statusEl.style.color = '#ef4444';
             authStatusEl.innerHTML = '<span style="color: #ef4444;">❌ 授权失败</span>';
@@ -7627,6 +7721,7 @@ async function showAuthLoginDialog() {
             btnEl.style.opacity = '1';
         }
     } catch (error) {
+        console.error('[授权] 授权过程出错:', error);
         statusEl.textContent = `❌ 授权失败: ${error.message}`;
         statusEl.style.color = '#ef4444';
         authStatusEl.innerHTML = '<span style="color: #ef4444;">❌ 网络错误</span>';
