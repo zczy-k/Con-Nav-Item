@@ -7508,8 +7508,17 @@ async function updateAuthStatusDisplay() {
         statusEl.style.background = '#fef2f2';
         btnEl.textContent = '授权';
         btnEl.style.background = '#10b981';
+        btnEl.disabled = false;
+        btnEl.style.opacity = '1';
         return;
     }
+    
+    // 显示验证中状态
+    statusEl.innerHTML = '<span style="color: #666;">⏳ 验证授权状态...</span>';
+    statusEl.style.borderColor = '#e5e7eb';
+    statusEl.style.background = '#f9fafb';
+    btnEl.disabled = true;
+    btnEl.style.opacity = '0.6';
     
     // 验证Token是否有效
     try {
@@ -7525,20 +7534,31 @@ async function updateAuthStatusDisplay() {
             btnEl.textContent = '重新授权';
             btnEl.style.background = '#6b7280';
         } else {
-            // Token无效
+            // Token无效，清除本地Token
             cloudBackupToken = '';
-            await chrome.storage.local.remove('cloudBackupToken');
-            statusEl.innerHTML = `<span style="color: #f59e0b;">⚠️ ${data.message || '需要重新授权'}</span>`;
+            chrome.storage.local.remove('cloudBackupToken').catch(console.error);
+            
+            // 显示需要重新授权的提示
+            const message = data.reason === 'password_changed' 
+                ? '⚠️ 密码已修改，请重新授权' 
+                : `⚠️ ${data.message || '需要重新授权'}`;
+            statusEl.innerHTML = `<span style="color: #f59e0b;">${message}</span>`;
             statusEl.style.borderColor = '#fde68a';
             statusEl.style.background = '#fffbeb';
             btnEl.textContent = '重新授权';
             btnEl.style.background = '#f59e0b';
         }
     } catch (e) {
-        statusEl.innerHTML = '<span style="color: #6b7280;">⏳ 无法验证</span>';
+        statusEl.innerHTML = '<span style="color: #6b7280;">⚠️ 网络错误，无法验证</span>';
         statusEl.style.borderColor = '#e5e7eb';
         statusEl.style.background = '#f9fafb';
+        btnEl.textContent = '重试';
+        btnEl.style.background = '#6b7280';
     }
+    
+    // 恢复按钮状态
+    btnEl.disabled = false;
+    btnEl.style.opacity = '1';
 }
 
 // 显示授权登录弹窗
