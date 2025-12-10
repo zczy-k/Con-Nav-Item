@@ -7468,13 +7468,16 @@ async function showCloudBackupModal() {
         if (result.backupDeviceName) {
             document.getElementById('backupDeviceName').value = result.backupDeviceName;
         }
-        if (result.cloudBackupToken) {
-            cloudBackupToken = result.cloudBackupToken;
-        }
+        // 始终从storage同步Token状态（包括清空的情况）
+        cloudBackupToken = result.cloudBackupToken || '';
+        
         // 加载自动备份状态
         document.getElementById('autoBackupEnabled').checked = result.autoBookmarkBackupEnabled || false;
         updateAutoBackupStatus(result.autoBookmarkBackupEnabled || false);
-    } catch (e) {}
+    } catch (e) {
+        // 加载失败时重置Token
+        cloudBackupToken = '';
+    }
     
     // 更新当前书签统计
     document.getElementById('currentBookmarkCount').textContent = bookmarkCount;
@@ -7594,10 +7597,17 @@ async function showAuthLoginDialog() {
         const data = await response.json();
         
         if (data.success && data.token) {
-            // 先更新内存变量和界面，再异步保存storage
+            // 更新内存变量
             cloudBackupToken = data.token;
             
-            // 立即更新界面状态
+            // 先保存到storage，确保持久化
+            try {
+                await chrome.storage.local.set({ cloudBackupToken: data.token });
+            } catch (e) {
+                console.error('保存Token失败:', e);
+            }
+            
+            // 更新界面状态
             statusEl.textContent = '✅ 授权成功';
             statusEl.style.color = '#10b981';
             authStatusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
@@ -7607,9 +7617,6 @@ async function showAuthLoginDialog() {
             btnEl.style.background = '#6b7280';
             btnEl.disabled = false;
             btnEl.style.opacity = '1';
-            
-            // 异步保存到storage（不阻塞界面）
-            chrome.storage.local.set({ cloudBackupToken: data.token }).catch(console.error);
         } else {
             statusEl.textContent = `❌ 授权失败: ${data.message || '密码错误'}`;
             statusEl.style.color = '#ef4444';
