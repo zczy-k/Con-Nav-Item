@@ -1017,6 +1017,30 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             .catch(e => sendResponse({ success: false, error: e.message }));
         return true;
     }
+    
+    // 手动触发书签备份（用于测试）
+    if (request.action === 'testBookmarkBackup') {
+        console.log('[书签备份] 收到手动测试请求');
+        performAutoBackup('manual')
+            .then(result => {
+                console.log('[书签备份] 手动测试结果:', result);
+                sendResponse(result);
+            })
+            .catch(e => sendResponse({ success: false, error: e.message }));
+        return true;
+    }
+    
+    // 获取自动备份配置状态
+    if (request.action === 'getBackupConfig') {
+        loadAutoBackupConfig()
+            .then(config => sendResponse({
+                enabled: config.enabled,
+                serverUrl: config.serverUrl ? '已配置' : '未配置',
+                hasToken: !!config.token
+            }))
+            .catch(e => sendResponse({ error: e.message }));
+        return true;
+    }
 });
 
 
@@ -1064,12 +1088,20 @@ async function performAutoBackup(type = 'auto') {
     try {
         await loadAutoBackupConfig();
         
+        console.log('[书签备份] 开始执行备份, 类型:', type, '配置:', {
+            enabled: autoBackupConfig.enabled,
+            serverUrl: autoBackupConfig.serverUrl ? '已配置' : '未配置',
+            token: autoBackupConfig.token ? '已授权' : '未授权'
+        });
+        
         if (!autoBackupConfig.enabled || !autoBackupConfig.serverUrl || !autoBackupConfig.token) {
+            console.warn('[书签备份] 跳过: 自动备份未配置或未授权');
             return { success: false, reason: '自动备份未配置或未授权' };
         }
         
         // 获取所有书签
         const tree = await chrome.bookmarks.getTree();
+        console.log('[书签备份] 获取书签树完成');
         
         // 上传备份（使用Token认证）
         const response = await fetch(`${autoBackupConfig.serverUrl}/api/bookmark-sync/upload`, {
@@ -1087,6 +1119,7 @@ async function performAutoBackup(type = 'auto') {
         });
         
         const data = await response.json();
+        console.log('[书签备份] 服务器响应:', data);
         
         // 检查Token是否失效
         if (response.status === 401 && data.reason === 'token_invalid') {
@@ -1099,15 +1132,19 @@ async function performAutoBackup(type = 'auto') {
             // 显示通知提醒用户
             showNotification('自动备份已暂停', '管理密码已更改，请重新授权以恢复自动备份');
             
+            console.error('[书签备份] Token已失效');
             return { success: false, reason: 'token_invalid', message: '授权已失效' };
         }
         
         if (data.success) {
+            console.log('[书签备份] ✅ 备份成功:', data.backup?.filename || '');
             return { success: true, data };
         } else {
+            console.error('[书签备份] ❌ 备份失败:', data.message);
             return { success: false, message: data.message };
         }
     } catch (error) {
+        console.error('[书签备份] ❌ 异常:', error.message);
         return { success: false, error: error.message };
     }
 }
@@ -1118,15 +1155,19 @@ function triggerDebouncedBackup() {
         clearTimeout(backupDebounceTimer);
     }
     
+    console.log('[书签备份] 书签变化，将在5分钟后执行备份...');
     backupDebounceTimer = setTimeout(async () => {
+        console.log('[书签备份] 防抖时间到，开始执行备份');
         await performAutoBackup('auto');
     }, BACKUP_DEBOUNCE_MS);
 }
 
 // 监听书签变化
 chrome.bookmarks.onCreated.addListener(() => {
+    console.log('[书签备份] 检测到书签创建');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
+        else console.log('[书签备份] 自动备份未启用，跳过');
     });
 });
 
