@@ -368,7 +368,8 @@ function flexAuthMiddleware(req, res, next) {
         return;
     }
     
-    next();
+    // 没有提供任何认证信息，拒绝访问
+    return res.status(401).json({ success: false, message: '请先授权登录' });
 }
 
 // 上传书签备份
