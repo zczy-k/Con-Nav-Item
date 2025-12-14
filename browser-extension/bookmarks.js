@@ -7514,16 +7514,21 @@ async function showCloudBackupModal() {
     console.log('[云备份弹窗] 准备更新授权状态显示（验证后端状态）');
     await updateAuthStatusDisplay();
     
+    // 如果有服务器配置，检查WebDAV状态（不管Token是否有效都显示）
+    if (cloudBackupServerUrl) {
+        await checkWebDAVStatus();
+    } else {
+        // 没有服务器配置时隐藏WebDAV横幅
+        const banner = document.getElementById('webdavStatusBanner');
+        if (banner) banner.style.display = 'none';
+    }
+    
     // 只有在验证通过后才加载备份列表
     if (cloudBackupServerUrl && cloudBackupToken && lastVerifiedToken === cloudBackupToken) {
         console.log('[云备份弹窗] Token验证通过，加载备份列表');
         await loadCloudBackupList();
-        await checkWebDAVStatus();
     } else {
         console.log('[云备份弹窗] Token未验证或无效，跳过加载备份列表');
-        // 隐藏WebDAV状态横幅
-        const banner = document.getElementById('webdavStatusBanner');
-        if (banner) banner.style.display = 'none';
     }
     
     console.log('[云备份弹窗] 弹窗打开完成');
