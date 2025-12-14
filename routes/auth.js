@@ -3,7 +3,7 @@ const db = require('../db');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const config = require('../config');
-const { loginLimiter } = require('../middleware/security');
+const { loginLimiter, verifyLimiter } = require('../middleware/security');
 const { validatePasswordStrength, validateUsername } = require('../middleware/security');
 const router = express.Router();
 
@@ -150,7 +150,7 @@ router.post('/extension/login', loginLimiter, (req, res) => {
 });
 
 // 验证扩展Token是否有效
-router.get('/extension/verify', (req, res) => {
+router.get('/extension/verify', verifyLimiter, (req, res) => {
   // 禁用缓存，确保每次都是实时验证
   res.set({
     'Cache-Control': 'no-cache, no-store, must-revalidate',

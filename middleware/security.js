@@ -45,6 +45,15 @@ const bookmarkSyncLimiter = rateLimit({
   skipFailedRequests: true,
 });
 
+// Token验证限流器（防止频繁验证）
+const verifyLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1分钟
+  max: 30, // 每分钟最多30次验证请求
+  message: { success: false, valid: false, message: '验证请求过于频繁，请稍后再试' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // 文件上传限流器
 const uploadLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1小时
@@ -212,6 +221,7 @@ module.exports = {
   uploadLimiter,
   wallpaperLimiter,
   bookmarkSyncLimiter,
+  verifyLimiter,
   helmetConfig,
   sanitizeMiddleware,
   validatePasswordStrength,
