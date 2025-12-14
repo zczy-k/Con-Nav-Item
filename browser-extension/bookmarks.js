@@ -56,6 +56,7 @@ function handleUrlParams() {
     const addToNav = urlParams.get('addToNav');
     const url = urlParams.get('url');
     const title = urlParams.get('title');
+    const openCloudBackup = urlParams.get('openCloudBackup');
     
     if (addToNav === 'true' && url) {
         // 创建一个临时书签对象
@@ -68,6 +69,17 @@ function handleUrlParams() {
         // 延迟显示弹窗，等待页面完全加载
         setTimeout(() => {
             showAddToNavModalDirect();
+        }, 500);
+        
+        // 清除URL参数
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+    
+    // 处理打开云备份设置的请求
+    if (openCloudBackup === 'true') {
+        // 延迟显示云备份弹窗，等待页面完全加载
+        setTimeout(() => {
+            showCloudBackupModal();
         }, 500);
         
         // 清除URL参数

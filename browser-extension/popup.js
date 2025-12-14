@@ -83,3 +83,41 @@ document.getElementById('openBookmarks').addEventListener('click', function() {
     chrome.tabs.create({ url: chrome.runtime.getURL('bookmarks.html') });
     window.close();
 });
+
+// 检查云备份配置状态，显示提示
+chrome.storage.local.get(['cloudBackupServer', 'cloudBackupPopupDismissed'], function(result) {
+    const tip = document.getElementById('cloudBackupTip');
+    if (!tip) return;
+    
+    // 如果已配置服务器地址，不显示提示
+    if (result.cloudBackupServer) {
+        tip.style.display = 'none';
+        return;
+    }
+    
+    // 检查用户是否在7天内关闭过提示
+    if (result.cloudBackupPopupDismissed) {
+        const sevenDays = 7 * 24 * 60 * 60 * 1000;
+        if (Date.now() - result.cloudBackupPopupDismissed < sevenDays) {
+            tip.style.display = 'none';
+            return;
+        }
+    }
+    
+    // 显示提示
+    tip.style.display = 'block';
+});
+
+// 云备份提示 - 立即配置按钮
+document.getElementById('btnSetupCloudBackup').addEventListener('click', function() {
+    // 打开书签管理器并自动打开云备份设置
+    chrome.tabs.create({ url: chrome.runtime.getURL('bookmarks.html?openCloudBackup=true') });
+    window.close();
+});
+
+// 云备份提示 - 稍后按钮
+document.getElementById('btnDismissCloudTip').addEventListener('click', function() {
+    document.getElementById('cloudBackupTip').style.display = 'none';
+    // 记住用户选择，7天内不再提示
+    chrome.storage.local.set({ cloudBackupPopupDismissed: Date.now() });
+});
