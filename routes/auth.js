@@ -111,13 +111,18 @@ router.post('/extension/login', loginLimiter, (req, res) => {
   
   db.get('SELECT * FROM users WHERE id = 1', (err, user) => {
     if (err || !user) {
+      console.error('[扩展登录] 查询用户失败:', err);
       return res.status(500).json({ success: false, message: '服务器错误' });
     }
+    
+    console.log('[扩展登录] 当前用户token_version:', user.token_version);
     
     bcrypt.compare(password, user.password, (err, result) => {
       if (result) {
         // 生成包含token_version的长期Token（365天有效）
         const tokenVersion = user.token_version || 1;
+        console.log('[扩展登录] 生成Token，tokenVersion:', tokenVersion);
+        
         const token = jwt.sign(
           { 
             id: user.id, 
@@ -128,12 +133,15 @@ router.post('/extension/login', loginLimiter, (req, res) => {
           JWT_SECRET, 
           { expiresIn: '365d' }
         );
+        
+        console.log('[扩展登录] Token生成成功');
         res.json({ 
           success: true, 
           token,
           message: '登录成功'
         });
       } else {
+        console.log('[扩展登录] 密码验证失败');
         res.status(401).json({ success: false, message: '密码错误' });
       }
     });
@@ -145,6 +153,7 @@ router.get('/extension/verify', (req, res) => {
   const auth = req.headers.authorization;
   
   if (!auth || !auth.startsWith('Bearer ')) {
+    console.log('[Token验证] 未提供Token');
     return res.json({ success: false, valid: false, message: '未提供Token' });
   }
   
@@ -152,20 +161,31 @@ router.get('/extension/verify', (req, res) => {
   
   try {
     const payload = jwt.verify(token, JWT_SECRET);
+    console.log('[Token验证] Token解析成功，payload:', {
+      id: payload.id,
+      username: payload.username,
+      tokenVersion: payload.tokenVersion,
+      type: payload.type
+    });
     
     // 检查是否是扩展Token
     if (payload.type !== 'extension') {
+      console.log('[Token验证] Token类型无效:', payload.type);
       return res.json({ success: false, valid: false, message: 'Token类型无效' });
     }
     
     // 检查token_version是否匹配
     db.get('SELECT token_version FROM users WHERE id = ?', [payload.id], (err, user) => {
       if (err || !user) {
+        console.error('[Token验证] 查询用户失败:', err);
         return res.json({ success: false, valid: false, message: '用户不存在' });
       }
       
       const currentVersion = user.token_version || 1;
+      console.log('[Token验证] 版本对比 - Token中:', payload.tokenVersion, '数据库中:', currentVersion);
+      
       if (payload.tokenVersion !== currentVersion) {
+        console.log('[Token验证] 版本不匹配，Token无效');
         return res.json({ 
           success: false, 
           valid: false, 
@@ -174,9 +194,11 @@ router.get('/extension/verify', (req, res) => {
         });
       }
       
+      console.log('[Token验证] 验证通过');
       res.json({ success: true, valid: true });
     });
   } catch (err) {
+    console.error('[Token验证] Token验证异常:', err.message);
     if (err.name === 'TokenExpiredError') {
       return res.json({ success: false, valid: false, message: 'Token已过期', reason: 'expired' });
     }
