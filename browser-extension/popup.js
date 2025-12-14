@@ -31,11 +31,13 @@ chrome.storage.sync.get(['navUrl', 'newtabMode', 'floatBtnEnabled'], function(re
     }
 
     if (result.navUrl) {
-        urlElement.textContent = result.navUrl;
+        // 隐藏完整网址，只显示已配置状态
+        urlElement.textContent = '✅ 已配置';
         urlElement.classList.remove('empty');
+        urlElement.style.color = '#10b981';
         openNavBtn.disabled = false;
     } else {
-        urlElement.textContent = '未设置';
+        urlElement.textContent = '❌ 未设置';
         urlElement.classList.add('empty');
         openNavBtn.disabled = true;
     }

@@ -148,6 +148,28 @@
             <button class="btn btn-secondary" id="btnShowShortcuts" title="查看快捷键">⌨️</button>
         </div>
         
+        <!-- 云备份未配置提示 -->
+        <div id="cloudBackupSetupBanner" style="display: none; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border: 1px solid #f59e0b; border-radius: 12px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(245,158,11,0.2);">
+            <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <span style="font-size: 24px;">☁️</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 15px; font-weight: 600; color: #92400e; margin-bottom: 6px;">开启云端书签备份</div>
+                    <div style="font-size: 13px; color: #a16207; line-height: 1.5; margin-bottom: 12px;">
+                        配置云备份后，您的书签将自动同步到服务器，实现多设备同步和数据安全备份。
+                    </div>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-small" id="btnSetupCloudBackup" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border: none; padding: 8px 16px; font-weight: 500;">
+                            🚀 立即配置
+                        </button>
+                        <button class="btn btn-small btn-secondary" id="btnDismissCloudBanner" style="padding: 8px 16px;">
+                            稍后再说
+                        </button>
+                    </div>
+                </div>
+                <button id="btnCloseCloudBanner" style="background: none; border: none; font-size: 18px; color: #92400e; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+            </div>
+        </div>
+        
         <!-- 标签云 -->
         <div id="tagCloud" style="background: white; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); display: none;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">

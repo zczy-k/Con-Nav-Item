@@ -46,6 +46,8 @@ async function init() {
     await initNavConfig();
     // 检查URL参数，处理从右键菜单传递的添加请求
     handleUrlParams();
+    // 检查云备份配置状态，显示设置提示
+    await checkCloudBackupSetup();
 }
 
 // 处理URL参数（从右键菜单传递）
@@ -2040,6 +2042,31 @@ function updateSelectionUI() {
 function bindEvents() {
     // 搜索
     document.getElementById('searchInput').addEventListener('input', debounce(handleSearch, 300));
+    
+    // 云备份设置提示横幅事件
+    const setupBtn = document.getElementById('btnSetupCloudBackup');
+    const dismissBtn = document.getElementById('btnDismissCloudBanner');
+    const closeBtn = document.getElementById('btnCloseCloudBanner');
+    if (setupBtn) {
+        setupBtn.addEventListener('click', () => {
+            document.getElementById('cloudBackupSetupBanner').style.display = 'none';
+            showCloudBackupModal();
+        });
+    }
+    if (dismissBtn) {
+        dismissBtn.addEventListener('click', () => {
+            document.getElementById('cloudBackupSetupBanner').style.display = 'none';
+            // 记住用户选择，7天内不再提示
+            chrome.storage.local.set({ cloudBackupBannerDismissed: Date.now() });
+        });
+    }
+    if (closeBtn) {
+        closeBtn.addEventListener('click', () => {
+            document.getElementById('cloudBackupSetupBanner').style.display = 'none';
+            // 记住用户选择，7天内不再提示
+            chrome.storage.local.set({ cloudBackupBannerDismissed: Date.now() });
+        });
+    }
     
     // 新建文件夹
     document.getElementById('btnNewFolder').addEventListener('click', showNewFolderDialog);
@@ -7457,6 +7484,37 @@ let cloudBackupServerUrl = '';
 let cloudBackupToken = ''; // 使用Token替代密码
 let isVerifying = false; // 标记是否正在验证Token
 let lastVerifiedToken = ''; // 上次验证通过的Token（用于避免重复验证同一个Token）
+
+// 检查云备份配置状态，显示设置提示横幅
+async function checkCloudBackupSetup() {
+    try {
+        const result = await chrome.storage.local.get(['cloudBackupServer', 'cloudBackupBannerDismissed']);
+        const banner = document.getElementById('cloudBackupSetupBanner');
+        
+        if (!banner) return;
+        
+        // 如果已配置服务器地址，不显示提示
+        if (result.cloudBackupServer) {
+            banner.style.display = 'none';
+            return;
+        }
+        
+        // 检查用户是否在7天内关闭过提示
+        if (result.cloudBackupBannerDismissed) {
+            const dismissedTime = result.cloudBackupBannerDismissed;
+            const sevenDays = 7 * 24 * 60 * 60 * 1000; // 7天的毫秒数
+            if (Date.now() - dismissedTime < sevenDays) {
+                banner.style.display = 'none';
+                return;
+            }
+        }
+        
+        // 显示设置提示横幅
+        banner.style.display = 'block';
+    } catch (e) {
+        console.error('[云备份提示] 检查配置状态失败:', e);
+    }
+}
 
 // 显示云备份弹窗
 async function showCloudBackupModal() {
