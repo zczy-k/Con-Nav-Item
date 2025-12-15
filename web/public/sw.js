@@ -10,11 +10,9 @@ const PRECACHE_URLS = [
 
 // 安装事件 - 预缓存核心资源
 self.addEventListener('install', (event) => {
-  console.log('[SW] Install event');
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then(cache => {
-        console.log('[SW] Pre-caching core resources');
         return cache.addAll(PRECACHE_URLS);
       })
       .then(() => self.skipWaiting())
@@ -23,14 +21,12 @@ self.addEventListener('install', (event) => {
 
 // 激活事件 - 清理旧缓存
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activate event');
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames
           .filter(cacheName => cacheName !== CACHE_NAME && cacheName !== RUNTIME_CACHE)
           .map(cacheName => {
-            console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           })
       );

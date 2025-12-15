@@ -19,7 +19,6 @@ chrome.storage.sync.get(['newtabMode', 'navUrl', 'offlineHtml'], function(result
         
         // 监听加载错误,如果网络失败则使用离线版本
         navFrame.onerror = function() {
-            console.log('在线加载失败,尝试使用离线版本');
             loadOfflineVersion(result.offlineHtml);
         };
         

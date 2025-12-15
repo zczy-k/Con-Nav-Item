@@ -5661,11 +5661,9 @@ async function getNavAuthToken(forceNew = false) {
                             return token;
                         }
                         // token已过期，清除并重新获取
-                        console.log('Token已过期，需要重新登录');
                         await chrome.storage.local.remove(['navAuthToken']);
                     } catch (e) {
                         // 解析失败，token可能无效
-                        console.log('Token解析失败，需要重新登录');
                         await chrome.storage.local.remove(['navAuthToken']);
                     }
                 }
@@ -5783,7 +5781,6 @@ async function confirmAddToNav() {
                 existingTags = await tagsResponse.json();
             }
         } catch (e) {
-            console.log('获取标签失败，将不使用标签:', e);
         }
         
         // 构建卡片数据（包含自动生成的标签和描述）
@@ -6055,7 +6052,6 @@ async function getOrCreateTagIds(tagNames, existingTags, token = null) {
                     existingTags.push({ id: newTag.id, name: tagName });
                 }
             } catch (e) {
-                console.log('创建标签失败:', tagName, e);
             }
         }
     }
@@ -7472,8 +7468,6 @@ let lastVerifiedToken = ''; // 上次验证通过的Token（用于避免重复�
 
 // 显示云备份弹窗
 async function showCloudBackupModal() {
-    console.log('[云备份弹窗] 开始打开弹窗');
-    
     // 先禁用所有操作，等待验证完成
     disableCloudBackupOperations();
     
@@ -7489,12 +7483,6 @@ async function showCloudBackupModal() {
     // 加载保存的服务器地址和Token
     try {
         const result = await chrome.storage.local.get(['cloudBackupServer', 'backupDeviceName', 'cloudBackupToken', 'autoBookmarkBackupEnabled']);
-        console.log('[云备份弹窗] 从storage加载配置:', {
-            hasServer: !!result.cloudBackupServer,
-            hasToken: !!result.cloudBackupToken,
-            tokenLength: result.cloudBackupToken ? result.cloudBackupToken.length : 0
-        });
-        
         if (result.cloudBackupServer) {
             cloudBackupServerUrl = result.cloudBackupServer;
             document.getElementById('cloudBackupServer').value = result.cloudBackupServer;
@@ -7504,8 +7492,6 @@ async function showCloudBackupModal() {
         }
         // 始终从storage同步Token状态（包括清空的情况）
         cloudBackupToken = result.cloudBackupToken || '';
-        console.log('[云备份弹窗] 内存Token已更新:', cloudBackupToken ? '有Token' : '无Token');
-        
         // 加载自动备份状态
         document.getElementById('autoBackupEnabled').checked = result.autoBookmarkBackupEnabled || false;
         updateAutoBackupStatus(result.autoBookmarkBackupEnabled || false);
@@ -7523,7 +7509,6 @@ async function showCloudBackupModal() {
     document.getElementById('cloudBackupStatus').textContent = '';
     
     // 更新授权状态显示（会进行后端验证）
-    console.log('[云备份弹窗] 准备更新授权状态显示（验证后端状态）');
     await updateAuthStatusDisplay();
     
     // 如果有服务器配置，检查WebDAV状态（不管Token是否有效都显示）
@@ -7537,19 +7522,13 @@ async function showCloudBackupModal() {
     
     // 只有在验证通过后才加载备份列表
     if (cloudBackupServerUrl && cloudBackupToken && lastVerifiedToken === cloudBackupToken) {
-        console.log('[云备份弹窗] Token验证通过，加载备份列表');
         await loadCloudBackupList();
     } else {
-        console.log('[云备份弹窗] Token未验证或无效，跳过加载备份列表');
     }
-    
-    console.log('[云备份弹窗] 弹窗打开完成');
 }
 
 // 更新授权状态显示
 async function updateAuthStatusDisplay() {
-    console.log('[授权状态] 开始更新授权状态显示');
-    
     const statusEl = document.getElementById('authStatus');
     const btnEl = document.getElementById('btnAuthLogin');
     
@@ -7557,22 +7536,12 @@ async function updateAuthStatusDisplay() {
     try {
         const result = await chrome.storage.local.get(['cloudBackupToken']);
         if (result.cloudBackupToken && result.cloudBackupToken !== cloudBackupToken) {
-            console.log('[授权状态] 从storage同步最新Token');
             cloudBackupToken = result.cloudBackupToken;
         }
     } catch (e) {
         console.error('[授权状态] 读取storage失败:', e);
     }
-    
-    console.log('[授权状态] 当前状态:', {
-        hasToken: !!cloudBackupToken,
-        hasServer: !!cloudBackupServerUrl,
-        tokenLength: cloudBackupToken ? cloudBackupToken.length : 0,
-        isVerifying: isVerifying
-    });
-    
     if (!cloudBackupToken || !cloudBackupServerUrl) {
-        console.log('[授权状态] 无Token或无服务器，显示未授权');
         statusEl.innerHTML = '<span style="color: #ef4444;">❌ 未授权</span>';
         statusEl.style.borderColor = '#fecaca';
         statusEl.style.background = '#fef2f2';
@@ -7597,7 +7566,6 @@ async function updateAuthStatusDisplay() {
     isVerifying = true;
     
     // 验证Token是否有效（带超时和重试）
-    console.log('[授权状态] 开始验证Token有效性');
     const verifyResult = await verifyTokenWithRetry(cloudBackupToken, 1, 10000);
     
     if (!verifyResult.success) {
@@ -7615,10 +7583,7 @@ async function updateAuthStatusDisplay() {
     }
     
     const data = verifyResult.data;
-    console.log('[授权状态] 验证响应:', data);
-    
     if (data.success && data.valid) {
-        console.log('[授权状态] Token有效，显示已授权');
         lastVerifiedToken = cloudBackupToken; // 记录验证通过的Token
         statusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
         statusEl.style.borderColor = '#a7f3d0';
@@ -7631,14 +7596,10 @@ async function updateAuthStatusDisplay() {
         // 验证成功，启用操作
         enableCloudBackupOperations();
     } else {
-        console.log('[授权状态] Token无效，原因:', data.reason);
-        
         // Token确实无效，清除本地Token
         cloudBackupToken = '';
         lastVerifiedToken = '';
         await chrome.storage.local.remove('cloudBackupToken');
-        console.log('[授权状态] 已清除无效Token');
-        
         // 显示需要重新授权的提示
         const message = data.reason === 'password_changed' 
             ? '⚠️ 密码已修改，请重新授权' 
@@ -7653,14 +7614,11 @@ async function updateAuthStatusDisplay() {
         isVerifying = false;
         // Token无效，保持操作禁用状态
     }
-    
-    console.log('[授权状态] 授权状态更新完成');
 }
 
 // 显示授权登录弹窗
 // 禁用云备份相关操作
 function disableCloudBackupOperations() {
-    console.log('[操作控制] 禁用所有云备份操作');
     const btnUpload = document.getElementById('btnUploadBackup');
     const btnRestore = document.getElementById('btnRestoreBackup');
     const autoBackupCheckbox = document.getElementById('autoBackupEnabled');
@@ -7684,7 +7642,6 @@ function disableCloudBackupOperations() {
 
 // 启用云备份相关操作
 function enableCloudBackupOperations() {
-    console.log('[操作控制] 启用所有云备份操作');
     const btnUpload = document.getElementById('btnUploadBackup');
     const btnRestore = document.getElementById('btnRestoreBackup');
     const autoBackupCheckbox = document.getElementById('autoBackupEnabled');
@@ -7708,11 +7665,8 @@ function enableCloudBackupOperations() {
 
 // 验证Token有效性（带重试机制）
 async function verifyTokenWithRetry(token, maxRetries = 1, timeout = 10000) {
-    console.log(`[Token验证] 开始验证，最大重试次数: ${maxRetries}, 超时: ${timeout}ms`);
-    
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
         if (attempt > 0) {
-            console.log(`[Token验证] 第 ${attempt} 次重试...`);
         }
         
         try {
@@ -7732,8 +7686,6 @@ async function verifyTokenWithRetry(token, maxRetries = 1, timeout = 10000) {
             
             clearTimeout(timeoutId);
             const data = await response.json();
-            console.log(`[Token验证] 第 ${attempt + 1} 次尝试响应:`, data);
-            
             return { success: true, data };
         } catch (error) {
             console.error(`[Token验证] 第 ${attempt + 1} 次尝试失败:`, error.message);
@@ -7777,7 +7729,6 @@ async function showAuthLoginDialog() {
     
     try {
         // 第一步：登录获取Token
-        console.log('[授权] 开始登录...');
         const response = await fetch(`${cloudBackupServerUrl}/api/extension/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -7787,7 +7738,6 @@ async function showAuthLoginDialog() {
         const data = await response.json();
         
         if (!data.success || !data.token) {
-            console.log('[授权] 登录失败:', data.message);
             statusEl.textContent = `❌ 授权失败: ${data.message || '密码错误'}`;
             statusEl.style.color = '#ef4444';
             authStatusEl.innerHTML = '<span style="color: #ef4444;">❌ 授权失败</span>';
@@ -7799,9 +7749,6 @@ async function showAuthLoginDialog() {
             enableCloudBackupOperations();
             return;
         }
-        
-        console.log('[授权] 登录成功，获得Token');
-        
         // 第二步：验证Token是否真的有效（等待后端状态同步）
         statusEl.textContent = '⏳ 等待服务器确认...';
         authStatusEl.innerHTML = '<span style="color: #666;">⏳ 等待确认...</span>';
@@ -7818,7 +7765,6 @@ async function showAuthLoginDialog() {
             
             if (userChoice) {
                 // 用户选择重试
-                console.log('[授权] 用户选择重试验证');
                 statusEl.textContent = '⏳ 重新验证中...';
                 const retryResult = await verifyTokenWithRetry(data.token, 0, 10000);
                 
@@ -7839,7 +7785,6 @@ async function showAuthLoginDialog() {
                 Object.assign(verifyResult, retryResult);
             } else {
                 // 用户选择取消
-                console.log('[授权] 用户取消授权');
                 statusEl.textContent = '❌ 已取消授权';
                 statusEl.style.color = '#ef4444';
                 authStatusEl.innerHTML = '<span style="color: #ef4444;">❌ 已取消</span>';
@@ -7856,7 +7801,6 @@ async function showAuthLoginDialog() {
         // 第三步：检查验证结果
         const verifyData = verifyResult.data;
         if (!verifyData.success || !verifyData.valid) {
-            console.log('[授权] Token验证失败:', verifyData.message);
             statusEl.textContent = `❌ 授权失败: ${verifyData.message || 'Token无效'}`;
             statusEl.style.color = '#ef4444';
             authStatusEl.innerHTML = '<span style="color: #ef4444;">❌ Token无效</span>';
@@ -7868,18 +7812,11 @@ async function showAuthLoginDialog() {
             enableCloudBackupOperations();
             return;
         }
-        
-        console.log('[授权] Token验证通过，准备保存');
-        
         // 第四步：保存Token
         try {
             await chrome.storage.local.set({ cloudBackupToken: data.token });
-            console.log('[授权] Token已保存到storage');
-            
             // 验证是否真的保存成功
             const verify = await chrome.storage.local.get(['cloudBackupToken']);
-            console.log('[授权] 验证storage中的Token:', verify.cloudBackupToken ? '存在' : '不存在');
-            
             if (!verify.cloudBackupToken) {
                 throw new Error('Token保存验证失败');
             }
@@ -7900,8 +7837,6 @@ async function showAuthLoginDialog() {
         // 第五步：更新内存和界面
         cloudBackupToken = data.token;
         lastVerifiedToken = data.token; // 记录验证通过的Token
-        console.log('[授权] 内存Token已更新，记录为已验证');
-        
         statusEl.textContent = '✅ 授权成功';
         statusEl.style.color = '#10b981';
         authStatusEl.innerHTML = '<span style="color: #10b981;">✅ 已授权</span>';
@@ -7914,9 +7849,6 @@ async function showAuthLoginDialog() {
         
         isVerifying = false;
         enableCloudBackupOperations();
-        
-        console.log('[授权] 授权流程完成');
-        
     } catch (error) {
         console.error('[授权] 授权过程出错:', error);
         statusEl.textContent = `❌ 授权失败: ${error.message}`;

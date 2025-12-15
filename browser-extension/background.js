@@ -1020,10 +1020,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     
     // 手动触发书签备份（用于测试）
     if (request.action === 'testBookmarkBackup') {
-        console.log('[书签备份] 收到手动测试请求');
         performAutoBackup('manual')
             .then(result => {
-                console.log('[书签备份] 手动测试结果:', result);
                 sendResponse(result);
             })
             .catch(e => sendResponse({ success: false, error: e.message }));
@@ -1084,13 +1082,6 @@ async function loadAutoBackupConfig() {
 async function performAutoBackup(type = 'auto') {
     try {
         await loadAutoBackupConfig();
-        
-        console.log('[书签备份] 开始执行备份, 类型:', type, '配置:', {
-            enabled: autoBackupConfig.enabled,
-            serverUrl: autoBackupConfig.serverUrl ? '已配置' : '未配置',
-            token: autoBackupConfig.token ? '已授权' : '未授权'
-        });
-        
         if (!autoBackupConfig.enabled || !autoBackupConfig.serverUrl || !autoBackupConfig.token) {
             console.warn('[书签备份] 跳过: 自动备份未配置或未授权');
             return { success: false, reason: '自动备份未配置或未授权' };
@@ -1098,8 +1089,6 @@ async function performAutoBackup(type = 'auto') {
         
         // 获取所有书签
         const tree = await chrome.bookmarks.getTree();
-        console.log('[书签备份] 获取书签树完成');
-        
         // 上传备份（使用Token认证）
         const response = await fetch(`${autoBackupConfig.serverUrl}/api/bookmark-sync/upload`, {
             method: 'POST',
@@ -1116,8 +1105,6 @@ async function performAutoBackup(type = 'auto') {
         });
         
         const data = await response.json();
-        console.log('[书签备份] 服务器响应:', data);
-        
         // 检查Token是否失效
         if (response.status === 401 && data.reason === 'token_invalid') {
             // Token失效，禁用自动备份并通知用户
@@ -1134,7 +1121,6 @@ async function performAutoBackup(type = 'auto') {
         }
         
         if (data.success) {
-            console.log('[书签备份] ✅ 备份成功:', data.backup?.filename || '');
             return { success: true, data };
         } else {
             console.error('[书签备份] ❌ 备份失败:', data.message);
@@ -1154,9 +1140,6 @@ const BACKUP_DEBOUNCE_MINUTES = 5; // 5分钟防抖
 async function triggerDebouncedBackup() {
     // 清除之前的定时器
     await chrome.alarms.clear(BACKUP_ALARM_NAME);
-    
-    console.log(`[书签备份] 书签变化，将在${BACKUP_DEBOUNCE_MINUTES}分钟后执行备份...`);
-    
     // 创建新的 alarm（分钟为单位）
     chrome.alarms.create(BACKUP_ALARM_NAME, {
         delayInMinutes: BACKUP_DEBOUNCE_MINUTES
@@ -1166,7 +1149,6 @@ async function triggerDebouncedBackup() {
 // 监听 alarm 触发
 chrome.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === BACKUP_ALARM_NAME) {
-        console.log('[书签备份] 防抖时间到，开始执行备份');
         await performAutoBackup('auto');
     }
     
@@ -1178,29 +1160,24 @@ chrome.alarms.onAlarm.addListener(async (alarm) => {
 
 // 监听书签变化
 chrome.bookmarks.onCreated.addListener(() => {
-    console.log('[书签备份] 检测到书签创建');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
-        else console.log('[书签备份] 自动备份未启用，跳过');
     });
 });
 
 chrome.bookmarks.onRemoved.addListener(() => {
-    console.log('[书签备份] 检测到书签删除');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
 });
 
 chrome.bookmarks.onChanged.addListener(() => {
-    console.log('[书签备份] 检测到书签修改');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
 });
 
 chrome.bookmarks.onMoved.addListener(() => {
-    console.log('[书签备份] 检测到书签移动');
     loadAutoBackupConfig().then(config => {
         if (config.enabled) triggerDebouncedBackup();
     });
@@ -1270,8 +1247,6 @@ async function initScheduledBackupTimer() {
         delayInMinutes: 1,      // 1分钟后首次检查
         periodInMinutes: 60     // 之后每60分钟检查一次
     });
-    
-    console.log('[书签备份] 定时备份检查已初始化（每小时检查一次）');
 }
 
 // 监听自动备份设置变化
