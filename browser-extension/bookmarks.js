@@ -7700,13 +7700,76 @@ async function verifyTokenWithRetry(token, maxRetries = 1, timeout = 10000) {
     }
 }
 
+// 显示授权密码输入弹窗
+function showAuthPasswordModal() {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('authPasswordModal');
+        const input = document.getElementById('authPasswordInput');
+        const errorEl = document.getElementById('authPasswordError');
+        const confirmBtn = document.getElementById('btnAuthPasswordConfirm');
+        const cancelBtn = document.getElementById('btnAuthPasswordCancel');
+        const closeBtn = document.getElementById('authPasswordClose');
+        
+        // 重置状态
+        input.value = '';
+        errorEl.style.display = 'none';
+        errorEl.textContent = '';
+        
+        // 显示弹窗
+        modal.classList.add('active');
+        input.focus();
+        
+        // 清理函数
+        const cleanup = () => {
+            modal.classList.remove('active');
+            confirmBtn.removeEventListener('click', handleConfirm);
+            cancelBtn.removeEventListener('click', handleCancel);
+            closeBtn.removeEventListener('click', handleCancel);
+            input.removeEventListener('keydown', handleKeydown);
+        };
+        
+        // 确认处理
+        const handleConfirm = () => {
+            const password = input.value.trim();
+            if (!password) {
+                errorEl.textContent = '请输入密码';
+                errorEl.style.display = 'block';
+                input.focus();
+                return;
+            }
+            cleanup();
+            resolve(password);
+        };
+        
+        // 取消处理
+        const handleCancel = () => {
+            cleanup();
+            resolve(null);
+        };
+        
+        // 键盘事件
+        const handleKeydown = (e) => {
+            if (e.key === 'Enter') {
+                handleConfirm();
+            } else if (e.key === 'Escape') {
+                handleCancel();
+            }
+        };
+        
+        confirmBtn.addEventListener('click', handleConfirm);
+        cancelBtn.addEventListener('click', handleCancel);
+        closeBtn.addEventListener('click', handleCancel);
+        input.addEventListener('keydown', handleKeydown);
+    });
+}
+
 async function showAuthLoginDialog() {
     if (!cloudBackupServerUrl) {
         alert('请先配置并测试服务器连接');
         return;
     }
     
-    const password = prompt('请输入管理密码进行授权：');
+    const password = await showAuthPasswordModal();
     if (!password) return;
     
     const statusEl = document.getElementById('cloudBackupStatus');
