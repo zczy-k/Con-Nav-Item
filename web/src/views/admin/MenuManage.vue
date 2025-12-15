@@ -139,8 +139,15 @@ async function addMenu() {
 }
 
 async function updateMenu(menu) {
-  await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
-  loadMenus();
+  try {
+    await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
+    // 更新成功，静默刷新（不覆盖当前输入）
+  } catch (error) {
+    console.error('更新菜单失败:', error);
+    alert('保存失败：' + (error.response?.data?.error || error.message));
+    // 失败时重新加载恢复原始数据
+    await loadMenus();
+  }
 }
 
 async function deleteMenu(id) {
@@ -176,8 +183,15 @@ async function addSubMenu(menuId) {
 }
 
 async function updateSubMenu(subMenu) {
-  await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
-  loadMenus();
+  try {
+    await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
+    // 更新成功，静默刷新（不覆盖当前输入）
+  } catch (error) {
+    console.error('更新子菜单失败:', error);
+    alert('保存失败：' + (error.response?.data?.error || error.message));
+    // 失败时重新加载恢复原始数据
+    await loadMenus();
+  }
 }
 
 async function deleteSubMenu(id) {

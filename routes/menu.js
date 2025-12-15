@@ -9,8 +9,8 @@ const router = express.Router();
 router.get('/', (req, res) => {
   const { page, pageSize } = req.query;
   
-  // 设置缓存头，允许浏览器缓存60秒
-  res.set('Cache-Control', 'public, max-age=60');
+  // 不设置缓存，确保数据实时性
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   
   // 设置 20 秒超时保护
   const timeout = setTimeout(() => {
