@@ -7,8 +7,8 @@ const router = express.Router();
 
 // 获取所有卡片（按分类分组，用于首屏加载优化）
 router.get('/', (req, res) => {
-  // 设置缓存头
-  res.set('Cache-Control', 'public, max-age=60');
+  // 不设置缓存，确保数据实时性
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   
   db.all('SELECT * FROM cards ORDER BY menu_id, sub_menu_id, "order"', [], (err, cards) => {
     if (err) return res.status(500).json({ error: err.message });

@@ -1611,9 +1611,9 @@ async function loadCards(forceRefresh = false) {
     cards.value = cardsCache.value[cacheKey];
   }
   
-  // 从服务器获取最新数据
+  // 从服务器获取最新数据（强制刷新时绕过浏览器缓存）
   try {
-    const res = await getCards(activeMenu.value.id, activeSubMenu.value?.id);
+    const res = await getCards(activeMenu.value.id, activeSubMenu.value?.id, forceRefresh);
     cards.value = res.data;
     cardsCache.value[cacheKey] = res.data;
     saveCardsCache();

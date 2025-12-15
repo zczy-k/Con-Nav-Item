@@ -22,12 +22,16 @@ export const updateSubMenu = (id, data) => axios.put(`${BASE}/menus/submenus/${i
 export const deleteSubMenu = (id) => axios.delete(`${BASE}/menus/submenus/${id}`, { headers: authHeaders() });
 
 // 卡片相关API
-export const getCards = (menuId, subMenuId = null) => {
+export const getCards = (menuId, subMenuId = null, noCache = false) => {
   const params = subMenuId ? { subMenuId } : {};
+  if (noCache) params._t = Date.now(); // 添加时间戳绕过浏览器缓存
   return axios.get(`${BASE}/cards/${menuId}`, { params });
 };
 // 批量获取所有卡片（按分类分组）
-export const getAllCards = () => axios.get(`${BASE}/cards`);
+export const getAllCards = (noCache = false) => {
+  const params = noCache ? { _t: Date.now() } : {};
+  return axios.get(`${BASE}/cards`, { params });
+};
 export const addCard = (data) => axios.post(`${BASE}/cards`, data, { headers: authHeaders() });
 export const updateCard = (id, data) => axios.put(`${BASE}/cards/${id}`, data, { headers: authHeaders() });
 export const deleteCard = (id) => axios.delete(`${BASE}/cards/${id}`, { headers: authHeaders() });
