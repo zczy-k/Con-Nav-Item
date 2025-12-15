@@ -1,5 +1,21 @@
 ﻿<template>
   <div class="menu-manage">
+    <!-- 保存状态提示 -->
+    <transition name="toast">
+      <div v-if="saveStatus.show" class="save-toast" :class="saveStatus.type">
+        <svg v-if="saveStatus.type === 'saving'" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
+        </svg>
+        <svg v-else-if="saveStatus.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>
+        </svg>
+        <span>{{ saveStatus.message }}</span>
+      </div>
+    </transition>
+    
     <div class="menu-header">
       <div class="header-content">
         <h2 class="page-title">管理主菜单和子菜单</h2>
@@ -117,6 +133,24 @@ import {
 const menus = ref([]);
 const newMenuName = ref('');
 
+// 保存状态提示
+const saveStatus = ref({
+  show: false,
+  type: 'saving', // saving, success, error
+  message: ''
+});
+let saveStatusTimer = null;
+
+function showSaveStatus(type, message, duration = 2000) {
+  if (saveStatusTimer) clearTimeout(saveStatusTimer);
+  saveStatus.value = { show: true, type, message };
+  if (type !== 'saving') {
+    saveStatusTimer = setTimeout(() => {
+      saveStatus.value.show = false;
+    }, duration);
+  }
+}
+
 onMounted(loadMenus);
 
 async function loadMenus() {
@@ -139,12 +173,13 @@ async function addMenu() {
 }
 
 async function updateMenu(menu) {
+  showSaveStatus('saving', '保存中...');
   try {
     await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
-    // 更新成功，静默刷新（不覆盖当前输入）
+    showSaveStatus('success', '已保存');
   } catch (error) {
     console.error('更新菜单失败:', error);
-    alert('保存失败：' + (error.response?.data?.error || error.message));
+    showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
     // 失败时重新加载恢复原始数据
     await loadMenus();
   }
@@ -183,12 +218,13 @@ async function addSubMenu(menuId) {
 }
 
 async function updateSubMenu(subMenu) {
+  showSaveStatus('saving', '保存中...');
   try {
     await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
-    // 更新成功，静默刷新（不覆盖当前输入）
+    showSaveStatus('success', '已保存');
   } catch (error) {
     console.error('更新子菜单失败:', error);
-    alert('保存失败：' + (error.response?.data?.error || error.message));
+    showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
     // 失败时重新加载恢复原始数据
     await loadMenus();
   }
@@ -216,6 +252,60 @@ function toggleSubMenu(menuId) {
 </script>
 
 <style scoped>
+/* 保存状态提示样式 */
+.save-toast {
+  position: fixed;
+  top: 80px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  z-index: 1000;
+}
+
+.save-toast.saving {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #7dd3fc;
+}
+
+.save-toast.success {
+  background: #dcfce7;
+  color: #166534;
+  border: 1px solid #86efac;
+}
+
+.save-toast.error {
+  background: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+.save-toast .spin {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from,
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(20px);
+}
+
 .menu-manage {
   max-width: 1200px;
   width: 95%;
