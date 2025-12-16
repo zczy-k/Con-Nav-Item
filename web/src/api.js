@@ -10,7 +10,10 @@ function authHeaders() {
 }
 
 // 菜单相关API
-export const getMenus = () => axios.get(`${BASE}/menus`);
+export const getMenus = (noCache = false) => {
+  const params = noCache ? { _t: Date.now() } : {};
+  return axios.get(`${BASE}/menus`, { params });
+};
 export const addMenu = (data) => axios.post(`${BASE}/menus`, data, { headers: authHeaders() });
 export const updateMenu = (id, data) => axios.put(`${BASE}/menus/${id}`, data, { headers: authHeaders() });
 export const deleteMenu = (id) => axios.delete(`${BASE}/menus/${id}`, { headers: authHeaders() });

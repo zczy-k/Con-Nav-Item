@@ -153,11 +153,11 @@ function showSaveStatus(type, message, duration = 2000) {
 
 onMounted(loadMenus);
 
-async function loadMenus() {
+async function loadMenus(forceRefresh = false) {
   // 保存当前展开状态
   const expandedMenuIds = menus.value.filter(m => m.showSubMenu).map(m => m.id);
   
-  const res = await getMenus();
+  const res = await getMenus(forceRefresh);
   menus.value = res.data.map(menu => ({
     ...menu,
     subMenus: menu.subMenus || [], // 确保subMenus始终是数组
@@ -167,46 +167,49 @@ async function loadMenus() {
 
 async function addMenu() {
   if (!newMenuName.value.trim()) return;
-  const maxOrder = menus.value.length
-    ? Math.max(...menus.value.map(m => m.order || 0))
-    : 0;
-  await apiAddMenu({ name: newMenuName.value.trim(), order: maxOrder + 1 });
-  newMenuName.value = '';
-  loadMenus();
+  showSaveStatus('saving', '添加中...');
+  try {
+    const maxOrder = menus.value.length
+      ? Math.max(...menus.value.map(m => m.order || 0))
+      : 0;
+    await apiAddMenu({ name: newMenuName.value.trim(), order: maxOrder + 1 });
+    newMenuName.value = '';
+    await loadMenus(true); // 强制刷新
+    showSaveStatus('success', '添加成功');
+  } catch (error) {
+    showSaveStatus('error', '添加失败：' + (error.response?.data?.error || error.message), 3000);
+  }
 }
 
 async function updateMenu(menu) {
   showSaveStatus('saving', '保存中...');
   try {
     await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
+    // 强制从后端获取最新数据
+    await loadMenus(true);
     showSaveStatus('success', '已保存');
-    // 成功后重新加载以更新排序
-    await loadMenus();
   } catch (error) {
     console.error('更新菜单失败:', error);
     showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时重新加载恢复原始数据
-    await loadMenus();
+    // 失败时强制刷新恢复原始数据
+    await loadMenus(true);
   }
 }
 
 async function deleteMenu(id) {
   if (!confirm('确定要删除这个主菜单吗？删除后将同时删除其下的所有子菜单和卡片。')) return;
   
-  // 乐观更新：立即从列表中移除
-  const index = menus.value.findIndex(m => m.id === id);
-  if (index > -1) {
-    menus.value.splice(index, 1);
-  }
-  
+  showSaveStatus('saving', '删除中...');
   try {
     await apiDeleteMenu(id);
+    // 强制从后端获取最新数据
+    await loadMenus(true);
     showSaveStatus('success', '删除成功');
   } catch (error) {
     console.error('删除菜单失败:', error);
     showSaveStatus('error', '删除失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时重新加载
-    await loadMenus();
+    // 失败时强制刷新
+    await loadMenus(true);
   }
 }
 
@@ -215,40 +218,49 @@ async function addSubMenu(menuId) {
   const subMenuName = prompt('请输入子菜单名称：');
   if (!subMenuName?.trim()) return;
   
-  const subMenus = menu?.subMenus || [];
-  const maxOrder = subMenus.length
-    ? Math.max(...subMenus.map(sm => sm.order || 0))
-    : 0;
-    
-  await apiAddSubMenu(menuId, { name: subMenuName.trim(), order: maxOrder + 1 });
-  loadMenus();
+  showSaveStatus('saving', '添加中...');
+  try {
+    const subMenus = menu?.subMenus || [];
+    const maxOrder = subMenus.length
+      ? Math.max(...subMenus.map(sm => sm.order || 0))
+      : 0;
+      
+    await apiAddSubMenu(menuId, { name: subMenuName.trim(), order: maxOrder + 1 });
+    // 强制从后端获取最新数据
+    await loadMenus(true);
+    showSaveStatus('success', '添加成功');
+  } catch (error) {
+    showSaveStatus('error', '添加失败：' + (error.response?.data?.error || error.message), 3000);
+  }
 }
 
 async function updateSubMenu(subMenu) {
   showSaveStatus('saving', '保存中...');
   try {
     await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
+    // 强制从后端获取最新数据
+    await loadMenus(true);
     showSaveStatus('success', '已保存');
-    // 成功后重新加载以更新排序
-    await loadMenus();
   } catch (error) {
     console.error('更新子菜单失败:', error);
     showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时重新加载恢复原始数据
-    await loadMenus();
+    // 失败时强制刷新恢复原始数据
+    await loadMenus(true);
   }
 }
 
 async function deleteSubMenu(id) {
   if (!confirm('确定要删除这个子菜单吗？删除后将同时删除其下的所有卡片。')) return;
   
+  showSaveStatus('saving', '删除中...');
   try {
     await apiDeleteSubMenu(id);
-    // 删除成功后重新加载
-    await loadMenus();
+    // 强制从后端获取最新数据
+    await loadMenus(true);
+    showSaveStatus('success', '删除成功');
   } catch (error) {
     console.error('删除子菜单失败:', error);
-    alert('删除失败：' + (error.response?.data?.error || error.message));
+    showSaveStatus('error', '删除失败：' + (error.response?.data?.error || error.message), 3000);
   }
 }
 
