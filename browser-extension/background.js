@@ -87,8 +87,10 @@ async function loadAndCreateCategoryMenus() {
         const timeoutId = setTimeout(() => controller.abort(), 5000); // 5秒超时
         
         try {
-            const response = await fetch(`${navServerUrl}/api/menus`, {
-                signal: controller.signal
+            // 添加时间戳参数绕过浏览器缓存
+            const response = await fetch(`${navServerUrl}/api/menus?_t=${Date.now()}`, {
+                signal: controller.signal,
+                cache: 'no-store'
             });
             clearTimeout(timeoutId);
             
@@ -180,8 +182,10 @@ async function refreshCategoryMenus() {
         const config = await chrome.storage.sync.get(['navUrl']);
         if (!config.navUrl) return;
         
-        // 强制刷新缓存
+        // 强制清空所有缓存
         lastMenuFetchTime = 0;
+        cachedMenus = [];
+        await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
         
         // 重新注册所有菜单（会自动获取最新数据）
         await registerContextMenus();
@@ -761,7 +765,16 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                     return;
                 }
                 
-                const response = await fetch(`${navServerUrl}/api/menus`);
+                // 强制刷新时清空缓存
+                if (request.forceRefresh) {
+                    cachedMenus = [];
+                    lastMenuFetchTime = 0;
+                }
+                
+                // 添加时间戳参数绕过浏览器缓存
+                const response = await fetch(`${navServerUrl}/api/menus?_t=${Date.now()}`, {
+                    cache: 'no-store'
+                });
                 if (!response.ok) throw new Error('获取失败');
                 
                 const menus = await response.json();
