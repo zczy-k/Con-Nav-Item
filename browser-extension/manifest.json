@@ -1,8 +1,14 @@
 ﻿{
   "manifest_version": 3,
   "name": "导航站 - 新标签页",
-  "version": "1.3.0",
+  "version": "1.3.1",
   "description": "将新标签页替换为你的个人导航站，支持自定义导航站地址，并提供本地书签管理功能。",
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "nav-tab@con-nav-item",
+      "strict_min_version": "127.0"
+    }
+  },
   "permissions": [
     "storage",
     "tabs",
