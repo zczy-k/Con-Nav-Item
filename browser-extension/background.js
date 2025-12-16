@@ -794,10 +794,17 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
     
     if (request.action === 'refreshMenus') {
-        // 立即返回，后台异步刷新
-        sendResponse({ success: true });
-        refreshCategoryMenus().catch(e => console.error('刷新菜单失败:', e));
-        return false;
+        // 同步等待刷新完成，确保无延迟
+        (async () => {
+            try {
+                await refreshCategoryMenus();
+                sendResponse({ success: true });
+            } catch (e) {
+                console.error('刷新菜单失败:', e);
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true; // 保持消息通道开放，等待异步响应
     }
     
     if (request.action === 'getConfig') {

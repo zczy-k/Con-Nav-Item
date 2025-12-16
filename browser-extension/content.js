@@ -8,9 +8,18 @@
     // 当用户在后台管理中修改栏目后，通知扩展刷新右键菜单
     if (!window.__navMenusListenerAdded) {
         window.__navMenusListenerAdded = true;
-        window.addEventListener('nav-menus-updated', () => {
-            console.log('[导航站扩展] 检测到菜单更新，刷新右键菜单...');
-            chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
+        window.addEventListener('nav-menus-updated', async () => {
+            console.log('[导航站扩展] 检测到菜单更新，正在刷新右键菜单...');
+            try {
+                const result = await chrome.runtime.sendMessage({ action: 'refreshMenus' });
+                if (result?.success) {
+                    console.log('[导航站扩展] 右键菜单已刷新完成');
+                } else {
+                    console.warn('[导航站扩展] 右键菜单刷新失败:', result?.error);
+                }
+            } catch (e) {
+                console.warn('[导航站扩展] 通知扩展失败:', e);
+            }
         });
     }
     
