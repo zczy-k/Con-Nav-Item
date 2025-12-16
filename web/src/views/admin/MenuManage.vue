@@ -263,15 +263,15 @@ function openAddSubMenu(menu) {
 
 // 保存新子菜单
 async function saveSubMenu() {
-  if (!subMenuForm.value.name.trim()) return;
+  if (!subMenuForm.value.name.trim() || !parentMenuId.value) return;
+  const menuId = parentMenuId.value; // 先保存id
+  const name = subMenuForm.value.name.trim();
+  const order = subMenuForm.value.order;
   closeModal();
   loading.value = true;
   loadingText.value = '添加中...';
   try {
-    await apiAddSubMenu(parentMenuId.value, {
-      name: subMenuForm.value.name.trim(),
-      order: subMenuForm.value.order
-    });
+    await apiAddSubMenu(menuId, { name, order });
     await loadMenus();
   } catch (e) {
     alert('添加失败: ' + (e.response?.data?.error || e.message));
