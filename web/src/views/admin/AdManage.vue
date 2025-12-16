@@ -1,170 +1,189 @@
 ﻿<template>
   <div class="ad-manage">
-    <!-- 加载状态 -->
-    <div v-if="loading" class="loading-state">
+    <!-- 加载遮罩 -->
+    <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
-      <span>加载中...</span>
+      <span>{{ loadingText }}</span>
     </div>
 
-    <!-- 错误提示 -->
-    <div v-else-if="error" class="error-state">
-      <p>{{ error }}</p>
-      <button class="btn" @click="loadAds">重试</button>
+    <!-- 头部添加区域 -->
+    <div class="ad-header">
+      <h2 class="page-title">广告管理</h2>
+      <div class="ad-form">
+        <input v-model="form.img" placeholder="广告图片链接" class="input" />
+        <input v-model="form.url" placeholder="广告跳转链接" class="input" />
+        <select v-model="form.position" class="input select">
+          <option value="left">左侧广告</option>
+          <option value="right">右侧广告</option>
+        </select>
+        <button class="btn btn-primary" @click="handleAdd" :disabled="!form.img || !form.url">
+          + 添加广告
+        </button>
+      </div>
     </div>
 
-    <!-- 正常内容 -->
-    <template v-else>
-      <div class="ad-header">
-        <form class="ad-add-row" @submit.prevent="handleAddAd">
-          <input v-model="newAdImg" placeholder="广告图片链接" class="input" />
-          <input v-model="newAdUrl" placeholder="广告跳转链接" class="input" />
-          <select v-model="newAdPos" class="input select-input">
-            <option value="left">左侧广告</option>
-            <option value="right">右侧广告</option>
-          </select>
-          <button class="btn" type="submit">添加广告</button>
-        </form>
-      </div>
-      <div class="ad-section">
-        <h3 class="section-title">左侧广告列表</h3>
-        <div class="ad-card">
-          <table class="ad-table">
-            <thead><tr><th>图片</th><th>跳转链接</th><th>操作</th></tr></thead>
-            <tbody>
-              <tr v-if="leftAds.length === 0">
-                <td colspan="3" class="empty-row">暂无左侧广告</td>
-              </tr>
-              <tr v-for="ad in leftAds" :key="ad.id">
-                <td><input v-model="ad.img" @blur="updateAd(ad)" class="input" /></td>
-                <td><input v-model="ad.url" @blur="updateAd(ad)" class="input" /></td>
-                <td><button class="btn btn-danger" @click="deleteAd(ad.id)">删除广告</button></td>
-              </tr>
-            </tbody>
-          </table>
+    <!-- 左侧广告 -->
+    <div class="ad-section">
+      <h3 class="section-title">📍 左侧广告</h3>
+      <div class="ad-list">
+        <div v-if="leftAds.length === 0" class="empty-state">暂无左侧广告</div>
+        <div v-for="ad in leftAds" :key="ad.id" class="ad-card">
+          <div class="ad-preview">
+            <img :src="ad.img" alt="广告图片" @error="handleImgError" />
+          </div>
+          <div class="ad-info">
+            <div class="ad-field">
+              <label>图片链接</label>
+              <input v-model="ad.img" class="input" @blur="handleUpdate(ad)" />
+            </div>
+            <div class="ad-field">
+              <label>跳转链接</label>
+              <input v-model="ad.url" class="input" @blur="handleUpdate(ad)" />
+            </div>
+          </div>
+          <div class="ad-actions">
+            <button class="btn btn-danger" @click="handleDelete(ad)">删除</button>
+          </div>
         </div>
       </div>
-      <div class="ad-section">
-        <h3 class="section-title">右侧广告列表</h3>
-        <div class="ad-card">
-          <table class="ad-table">
-            <thead><tr><th>图片</th><th>跳转链接</th><th>操作</th></tr></thead>
-            <tbody>
-              <tr v-if="rightAds.length === 0">
-                <td colspan="3" class="empty-row">暂无右侧广告</td>
-              </tr>
-              <tr v-for="ad in rightAds" :key="ad.id">
-                <td><input v-model="ad.img" @blur="updateAd(ad)" class="input" /></td>
-                <td><input v-model="ad.url" @blur="updateAd(ad)" class="input" /></td>
-                <td><button class="btn btn-danger" @click="deleteAd(ad.id)">删除广告</button></td>
-              </tr>
-            </tbody>
-          </table>
+    </div>
+
+    <!-- 右侧广告 -->
+    <div class="ad-section">
+      <h3 class="section-title">📍 右侧广告</h3>
+      <div class="ad-list">
+        <div v-if="rightAds.length === 0" class="empty-state">暂无右侧广告</div>
+        <div v-for="ad in rightAds" :key="ad.id" class="ad-card">
+          <div class="ad-preview">
+            <img :src="ad.img" alt="广告图片" @error="handleImgError" />
+          </div>
+          <div class="ad-info">
+            <div class="ad-field">
+              <label>图片链接</label>
+              <input v-model="ad.img" class="input" @blur="handleUpdate(ad)" />
+            </div>
+            <div class="ad-field">
+              <label>跳转链接</label>
+              <input v-model="ad.url" class="input" @blur="handleUpdate(ad)" />
+            </div>
+          </div>
+          <div class="ad-actions">
+            <button class="btn btn-danger" @click="handleDelete(ad)">删除</button>
+          </div>
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
-import { getAds, addAd as apiAddAd, updateAd as apiUpdateAd, deleteAd as apiDeleteAd } from '../../api';
+import { ref, computed, onMounted } from 'vue';
+import axios from 'axios';
 
-const leftAds = ref([]);
-const rightAds = ref([]);
-const newAdImg = ref('');
-const newAdUrl = ref('');
-const newAdPos = ref('left');
-const loading = ref(true);
-const error = ref('');
+const BASE = '/api';
+const getToken = () => localStorage.getItem('token') || '';
+const authHeaders = () => ({ Authorization: `Bearer ${getToken()}` });
 
-onMounted(loadAds);
+const allAds = ref([]);
+const loading = ref(false);
+const loadingText = ref('加载中...');
+const form = ref({ img: '', url: '', position: 'left' });
+
+const leftAds = computed(() => allAds.value.filter(ad => ad.position === 'left'));
+const rightAds = computed(() => allAds.value.filter(ad => ad.position === 'right'));
+
+onMounted(() => {
+  loadAds();
+});
 
 async function loadAds() {
   loading.value = true;
-  error.value = '';
+  loadingText.value = '加载中...';
   try {
-    const res = await getAds();
-    // 兼容不同的返回格式
+    const res = await axios.get(`${BASE}/ads`);
     let ads = [];
     if (Array.isArray(res.data)) {
       ads = res.data;
     } else if (res.data && Array.isArray(res.data.data)) {
       ads = res.data.data;
     }
-    leftAds.value = ads.filter(ad => ad.position === 'left');
-    rightAds.value = ads.filter(ad => ad.position === 'right');
+    allAds.value = ads;
   } catch (err) {
     console.error('加载广告失败:', err);
-    error.value = '加载广告失败: ' + (err.response?.data?.error || err.message);
-    leftAds.value = [];
-    rightAds.value = [];
+    alert('加载广告失败: ' + (err.response?.data?.error || err.message));
   } finally {
     loading.value = false;
   }
 }
-async function handleAddAd() {
-  if (!newAdImg.value || !newAdUrl.value) {
+
+async function handleAdd() {
+  if (!form.value.img || !form.value.url) {
     alert('请填写广告图片链接和跳转链接');
     return;
   }
+  loading.value = true;
+  loadingText.value = '添加中...';
   try {
-    await apiAddAd({ position: newAdPos.value, img: newAdImg.value, url: newAdUrl.value });
-    newAdImg.value = '';
-    newAdUrl.value = '';
-    newAdPos.value = 'left';
+    await axios.post(`${BASE}/ads`, form.value, { headers: authHeaders() });
+    form.value = { img: '', url: '', position: 'left' };
     await loadAds();
   } catch (err) {
-    alert('添加广告失败：' + (err.response?.data?.error || err.message));
+    alert('添加失败: ' + (err.response?.data?.error || err.message));
+    loading.value = false;
   }
 }
-async function updateAd(ad) {
+
+async function handleUpdate(ad) {
   try {
-    await apiUpdateAd(ad.id, { img: ad.img, url: ad.url });
+    await axios.put(`${BASE}/ads/${ad.id}`, { img: ad.img, url: ad.url }, { headers: authHeaders() });
   } catch (err) {
-    alert('更新广告失败：' + (err.response?.data?.error || err.message));
+    alert('更新失败: ' + (err.response?.data?.error || err.message));
     await loadAds();
   }
 }
-async function deleteAd(id) {
-  if (!confirm('确定要删除这个广告吗？')) return;
-  
-  // 乐观更新：立即从列表中移除
-  const leftIndex = leftAds.value.findIndex(ad => ad.id === id);
-  const rightIndex = rightAds.value.findIndex(ad => ad.id === id);
-  
-  if (leftIndex > -1) {
-    leftAds.value.splice(leftIndex, 1);
-  }
-  if (rightIndex > -1) {
-    rightAds.value.splice(rightIndex, 1);
-  }
-  
+
+async function handleDelete(ad) {
+  if (!confirm(`确定删除这个广告吗？`)) return;
+  loading.value = true;
+  loadingText.value = '删除中...';
   try {
-    await apiDeleteAd(id);
-  } catch (error) {
-    console.error('删除广告失败:', error);
-    // 失败时重新加载
+    await axios.delete(`${BASE}/ads/${ad.id}`, { headers: authHeaders() });
     await loadAds();
+  } catch (err) {
+    alert('删除失败: ' + (err.response?.data?.error || err.message));
+    loading.value = false;
   }
+}
+
+function handleImgError(e) {
+  e.target.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="60"><rect fill="%23f0f0f0" width="100" height="60"/><text x="50" y="35" text-anchor="middle" fill="%23999" font-size="12">图片加载失败</text></svg>';
 }
 </script>
 
 <style scoped>
 .ad-manage {
-  max-width: 1400px;
-  width: 90%;
+  max-width: 900px;
+  width: 95%;
   margin: 0 auto;
+  position: relative;
 }
 
-/* 加载状态 */
-.loading-state {
+/* 加载遮罩 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 60px 20px;
-  color: #1890ff;
+  z-index: 1000;
   gap: 16px;
+  font-size: 16px;
+  color: #1890ff;
 }
 
 .loading-spinner {
@@ -180,226 +199,210 @@ async function deleteAd(id) {
   to { transform: rotate(360deg); }
 }
 
-/* 错误状态 */
-.error-state {
+/* 头部 */
+.ad-header {
+  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+  border-radius: 12px;
+  padding: 24px;
+  margin-bottom: 24px;
+  color: white;
+}
+
+.page-title {
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
   text-align: center;
-  padding: 60px 20px;
+}
+
+.ad-form {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.ad-form .input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 250px;
+}
+
+.ad-form .select {
+  min-width: 120px;
+}
+
+/* 区块 */
+.ad-section {
+  margin-bottom: 24px;
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12px;
+  padding-left: 8px;
+  border-left: 3px solid #1890ff;
+}
+
+/* 广告列表 */
+.ad-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 40px 20px;
+  color: #999;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* 广告卡片 */
+.ad-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: white;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.ad-preview {
+  width: 120px;
+  height: 80px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f5f5f5;
+  flex-shrink: 0;
+}
+
+.ad-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.ad-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ad-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ad-field label {
+  font-size: 0.85rem;
+  color: #666;
+  width: 60px;
+  flex-shrink: 0;
+}
+
+.ad-field .input {
+  flex: 1;
+}
+
+.ad-actions {
+  flex-shrink: 0;
+}
+
+/* 表单元素 */
+.input {
+  padding: 10px 14px;
+  border: 1px solid #d9d9d9;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  color: #333;
+  background: white;
+}
+
+.input:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: white;
+  color: #1890ff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #f0f7ff;
+}
+
+.btn-danger {
+  background: #fff1f0;
   color: #ff4d4f;
 }
 
-.error-state p {
-  margin-bottom: 16px;
+.btn-danger:hover {
+  background: #ff4d4f;
+  color: white;
 }
 
-/* 空数据行 */
-.empty-row {
-  text-align: center;
-  color: #999;
-  padding: 20px !important;
-}
-.page-title {
-  text-align: center;
-  font-size: 2rem;
-  font-weight: bold;
-  margin: 32px 0 32px 0;
-  letter-spacing: 2px;
-  color: #222;
-}
-.section-title {
-  text-align: left;
-  font-size: 1.2rem;
-  font-weight: bold;
-  margin-bottom: 12px;
-  color: #2566d8;
-}
-.ad-header {
-  margin-bottom: 32px;
-}
-.ad-section {
-  margin-bottom: 32px;
-}
-.ad-add {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-}
-.ad-card {
-  width: 98%;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 20px 10px;
-}
-.input {
-  padding: 12px 8px;
-  border-radius: 8px;
-  border: 1px solid #d0d7e2;
-  background: #fff;
-  color: #222;
-  margin-right: 8px;
-}
-.input:focus {
-  outline: 2px solid #2566d8;
-}
-.btn {
-  background: #2566d8;
-  color: #fff;
-  border: none;
-  border-radius: 4px;
-  padding: 8px 18px;
-  cursor: pointer;
-  margin-right: 8px;
-  transition: background 0.2s;
-}
-.btn:hover {
-  background: #174ea6;
-}
-.btn-danger {
-  background: #e74c3c;
-  display: inline-block;
-  margin: 0 auto;
-}
-.btn-danger:hover {
-  background: #c0392b;
-}
-.ad-table {
-  width: 100%;
-  border-collapse: collapse;
-  background: #fff;
-  color: #222;
-  border-radius: 8px;
-  overflow: hidden;
-}
-.ad-table th, .ad-table td {
-  padding: 10px 14px;
-  border: 1px solid #e3e6ef;
-}
-.ad-table th {
-  background: #f5f7fa;
-  color: #222;
-  font-weight: bold;
-}
-.ad-table td input {
-  width: 95%;
-  background: #f9f9f9;
-  color: #222;
-  border: 1px solid #d0d7e2;
-  border-radius: 4px;
-  padding: 4px 8px;
-}
-.ad-table th:last-child,
-.ad-table td:last-child {
-  text-align: center;
-  vertical-align: middle;
-}
-.ad-add-group {
-  display: flex;
-  gap: 32px;
-  justify-content: center;
-  align-items: flex-start;
-}
-.ad-add-block {
-  background: #f5f7fa;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 24px 32px 16px 32px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 320px;
-}
-.ad-add-block .section-title {
-  margin-bottom: 12px;
-  color: #2566d8;
-  font-size: 1.1rem;
-  font-weight: bold;
-}
-.ad-add-block .input {
-  margin-bottom: 12px;
-  width: 100%;
-}
-.ad-add-block .btn {
-  width: 100%;
-  font-size: 1rem;
-  padding: 10px 0;
-}
-.ad-add-row {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  align-items: center;
-  background: linear-gradient(135deg,#1890ff,#69c0ff);
-  border-radius: 12px;
-  box-shadow: 0 2px 12px rgba(0,0,0,0.06);
-  padding: 24px 32px;
-  width: 100%;
-  max-width: 1200px;
-  margin: 0 auto;
-}
-.select-input {
-  min-width: 120px;
-  height: 38px;
-}
-.ad-add-row input[type="text"], .ad-add-row input.input {
-  width: 18rem !important;
-  min-width: 200px;
-  max-width: 100%;
-}
-@media (max-width: 768px) {
-  .admin-content{
-    width: 92%;
-  }
-  .ad-manage {
-    width: 100%;
-    padding: 0 2vw;
-  }
-  .ad-header, .ad-add-row {
+/* 响应式 */
+@media (max-width: 600px) {
+  .ad-form {
     flex-direction: column;
-    gap: 8px;
-    min-width: 0;
-    width: 92%;
-    margin: 0 auto;
-    padding: 8px 0 !important;
   }
-  .ad-section {
-    width: 92%;
-    margin: 0 auto 32px auto;
+  
+  .ad-form .input,
+  .ad-form .select {
+    max-width: none;
   }
+  
   .ad-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .ad-preview {
     width: 100%;
-    padding: 12px 2vw;
+    height: 120px;
   }
-  .ad-table {
-    display: block;
-    width: 100%;
-    overflow-x: auto;
-    font-size: 14px;
+  
+  .ad-field {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .ad-table thead, .ad-table tbody, .ad-table tr {
-    display: table;
-    width: 100%;
-    table-layout: fixed;
+  
+  .ad-field label {
+    width: auto;
+    margin-bottom: 4px;
   }
-  .ad-table th, .ad-table td {
-    padding: 8px 6px;
-    font-size: 13px;
-  }
-  .input, .select-input {
-    width: 84%;
-    min-width: 0;
-    margin-right: 0;
-    font-size: 14px;
-    padding: 8px 8px;
-    height: 32px !important;
-  }
-  .ad-add-row input.input {
-    margin: 0 auto;
-  }
-  .btn {
-    width: 84%;
-    margin-right: 0;
-    padding: 8px 0;
-    font-size: 14px;
+  
+  .ad-actions {
+    text-align: center;
   }
 }
-</style> 
+</style>
