@@ -73,7 +73,7 @@
     </div>
 
     <!-- 编辑主菜单弹窗 -->
-    <div v-if="showEditModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showEditModal" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
           <h3>{{ editingMenu ? '编辑主菜单' : '添加子菜单' }}</h3>
@@ -97,7 +97,7 @@
     </div>
 
     <!-- 添加子菜单弹窗 -->
-    <div v-if="showAddSubModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showAddSubModal" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
           <h3>添加子菜单到「{{ parentMenuName }}」</h3>
@@ -121,7 +121,7 @@
     </div>
 
     <!-- 编辑子菜单弹窗 -->
-    <div v-if="showEditSubModal" class="modal-overlay" @click.self="closeModal">
+    <div v-if="showEditSubModal" class="modal-overlay">
       <div class="modal">
         <div class="modal-header">
           <h3>编辑子菜单</h3>
