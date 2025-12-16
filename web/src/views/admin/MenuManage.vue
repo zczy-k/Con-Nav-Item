@@ -154,11 +154,14 @@ function showSaveStatus(type, message, duration = 2000) {
 onMounted(loadMenus);
 
 async function loadMenus() {
+  // 保存当前展开状态
+  const expandedMenuIds = menus.value.filter(m => m.showSubMenu).map(m => m.id);
+  
   const res = await getMenus();
   menus.value = res.data.map(menu => ({
     ...menu,
     subMenus: menu.subMenus || [], // 确保subMenus始终是数组
-    showSubMenu: false // 添加展开状态
+    showSubMenu: expandedMenuIds.includes(menu.id) // 恢复展开状态
   }));
 }
 
@@ -177,6 +180,8 @@ async function updateMenu(menu) {
   try {
     await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
     showSaveStatus('success', '已保存');
+    // 成功后重新加载以更新排序
+    await loadMenus();
   } catch (error) {
     console.error('更新菜单失败:', error);
     showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
@@ -196,8 +201,10 @@ async function deleteMenu(id) {
   
   try {
     await apiDeleteMenu(id);
+    showSaveStatus('success', '删除成功');
   } catch (error) {
     console.error('删除菜单失败:', error);
+    showSaveStatus('error', '删除失败：' + (error.response?.data?.error || error.message), 3000);
     // 失败时重新加载
     await loadMenus();
   }
@@ -222,6 +229,8 @@ async function updateSubMenu(subMenu) {
   try {
     await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
     showSaveStatus('success', '已保存');
+    // 成功后重新加载以更新排序
+    await loadMenus();
   } catch (error) {
     console.error('更新子菜单失败:', error);
     showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
