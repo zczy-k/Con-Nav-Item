@@ -1,5 +1,5 @@
 // content.js - 内容脚本
-// 在网页中注入浮动快捷按钮
+// 在网页中注入浮动快捷按钮，并监听后台管理页面的菜单更新事件
 
 (function() {
     'use strict';
@@ -7,6 +7,13 @@
     // 避免重复注入
     if (window.__navFloatBtnInjected) return;
     window.__navFloatBtnInjected = true;
+    
+    // 监听后台管理页面发出的菜单更新事件
+    // 当用户在后台管理中修改栏目后，通知扩展刷新右键菜单
+    window.addEventListener('nav-menus-updated', () => {
+        console.log('[导航站扩展] 检测到菜单更新，刷新右键菜单...');
+        chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
+    });
     
     // 检查是否应该显示浮动按钮
     async function shouldShowFloatBtn() {

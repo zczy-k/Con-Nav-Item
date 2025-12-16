@@ -183,12 +183,26 @@ onMounted(() => {
   loadMenus();
 });
 
-async function loadMenus() {
+// 通知浏览器扩展刷新右键菜单
+function notifyExtensionMenusUpdated() {
+  try {
+    window.dispatchEvent(new CustomEvent('nav-menus-updated'));
+    console.log('[栏目管理] 已通知扩展刷新右键菜单');
+  } catch (e) {
+    console.warn('[栏目管理] 通知扩展失败:', e);
+  }
+}
+
+async function loadMenus(isUpdate = false) {
   loading.value = true;
   loadingText.value = '加载中...';
   try {
     const res = await getMenus(true); // 强制刷新
     menus.value = res.data || [];
+    // 如果是更新操作，通知扩展刷新右键菜单
+    if (isUpdate) {
+      notifyExtensionMenusUpdated();
+    }
   } catch (e) {
     alert('加载失败: ' + (e.response?.data?.error || e.message));
   } finally {
@@ -205,7 +219,7 @@ async function addMenu() {
     const maxOrder = menus.value.length ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
     await apiAddMenu({ name: newMenuName.value.trim(), order: maxOrder + 1 });
     newMenuName.value = '';
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('添加失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
@@ -230,7 +244,7 @@ async function saveEdit() {
   loadingText.value = '保存中...';
   try {
     await apiUpdateMenu(menuId, { name, order });
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('保存失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
@@ -244,7 +258,7 @@ async function confirmDeleteMenu(menu) {
   loadingText.value = '删除中...';
   try {
     await apiDeleteMenu(menu.id);
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('删除失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
@@ -272,7 +286,7 @@ async function saveSubMenu() {
   loadingText.value = '添加中...';
   try {
     await apiAddSubMenu(menuId, { name, order });
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('添加失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
@@ -297,7 +311,7 @@ async function saveSubMenuEdit() {
   loadingText.value = '保存中...';
   try {
     await apiUpdateSubMenu(subMenuId, { name, order });
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('保存失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
@@ -311,7 +325,7 @@ async function confirmDeleteSubMenu(sub) {
   loadingText.value = '删除中...';
   try {
     await apiDeleteSubMenu(sub.id);
-    await loadMenus();
+    await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('删除失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
