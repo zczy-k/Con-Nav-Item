@@ -1,117 +1,145 @@
 ﻿<template>
   <div class="menu-manage">
-    <!-- 保存状态提示 -->
-    <transition name="toast">
-      <div v-if="saveStatus.show" class="save-toast" :class="saveStatus.type">
-        <svg v-if="saveStatus.type === 'saving'" class="spin" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/>
-        </svg>
-        <svg v-else-if="saveStatus.type === 'success'" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M20 6L9 17l-5-5"/>
-        </svg>
-        <svg v-else width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>
-        </svg>
-        <span>{{ saveStatus.message }}</span>
-      </div>
-    </transition>
-    
+    <!-- 全局加载遮罩 -->
+    <div v-if="loading" class="loading-overlay">
+      <div class="loading-spinner"></div>
+      <span>{{ loadingText }}</span>
+    </div>
+
     <div class="menu-header">
-      <div class="header-content">
-        <h2 class="page-title">管理主菜单和子菜单</h2>
-      </div>
+      <h2 class="page-title">栏目管理</h2>
       <div class="menu-add">
-        <input v-model="newMenuName" placeholder="请输入主菜单名称" class="input" />
-        <button class="btn btn-primary" @click="addMenu">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M12 5v14M5 12h14"/>
-          </svg>
-          添加主菜单
+        <input v-model="newMenuName" placeholder="输入主菜单名称" class="input" @keyup.enter="addMenu" />
+        <button class="btn btn-primary" @click="addMenu" :disabled="loading || !newMenuName.trim()">
+          + 添加主菜单
         </button>
       </div>
     </div>
-    
+
     <div class="menu-content">
-      <div class="menu-list">
-        <div v-for="menu in menus" :key="menu.id" class="menu-item">
-          <!-- 主菜单 -->
-          <div class="main-menu">
-            <div class="menu-info">
-              <div class="menu-icon">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 3h18v18H3zM9 9h6v6H9z"/>
-                </svg>
-              </div>
-              <input v-model="menu.name" @blur="updateMenu(menu)" class="menu-name-input" />
-              <div class="menu-order">
-                <span class="order-label">排序</span>
-                <input v-model.number="menu.order" type="number" @blur="updateMenu(menu)" class="order-input" />
-              </div>
-            </div>
-            <div class="menu-actions">
-              <button class="btn btn-icon expand-btn" @click="toggleSubMenu(menu.id)" :title="menu.showSubMenu ? '收起子菜单' : '展开子菜单'">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="m6 9 6 6 6-6"/>
-                </svg>
-              </button>
-              <button class="btn btn-danger btn-icon" @click="deleteMenu(menu.id)" title="删除主菜单">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                  <path d="M10 11v6M14 11v6"/>
-                </svg>
-              </button>
-            </div>
+      <div v-if="menus.length === 0" class="empty-state">
+        <p>暂无菜单，请添加第一个主菜单</p>
+      </div>
+      
+      <div v-for="menu in menus" :key="menu.id" class="menu-card">
+        <div class="menu-card-header">
+          <div class="menu-title">
+            <span class="menu-name">{{ menu.name }}</span>
+            <span class="menu-order">排序: {{ menu.order }}</span>
           </div>
-          
-          <!-- 子菜单区域 -->
-          <div class="sub-menu-section" :class="{ 'expanded': menu.showSubMenu }">
-            <div class="sub-menu-header">
-              <div class="sub-menu-title">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M9 11H1l8-8 8 8h-8v8z"/>
-                </svg>
-                子菜单 ({{ menu.subMenus?.length || 0 }})
-              </div>
-              <button class="btn btn-sm btn-outline" @click="addSubMenu(menu.id)">
+          <div class="menu-actions">
+            <button class="btn-icon btn-edit" @click="openEditMenu(menu)" title="编辑">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="btn-icon btn-add" @click="openAddSubMenu(menu)" title="添加子菜单">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <button class="btn-icon btn-delete" @click="confirmDeleteMenu(menu)" title="删除">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div v-if="menu.subMenus && menu.subMenus.length > 0" class="sub-menu-list">
+          <div v-for="sub in menu.subMenus" :key="sub.id" class="sub-menu-item">
+            <span class="sub-menu-name">{{ sub.name }}</span>
+            <span class="sub-menu-order">排序: {{ sub.order }}</span>
+            <div class="sub-menu-actions">
+              <button class="btn-icon-sm btn-edit" @click="openEditSubMenu(menu, sub)" title="编辑">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M12 5v14M5 12h14"/>
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
-                添加子菜单
+              </button>
+              <button class="btn-icon-sm btn-delete" @click="confirmDeleteSubMenu(sub)" title="删除">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                </svg>
               </button>
             </div>
-            
-            <div class="sub-menu-list" v-if="menu.subMenus && menu.subMenus.length > 0">
-              <div v-for="subMenu in menu.subMenus" :key="subMenu.id" class="sub-menu-item">
-                <div class="sub-menu-info">
-                  <div class="sub-menu-icon">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M4 6h16M4 12h16M4 18h16"/>
-                    </svg>
-                  </div>
-                  <input v-model="subMenu.name" @blur="updateSubMenu(subMenu)" class="sub-menu-name-input" />
-                  <div class="sub-menu-order">
-                    <input v-model.number="subMenu.order" type="number" @blur="updateSubMenu(subMenu)" class="order-input" />
-                  </div>
-                </div>
-                <div class="sub-menu-actions">
-                  <button class="btn btn-danger btn-icon btn-sm" @click="deleteSubMenu(subMenu.id)" title="删除子菜单">
-                    <svg width="14" height="14" viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
-                      <path d="M10 11v6M14 11v6"/>
-                    </svg>
-                  </button>
-                </div>
-              </div>
-            </div>
-            
-            <div v-else class="empty-sub-menu">
-              <!-- <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-              <path d="M9 11H1l8-8 8 8h-8v8z"/>
-              </svg> -->
-              <p>暂无子菜单</p>
-              <button class="btn btn-sm btn-outline" @click="addSubMenu(menu.id)">添加第一个子菜单</button>
-            </div>
           </div>
+        </div>
+        <div v-else class="no-sub-menu">
+          <span>暂无子菜单</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑主菜单弹窗 -->
+    <div v-if="showEditModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>{{ editingMenu ? '编辑主菜单' : '添加子菜单' }}</h3>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>名称</label>
+            <input v-model="editForm.name" type="text" class="input" placeholder="请输入名称" />
+          </div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="editForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeModal">取消</button>
+          <button class="btn btn-primary" @click="saveEdit" :disabled="!editForm.name.trim()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加子菜单弹窗 -->
+    <div v-if="showAddSubModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>添加子菜单到「{{ parentMenuName }}」</h3>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>子菜单名称</label>
+            <input v-model="subMenuForm.name" type="text" class="input" placeholder="请输入子菜单名称" />
+          </div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="subMenuForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeModal">取消</button>
+          <button class="btn btn-primary" @click="saveSubMenu" :disabled="!subMenuForm.name.trim()">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑子菜单弹窗 -->
+    <div v-if="showEditSubModal" class="modal-overlay" @click.self="closeModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>编辑子菜单</h3>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>子菜单名称</label>
+            <input v-model="editSubForm.name" type="text" class="input" placeholder="请输入子菜单名称" />
+          </div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="editSubForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeModal">取消</button>
+          <button class="btn btn-primary" @click="saveSubMenuEdit" :disabled="!editSubForm.name.trim()">保存</button>
         </div>
       </div>
     </div>
@@ -120,10 +148,10 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { 
-  getMenus, 
-  addMenu as apiAddMenu, 
-  updateMenu as apiUpdateMenu, 
+import {
+  getMenus,
+  addMenu as apiAddMenu,
+  updateMenu as apiUpdateMenu,
   deleteMenu as apiDeleteMenu,
   addSubMenu as apiAddSubMenu,
   updateSubMenu as apiUpdateSubMenu,
@@ -131,341 +159,291 @@ import {
 } from '../../api';
 
 const menus = ref([]);
+const loading = ref(false);
+const loadingText = ref('加载中...');
 const newMenuName = ref('');
 
-// 保存状态提示
-const saveStatus = ref({
-  show: false,
-  type: 'saving', // saving, success, error
-  message: ''
-});
-let saveStatusTimer = null;
+// 编辑主菜单
+const showEditModal = ref(false);
+const editingMenu = ref(null);
+const editForm = ref({ name: '', order: 0 });
 
-function showSaveStatus(type, message, duration = 2000) {
-  if (saveStatusTimer) clearTimeout(saveStatusTimer);
-  saveStatus.value = { show: true, type, message };
-  if (type !== 'saving') {
-    saveStatusTimer = setTimeout(() => {
-      saveStatus.value.show = false;
-    }, duration);
+// 添加子菜单
+const showAddSubModal = ref(false);
+const parentMenuId = ref(null);
+const parentMenuName = ref('');
+const subMenuForm = ref({ name: '', order: 0 });
+
+// 编辑子菜单
+const showEditSubModal = ref(false);
+const editingSubMenu = ref(null);
+const editSubForm = ref({ name: '', order: 0 });
+
+onMounted(() => {
+  loadMenus();
+});
+
+async function loadMenus() {
+  loading.value = true;
+  loadingText.value = '加载中...';
+  try {
+    const res = await getMenus(true); // 强制刷新
+    menus.value = res.data || [];
+  } catch (e) {
+    alert('加载失败: ' + (e.response?.data?.error || e.message));
+  } finally {
+    loading.value = false;
   }
 }
 
-onMounted(loadMenus);
-
-async function loadMenus(forceRefresh = false) {
-  // 保存当前展开状态
-  const expandedMenuIds = menus.value.filter(m => m.showSubMenu).map(m => m.id);
-  
-  const res = await getMenus(forceRefresh);
-  menus.value = res.data.map(menu => ({
-    ...menu,
-    subMenus: menu.subMenus || [], // 确保subMenus始终是数组
-    showSubMenu: expandedMenuIds.includes(menu.id) // 恢复展开状态
-  }));
-}
-
+// 添加主菜单
 async function addMenu() {
   if (!newMenuName.value.trim()) return;
-  showSaveStatus('saving', '添加中...');
+  loading.value = true;
+  loadingText.value = '添加中...';
   try {
-    const maxOrder = menus.value.length
-      ? Math.max(...menus.value.map(m => m.order || 0))
-      : 0;
+    const maxOrder = menus.value.length ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
     await apiAddMenu({ name: newMenuName.value.trim(), order: maxOrder + 1 });
     newMenuName.value = '';
-    await loadMenus(true); // 强制刷新
-    showSaveStatus('success', '添加成功');
-  } catch (error) {
-    showSaveStatus('error', '添加失败：' + (error.response?.data?.error || error.message), 3000);
+    await loadMenus();
+  } catch (e) {
+    alert('添加失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-async function updateMenu(menu) {
-  showSaveStatus('saving', '保存中...');
+// 打开编辑主菜单弹窗
+function openEditMenu(menu) {
+  editingMenu.value = menu;
+  editForm.value = { name: menu.name, order: menu.order };
+  showEditModal.value = true;
+}
+
+// 保存主菜单编辑
+async function saveEdit() {
+  if (!editForm.value.name.trim()) return;
+  closeModal();
+  loading.value = true;
+  loadingText.value = '保存中...';
   try {
-    await apiUpdateMenu(menu.id, { name: menu.name, order: menu.order });
-    // 强制从后端获取最新数据
-    await loadMenus(true);
-    showSaveStatus('success', '已保存');
-  } catch (error) {
-    console.error('更新菜单失败:', error);
-    showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时强制刷新恢复原始数据
-    await loadMenus(true);
+    await apiUpdateMenu(editingMenu.value.id, {
+      name: editForm.value.name.trim(),
+      order: editForm.value.order
+    });
+    await loadMenus();
+  } catch (e) {
+    alert('保存失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-async function deleteMenu(id) {
-  if (!confirm('确定要删除这个主菜单吗？删除后将同时删除其下的所有子菜单和卡片。')) return;
-  
-  showSaveStatus('saving', '删除中...');
+// 删除主菜单
+async function confirmDeleteMenu(menu) {
+  if (!confirm(`确定删除主菜单「${menu.name}」吗？\n将同时删除其下所有子菜单和卡片！`)) return;
+  loading.value = true;
+  loadingText.value = '删除中...';
   try {
-    await apiDeleteMenu(id);
-    // 强制从后端获取最新数据
-    await loadMenus(true);
-    showSaveStatus('success', '删除成功');
-  } catch (error) {
-    console.error('删除菜单失败:', error);
-    showSaveStatus('error', '删除失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时强制刷新
-    await loadMenus(true);
+    await apiDeleteMenu(menu.id);
+    await loadMenus();
+  } catch (e) {
+    alert('删除失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-async function addSubMenu(menuId) {
-  const menu = menus.value.find(m => m.id === menuId);
-  const subMenuName = prompt('请输入子菜单名称：');
-  if (!subMenuName?.trim()) return;
-  
-  showSaveStatus('saving', '添加中...');
+// 打开添加子菜单弹窗
+function openAddSubMenu(menu) {
+  parentMenuId.value = menu.id;
+  parentMenuName.value = menu.name;
+  const subs = menu.subMenus || [];
+  const maxOrder = subs.length ? Math.max(...subs.map(s => s.order || 0)) : 0;
+  subMenuForm.value = { name: '', order: maxOrder + 1 };
+  showAddSubModal.value = true;
+}
+
+// 保存新子菜单
+async function saveSubMenu() {
+  if (!subMenuForm.value.name.trim()) return;
+  closeModal();
+  loading.value = true;
+  loadingText.value = '添加中...';
   try {
-    const subMenus = menu?.subMenus || [];
-    const maxOrder = subMenus.length
-      ? Math.max(...subMenus.map(sm => sm.order || 0))
-      : 0;
-      
-    await apiAddSubMenu(menuId, { name: subMenuName.trim(), order: maxOrder + 1 });
-    // 强制从后端获取最新数据
-    await loadMenus(true);
-    showSaveStatus('success', '添加成功');
-  } catch (error) {
-    showSaveStatus('error', '添加失败：' + (error.response?.data?.error || error.message), 3000);
+    await apiAddSubMenu(parentMenuId.value, {
+      name: subMenuForm.value.name.trim(),
+      order: subMenuForm.value.order
+    });
+    await loadMenus();
+  } catch (e) {
+    alert('添加失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-async function updateSubMenu(subMenu) {
-  showSaveStatus('saving', '保存中...');
+// 打开编辑子菜单弹窗
+function openEditSubMenu(menu, sub) {
+  editingSubMenu.value = sub;
+  editSubForm.value = { name: sub.name, order: sub.order };
+  showEditSubModal.value = true;
+}
+
+// 保存子菜单编辑
+async function saveSubMenuEdit() {
+  if (!editSubForm.value.name.trim()) return;
+  closeModal();
+  loading.value = true;
+  loadingText.value = '保存中...';
   try {
-    await apiUpdateSubMenu(subMenu.id, { name: subMenu.name, order: subMenu.order });
-    // 强制从后端获取最新数据
-    await loadMenus(true);
-    showSaveStatus('success', '已保存');
-  } catch (error) {
-    console.error('更新子菜单失败:', error);
-    showSaveStatus('error', '保存失败：' + (error.response?.data?.error || error.message), 3000);
-    // 失败时强制刷新恢复原始数据
-    await loadMenus(true);
+    await apiUpdateSubMenu(editingSubMenu.value.id, {
+      name: editSubForm.value.name.trim(),
+      order: editSubForm.value.order
+    });
+    await loadMenus();
+  } catch (e) {
+    alert('保存失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-async function deleteSubMenu(id) {
-  if (!confirm('确定要删除这个子菜单吗？删除后将同时删除其下的所有卡片。')) return;
-  
-  showSaveStatus('saving', '删除中...');
+// 删除子菜单
+async function confirmDeleteSubMenu(sub) {
+  if (!confirm(`确定删除子菜单「${sub.name}」吗？\n将同时删除其下所有卡片！`)) return;
+  loading.value = true;
+  loadingText.value = '删除中...';
   try {
-    await apiDeleteSubMenu(id);
-    // 强制从后端获取最新数据
-    await loadMenus(true);
-    showSaveStatus('success', '删除成功');
-  } catch (error) {
-    console.error('删除子菜单失败:', error);
-    showSaveStatus('error', '删除失败：' + (error.response?.data?.error || error.message), 3000);
+    await apiDeleteSubMenu(sub.id);
+    await loadMenus();
+  } catch (e) {
+    alert('删除失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
   }
 }
 
-function toggleSubMenu(menuId) {
-  const menu = menus.value.find(m => m.id === menuId);
-  if (menu) {
-    menu.showSubMenu = !menu.showSubMenu;
-  }
+function closeModal() {
+  showEditModal.value = false;
+  showAddSubModal.value = false;
+  showEditSubModal.value = false;
+  editingMenu.value = null;
+  editingSubMenu.value = null;
 }
 </script>
 
+
 <style scoped>
-/* 保存状态提示样式 */
-.save-toast {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 12px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
-}
-
-.save-toast.saving {
-  background: #e0f2fe;
-  color: #0369a1;
-  border: 1px solid #7dd3fc;
-}
-
-.save-toast.success {
-  background: #dcfce7;
-  color: #166534;
-  border: 1px solid #86efac;
-}
-
-.save-toast.error {
-  background: #fee2e2;
-  color: #991b1b;
-  border: 1px solid #fca5a5;
-}
-
-.save-toast .spin {
-  animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-
-.toast-enter-from,
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
 .menu-manage {
-  max-width: 1200px;
+  max-width: 900px;
   width: 95%;
   margin: 0 auto;
+  position: relative;
+}
+
+/* 加载遮罩 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  gap: 16px;
+  font-size: 16px;
+  color: #1890ff;
 }
 
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #1890ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 
+/* 头部 */
 .menu-header {
   background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
-  border-radius: 16px;
-  padding: 32px;
+  border-radius: 12px;
+  padding: 24px;
   margin-bottom: 20px;
   color: white;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-  width: 94%;
-  text-align: center;
-}
-
-.header-content {
-  margin-bottom: 15px;
-  text-align: center;
 }
 
 .page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
+  font-size: 1.4rem;
+  font-weight: 600;
+  margin: 0 0 16px 0;
+  text-align: center;
 }
-
-
 
 .menu-add {
   display: flex;
   gap: 12px;
-  align-items: center;
   justify-content: center;
 }
 
+.menu-add .input {
+  flex: 1;
+  max-width: 300px;
+}
+
+/* 内容区 */
 .menu-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 12px;
+}
+
+/* 菜单卡片 */
+.menu-card {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
-  width: 100%;
 }
 
-.menu-list {
-  padding: 0;
-}
-
-.menu-item {
-  border-bottom: 1px solid #f1f5f9;
-  transition: all 0.3s ease;
-}
-
-.menu-item:last-child {
-  border-bottom: none;
-}
-
-.menu-item:hover {
-  background: #f8fafc;
-}
-
-.main-menu {
+.menu-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 32px;
-  background: white;
-  transition: all 0.3s ease;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #eee;
 }
 
-.menu-info {
+.menu-title {
   display: flex;
   align-items: center;
   gap: 16px;
-  flex: 1;
 }
 
-.menu-icon {
-  width: 40px;
-  height: 40px;
-  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  flex-shrink: 0;
-}
-
-.menu-name-input {
+.menu-name {
   font-size: 1.1rem;
   font-weight: 600;
-  border: 2px solid transparent;
-  background: transparent;
-  padding: 8px 12px;
-  border-radius: 8px;
-  color: #1e293b;
-  min-width: 200px;
-  transition: all 0.2s ease;
-}
-
-.menu-name-input:focus {
-  outline: none;
-  border-color: #1890ff;
-  background: #f8fafc;
+  color: #333;
 }
 
 .menu-order {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.order-label {
-  font-size: 0.9rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.order-input {
-  width: 60px;
-  padding: 6px 8px;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  text-align: center;
-  font-size: 0.9rem;
-}
-
-.order-input:focus {
-  outline: none;
-  border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  font-size: 0.85rem;
+  color: #888;
+  background: #e8e8e8;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
 .menu-actions {
@@ -473,126 +451,35 @@ function toggleSubMenu(menuId) {
   gap: 8px;
 }
 
-.sub-menu-section {
-  background: #f8fafc;
-  border-top: 1px solid #e2e8f0;
-  max-height: 0;
-  overflow: hidden;
-  transition: all 0.3s ease;
-}
-
-.sub-menu-section.expanded {
-  max-height: 1000px;
-}
-
-.sub-menu-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 32px;
-  background: #f1f5f9;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.sub-menu-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-weight: 600;
-  color: #475569;
-  font-size: 0.95rem;
-}
-
+/* 子菜单列表 */
 .sub-menu-list {
-  padding: 16px 32px 16px 48px;
-  position: relative;
-}
-
-.sub-menu-list::before {
-  content: '';
-  position: absolute;
-  left: 32px;
-  top: 0;
-  bottom: 0;
-  width: 2px;
-  background: linear-gradient(to bottom, #e2e8f0, #cbd5e1);
-  border-radius: 1px;
+  padding: 12px 20px;
 }
 
 .sub-menu-item {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 8px 20px;
-  background: white;
-  border-radius: 12px;
-  margin-bottom: 5px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  border: 1px solid #e2e8f0;
-  transition: all 0.2s ease;
-  position: relative;
-}
-
-.sub-menu-item::before {
-  content: '';
-  position: absolute;
-  left: -16px;
-  top: 50%;
-  width: 12px;
-  height: 2px;
-  background: #cbd5e1;
-  transform: translateY(-50%);
-  border-radius: 1px;
-}
-
-.sub-menu-item:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-  transform: translateY(-1px);
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #10b981;
 }
 
 .sub-menu-item:last-child {
   margin-bottom: 0;
 }
 
-.sub-menu-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+.sub-menu-name {
   flex: 1;
-}
-
-.sub-menu-icon {
-  width: 32px;
-  height: 32px;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
-  border-radius: 8px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  flex-shrink: 0;
-}
-
-.sub-menu-name-input {
-  font-size: 1rem;
-  border: 2px solid transparent;
-  background: transparent;
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: #374151;
-  min-width: 150px;
-  transition: all 0.2s ease;
-}
-
-.sub-menu-name-input:focus {
-  outline: none;
-  border-color: #10b981;
-  background: #f0fdf4;
+  font-size: 0.95rem;
+  color: #444;
 }
 
 .sub-menu-order {
-  display: flex;
-  align-items: center;
+  font-size: 0.8rem;
+  color: #888;
+  margin-right: 12px;
 }
 
 .sub-menu-actions {
@@ -600,209 +487,231 @@ function toggleSubMenu(menuId) {
   gap: 6px;
 }
 
-.empty-sub-menu {
-  padding: 10px 0px 10px 0px;
+.no-sub-menu {
+  padding: 20px;
   text-align: center;
-  color: #64748b;
-}
-
-.empty-sub-menu p {
-  color: #079f1e;
-  margin: 0 0 16px 0;
-  font-size: 1rem;
+  color: #aaa;
+  font-size: 0.9rem;
 }
 
 /* 按钮样式 */
 .btn {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
-  padding: 10px 16px;
+  padding: 10px 20px;
   border: none;
   border-radius: 8px;
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-primary {
-  background: linear-gradient(82deg, #1890ff, #2f025d);
-  color: white;
-}
-
-.btn-primary:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-}
-
-.btn-outline {
-  background: transparent;
-  color: #1890ff;
-  border: 2px solid #1890ff;
-}
-
-.btn-outline:hover {
   background: #1890ff;
   color: white;
 }
 
-.btn-danger {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  color: white;
+.btn-primary:hover:not(:disabled) {
+  background: #1478d4;
 }
 
-.btn-danger:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.4);
+.btn-cancel {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #e0e0e0;
 }
 
 .btn-icon {
   width: 36px;
   height: 36px;
   padding: 0;
-  justify-content: center;
+  border: none;
   border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-/* 展开子菜单按钮样式 */
-.btn-icon.expand-btn {
-  width: 200px;
-  height: 36px;
+.btn-icon-sm {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.btn-sm {
-  padding: 6px 12px;
-  font-size: 0.8rem;
+.btn-edit {
+  background: #e6f7ff;
+  color: #1890ff;
 }
 
-.btn-icon.btn-sm {
-  width: 35px;
-  height: 30px;
+.btn-edit:hover {
+  background: #1890ff;
+  color: white;
+}
+
+.btn-add {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.btn-add:hover {
+  background: #52c41a;
+  color: white;
+}
+
+.btn-delete {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+
+.btn-delete:hover {
+  background: #ff4d4f;
+  color: white;
 }
 
 .input {
-  padding: 12px 16px;
-  border: 2px solid #e2e8f0;
+  padding: 10px 14px;
+  border: 1px solid #d9d9d9;
   border-radius: 8px;
-  font-size: 1rem;
-  background: white;
-  color: #1e293b;
-  transition: all 0.2s ease;
-  min-width: 200px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
 }
 
 .input:focus {
   outline: none;
   border-color: #1890ff;
-  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
-.input::placeholder {
-  color: #94a3b8;
+/* 弹窗 */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
 }
 
-/* 响应式设计 */
-@media (max-width: 768px) {
-  .menu-manage {
-    width: 93%;
-    padding: 16px;
-  }
-  
-  .menu-header {
-    padding: 24px 20px;
-  }
-  
-  .page-title {
-    font-size: 1.5rem;
-  }
-  
+.modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  font-size: 24px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+}
+
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.form-group .input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
   .menu-add {
     flex-direction: column;
-    align-items: stretch;
   }
   
-  .input {
-    min-width: 0;
+  .menu-add .input {
+    max-width: none;
   }
   
-  .main-menu {
-    padding: 20px;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
-  
-  .menu-info {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .menu-name-input {
-    min-width: 0;
-  }
-  
-  .menu-order {
-    justify-content: center;
-  }
-  
-  .menu-actions {
-    justify-content: center;
-  }
-  
-  .btn-icon.expand-btn {
-    width: 40px;
-    height: 32px;
-  }
-  
-  .sub-menu-header {
-    padding: 16px 20px;
+  .menu-card-header {
     flex-direction: column;
     gap: 12px;
-    align-items: stretch;
-  }
-  
-  .sub-menu-list {
-    padding: 12px 20px 12px 32px;
-  }
-  
-  .sub-menu-list::before {
-    left: 20px;
-  }
-  
-  .sub-menu-item::before {
-    left: -12px;
-    width: 8px;
+    align-items: flex-start;
   }
   
   .sub-menu-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
-  }
-  
-  .sub-menu-info {
-    flex-direction: column;
-    align-items: stretch;
+    flex-wrap: wrap;
     gap: 8px;
   }
   
-  .sub-menu-name-input {
-    min-width: 0;
-  }
-  
-  .sub-menu-order {
-    justify-content: center;
-  }
-  
-  .sub-menu-actions {
-    justify-content: center;
-  }
-  
-  .empty-sub-menu {
-    padding: 10px 0px 10px 0px;
+  .sub-menu-name {
+    width: 100%;
   }
 }
-</style> 
+</style>
