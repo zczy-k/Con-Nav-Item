@@ -5417,10 +5417,10 @@ function renderPendingNavBookmarks() {
     }
     
     container.innerHTML = pendingNavBookmarks.map((bookmark, index) => `
-        <div style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #f0f0f0;">
-            <img class="pending-favicon" data-url="${escapeHtml(bookmark.url)}" src="${getFaviconUrl(bookmark.url)}" style="width: 16px; height: 16px;">
+        <div class="pending-bookmark-item" style="display: flex; align-items: center; gap: 8px; padding: 8px; border-bottom: 1px solid #f0f0f0;">
+            <img class="pending-favicon" data-url="${escapeHtml(bookmark.url)}" src="${getFaviconUrl(bookmark.url)}" style="width: 16px; height: 16px; flex-shrink: 0;">
             <div style="flex: 1; min-width: 0;">
-                <div style="font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(bookmark.title || '无标题')}</div>
+                <input type="text" class="pending-title-input" data-index="${index}" value="${escapeHtml(bookmark.title || '')}" placeholder="输入标题" style="width: 100%; padding: 4px 6px; border: 1px solid #e0e0e0; border-radius: 4px; font-size: 13px; margin-bottom: 2px;">
                 <div style="font-size: 11px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(bookmark.url)}</div>
             </div>
             <button class="btn btn-small btn-secondary btn-remove-pending" data-index="${index}" title="移除">✕</button>
@@ -5431,6 +5431,14 @@ function renderPendingNavBookmarks() {
     container.querySelectorAll('.pending-favicon').forEach(img => {
         img.addEventListener('error', () => {
             img.src = 'icons/icon16.png';
+        });
+    });
+    
+    // 绑定标题输入框事件
+    container.querySelectorAll('.pending-title-input').forEach(input => {
+        input.addEventListener('input', (e) => {
+            const index = parseInt(e.target.dataset.index, 10);
+            pendingNavBookmarks[index].title = e.target.value;
         });
     });
     
