@@ -1434,13 +1434,25 @@ onMounted(async () => {
 
 // 页面可见性变化时刷新数据（用户从其他标签页切换回来时）
 let lastVisibilityTime = Date.now();
+let lastRefreshTime = 0;
+let isRefreshing = false;
+const MIN_REFRESH_INTERVAL = 10000; // 最小刷新间隔10秒，防止频繁刷新
+const MIN_AWAY_TIME = 5000; // 离开至少5秒才刷新
+
 function handleVisibilityChange() {
   if (document.visibilityState === 'visible') {
     const now = Date.now();
-    // 如果离开超过5秒，刷新当前分类的卡片数据
-    if (now - lastVisibilityTime > 5000) {
+    const awayTime = now - lastVisibilityTime;
+    const timeSinceLastRefresh = now - lastRefreshTime;
+    
+    // 条件：离开超过5秒 且 距离上次刷新超过10秒 且 当前没有在刷新
+    if (awayTime > MIN_AWAY_TIME && timeSinceLastRefresh > MIN_REFRESH_INTERVAL && !isRefreshing) {
       console.log('[导航页] 页面重新可见，刷新卡片数据');
-      loadCards(true); // 强制刷新，绕过缓存
+      isRefreshing = true;
+      lastRefreshTime = now;
+      loadCards(true).finally(() => {
+        isRefreshing = false;
+      });
     }
     lastVisibilityTime = now;
   } else {
