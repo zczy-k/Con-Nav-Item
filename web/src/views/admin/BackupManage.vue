@@ -811,18 +811,31 @@ const saveWebdavConfig = async () => {
     body: JSON.stringify(webdavConfigForm)
   });
   if (data.success) {
-    showMessage('WebDAV配置保存成功！');
     showWebdavConfig.value = false;
     await loadWebdavConfig();
-    // 如果已配置，自动加载WebDAV备份列表
+    // 如果已配置，自动加载WebDAV备份列表并开启自动同步
     if (webdavConfig.configured) {
       await loadWebdavBackupList();
+      // 先加载当前自动备份配置
+      await loadAutoBackupConfig();
       // 自动开启WebDAV自动同步
       if (!autoBackupConfig.webdav.enabled) {
         autoBackupConfig.webdav.enabled = true;
-        await saveAutoBackupConfig();
-        showMessage('WebDAV配置保存成功，已自动开启WebDAV自动同步！');
+        // 直接调用API保存，不使用saveAutoBackupConfig避免重复提示
+        const saveResult = await apiRequest('/api/backup/auto/config', {
+          method: 'POST',
+          body: JSON.stringify(autoBackupConfig)
+        });
+        if (saveResult.success) {
+          showMessage('WebDAV配置保存成功，已自动开启WebDAV自动同步！');
+        } else {
+          showMessage('WebDAV配置保存成功，但自动同步开启失败', 'error');
+        }
+      } else {
+        showMessage('WebDAV配置保存成功！');
       }
+    } else {
+      showMessage('WebDAV配置保存成功！');
     }
   } else {
     showMessage(data.message || 'WebDAV配置保存失败', 'error');
