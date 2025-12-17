@@ -48,6 +48,10 @@ async function init() {
     handleUrlParams();
 }
 
+// 从URL参数传递的分类ID（用于右键菜单选择分类后打开弹窗）
+let urlParamMenuId = null;
+let urlParamSubMenuId = null;
+
 // 处理URL参数（从右键菜单传递）
 function handleUrlParams() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -55,8 +59,14 @@ function handleUrlParams() {
     const url = urlParams.get('url');
     const title = urlParams.get('title');
     const openCloudBackup = urlParams.get('openCloudBackup');
+    const menuId = urlParams.get('menuId');
+    const subMenuId = urlParams.get('subMenuId');
     
     if (addToNav === 'true' && url) {
+        // 保存URL参数中的分类ID
+        urlParamMenuId = menuId || null;
+        urlParamSubMenuId = subMenuId || null;
+        
         // 创建一个临时书签对象
         pendingNavBookmarks = [{
             id: 'temp_' + Date.now(),
@@ -108,17 +118,24 @@ async function showAddToNavModalDirect() {
     document.getElementById('addToNavModal').classList.add('active');
     document.getElementById('navAddStatus').textContent = '';
     
-    // 如果已有服务器地址，自动加载分类并恢复上次选择
+    // 如果已有服务器地址，自动加载分类并恢复选择
     if (navServerUrl) {
         await loadNavMenus();
-        // 恢复上次选择
-        if (lastSelectedMenuId) {
-            document.getElementById('navMenuSelect').value = lastSelectedMenuId;
+        // 优先使用URL参数中的分类（用户在右键菜单选择的分类）
+        const targetMenuId = urlParamMenuId || lastSelectedMenuId;
+        const targetSubMenuId = urlParamSubMenuId || lastSelectedSubMenuId;
+        
+        if (targetMenuId) {
+            document.getElementById('navMenuSelect').value = targetMenuId;
             onMenuSelectChange();
-            if (lastSelectedSubMenuId) {
-                document.getElementById('navSubMenuSelect').value = lastSelectedSubMenuId;
+            if (targetSubMenuId) {
+                document.getElementById('navSubMenuSelect').value = targetSubMenuId;
             }
         }
+        
+        // 使用后清除URL参数中的分类ID
+        urlParamMenuId = null;
+        urlParamSubMenuId = null;
     }
 }
 

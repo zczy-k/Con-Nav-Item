@@ -263,8 +263,11 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
         
         if (!token) {
             showNotification('需要登录', '请在书签管理器中登录导航站');
-            const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
+            let bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
                 `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
+            // 传递用户选择的分类
+            bookmarksUrl += `&menuId=${menuId}`;
+            if (subMenuId) bookmarksUrl += `&subMenuId=${subMenuId}`;
             chrome.tabs.create({ url: bookmarksUrl });
             return;
         }
@@ -291,9 +294,11 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
             if (response.status === 401) {
                 await chrome.storage.local.remove(['navAuthToken']);
                 showNotification('登录已过期', '正在打开登录页面...');
-                // 打开登录页面并传递当前要添加的URL
-                const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
+                // 打开登录页面并传递当前要添加的URL和分类
+                let bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
                     `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
+                bookmarksUrl += `&menuId=${menuId}`;
+                if (subMenuId) bookmarksUrl += `&subMenuId=${subMenuId}`;
                 chrome.tabs.create({ url: bookmarksUrl });
                 return;
             }
