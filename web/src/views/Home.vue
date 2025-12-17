@@ -1432,9 +1432,29 @@ onMounted(async () => {
 });
 
 
+// 页面可见性变化时刷新数据（用户从其他标签页切换回来时）
+let lastVisibilityTime = Date.now();
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    const now = Date.now();
+    // 如果离开超过5秒，刷新当前分类的卡片数据
+    if (now - lastVisibilityTime > 5000) {
+      console.log('[导航页] 页面重新可见，刷新卡片数据');
+      loadCards(true); // 强制刷新，绕过缓存
+    }
+    lastVisibilityTime = now;
+  } else {
+    lastVisibilityTime = Date.now();
+  }
+}
+
+// 注册页面可见性监听
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
 onUnmounted(() => {
   document.removeEventListener('click', closeFabMenu);
   document.removeEventListener('click', closeEngineDropdown);
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
 });
 
 // 获取友情链接 logo（与首页卡片完全一致）
