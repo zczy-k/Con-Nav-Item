@@ -6,16 +6,47 @@ let cachedMenus = [];
 let lastMenuFetchTime = 0;
 const MENU_CACHE_MS = 5 * 60 * 1000; // 5分钟缓存
 let isLoadingMenus = false; // 防止并发请求
+let menuRetryTimer = null; // 菜单获取重试定时器
+const MENU_RETRY_INTERVAL = 30 * 1000; // 30秒重试间隔
 
 // 扩展安装/更新时注册右键菜单
 chrome.runtime.onInstalled.addListener(async () => {
     await registerContextMenus();
+    // 启动菜单获取重试机制
+    startMenuRetryIfNeeded();
 });
 
 // 扩展启动时注册右键菜单
 chrome.runtime.onStartup.addListener(async () => {
     await registerContextMenus();
+    // 启动菜单获取重试机制
+    startMenuRetryIfNeeded();
 });
+
+// 当缓存为空时，定期尝试获取菜单数据
+function startMenuRetryIfNeeded() {
+    // 如果已有定时器，不重复创建
+    if (menuRetryTimer) return;
+    
+    // 如果缓存不为空，不需要重试
+    if (cachedMenus.length > 0) return;
+    
+    console.log('[导航站扩展] 菜单缓存为空，启动定期重试...');
+    
+    menuRetryTimer = setInterval(async () => {
+        // 如果已获取到菜单，停止重试
+        if (cachedMenus.length > 0) {
+            clearInterval(menuRetryTimer);
+            menuRetryTimer = null;
+            console.log('[导航站扩展] 菜单获取成功，停止重试');
+            return;
+        }
+        
+        // 尝试刷新菜单
+        console.log('[导航站扩展] 尝试获取菜单数据...');
+        await refreshCategoryMenus();
+    }, MENU_RETRY_INTERVAL);
+}
 
 // 注册基础右键菜单
 async function registerContextMenus() {
@@ -107,6 +138,13 @@ async function loadAndCreateCategoryMenus() {
             
             cachedMenus = menus;
             lastMenuFetchTime = Date.now();
+            
+            // 成功获取菜单后，停止重试定时器
+            if (menuRetryTimer) {
+                clearInterval(menuRetryTimer);
+                menuRetryTimer = null;
+                console.log('[导航站扩展] 菜单获取成功，已停止重试');
+            }
             
             // 持久化缓存到storage（离线可用）
             await chrome.storage.local.set({ 
@@ -1014,6 +1052,12 @@ chrome.storage.onChanged.addListener((changes, area) => {
             // 启用自动更新
             initHotBookmarksAutoUpdate();
         }
+    }
+    
+    // 监听导航站地址变化，自动刷新右键菜单分类
+    if (area === 'sync' && changes.navUrl) {
+        console.log('[导航站扩展] 检测到导航站地址变化，正在刷新右键菜单...');
+        refreshCategoryMenus();
     }
 });
 
