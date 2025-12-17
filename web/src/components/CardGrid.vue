@@ -237,26 +237,26 @@ function isCardSelected(card) {
   return props.selectedCards?.some(c => c.id === card.id) || false;
 }
 
-// 随机渐变色配置（透明度60%）
+// 随机渐变色配置（透明度45%，更通透的毛玻璃效果）
 const gradients = [
-  'linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(240, 147, 251, 0.6) 0%, rgba(245, 87, 108, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(79, 172, 254, 0.6) 0%, rgba(0, 242, 254, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(67, 233, 123, 0.6) 0%, rgba(56, 249, 215, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(250, 112, 154, 0.6) 0%, rgba(254, 225, 64, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(48, 207, 208, 0.6) 0%, rgba(51, 8, 103, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(168, 237, 234, 0.6) 0%, rgba(254, 214, 227, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(255, 154, 158, 0.6) 0%, rgba(254, 207, 239, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(255, 236, 210, 0.6) 0%, rgba(252, 182, 159, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(255, 110, 127, 0.6) 0%, rgba(191, 233, 255, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(224, 195, 252, 0.6) 0%, rgba(142, 197, 252, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(248, 177, 149, 0.6) 0%, rgba(246, 114, 128, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(210, 153, 194, 0.6) 0%, rgba(254, 249, 215, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(253, 219, 146, 0.6) 0%, rgba(209, 253, 255, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(152, 144, 227, 0.6) 0%, rgba(177, 244, 207, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(235, 192, 253, 0.6) 0%, rgba(217, 222, 216, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(150, 251, 196, 0.6) 0%, rgba(249, 245, 134, 0.6) 100%)',
-  'linear-gradient(135deg, rgba(253, 160, 133, 0.6) 0%, rgba(246, 211, 101, 0.6) 100%)'
+  'linear-gradient(135deg, rgba(102, 126, 234, 0.45) 0%, rgba(118, 75, 162, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(240, 147, 251, 0.45) 0%, rgba(245, 87, 108, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(79, 172, 254, 0.45) 0%, rgba(0, 242, 254, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(67, 233, 123, 0.45) 0%, rgba(56, 249, 215, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(250, 112, 154, 0.45) 0%, rgba(254, 225, 64, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(48, 207, 208, 0.45) 0%, rgba(51, 8, 103, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(168, 237, 234, 0.45) 0%, rgba(254, 214, 227, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(255, 154, 158, 0.45) 0%, rgba(254, 207, 239, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(255, 236, 210, 0.45) 0%, rgba(252, 182, 159, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(255, 110, 127, 0.45) 0%, rgba(191, 233, 255, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(224, 195, 252, 0.45) 0%, rgba(142, 197, 252, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(248, 177, 149, 0.45) 0%, rgba(246, 114, 128, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(210, 153, 194, 0.45) 0%, rgba(254, 249, 215, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(253, 219, 146, 0.45) 0%, rgba(209, 253, 255, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(152, 144, 227, 0.45) 0%, rgba(177, 244, 207, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(235, 192, 253, 0.45) 0%, rgba(217, 222, 216, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(150, 251, 196, 0.45) 0%, rgba(249, 245, 134, 0.45) 100%)',
+  'linear-gradient(135deg, rgba(253, 160, 133, 0.45) 0%, rgba(246, 211, 101, 0.45) 100%)'
 ];
 </script>
 
@@ -290,15 +290,15 @@ const gradients = [
 }
 .link-item {
   /* background 由 JS 动态设置 */
-  backdrop-filter: blur(8px) saturate(120%);
-  -webkit-backdrop-filter: blur(8px) saturate(120%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 16px;
   padding: 0;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.15),
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+    0 2px 8px rgba(0, 0, 0, 0.1),
+    0 4px 16px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
   text-align: center;
   min-height: 85px;
   height: 85px;
@@ -306,7 +306,7 @@ const gradients = [
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   position: relative;
   overflow: hidden;
 }
