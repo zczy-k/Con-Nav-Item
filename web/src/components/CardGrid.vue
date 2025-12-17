@@ -237,26 +237,26 @@ function isCardSelected(card) {
   return props.selectedCards?.some(c => c.id === card.id) || false;
 }
 
-// 随机渐变色配置（透明度80%）
+// 随机渐变色配置（透明度60%）
 const gradients = [
-  'linear-gradient(135deg, rgba(102, 126, 234, 0.8) 0%, rgba(118, 75, 162, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(240, 147, 251, 0.8) 0%, rgba(245, 87, 108, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(79, 172, 254, 0.8) 0%, rgba(0, 242, 254, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(67, 233, 123, 0.8) 0%, rgba(56, 249, 215, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(250, 112, 154, 0.8) 0%, rgba(254, 225, 64, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(48, 207, 208, 0.8) 0%, rgba(51, 8, 103, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(168, 237, 234, 0.8) 0%, rgba(254, 214, 227, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(255, 154, 158, 0.8) 0%, rgba(254, 207, 239, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(255, 236, 210, 0.8) 0%, rgba(252, 182, 159, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(255, 110, 127, 0.8) 0%, rgba(191, 233, 255, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(224, 195, 252, 0.8) 0%, rgba(142, 197, 252, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(248, 177, 149, 0.8) 0%, rgba(246, 114, 128, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(210, 153, 194, 0.8) 0%, rgba(254, 249, 215, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(253, 219, 146, 0.8) 0%, rgba(209, 253, 255, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(152, 144, 227, 0.8) 0%, rgba(177, 244, 207, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(235, 192, 253, 0.8) 0%, rgba(217, 222, 216, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(150, 251, 196, 0.8) 0%, rgba(249, 245, 134, 0.8) 100%)',
-  'linear-gradient(135deg, rgba(253, 160, 133, 0.8) 0%, rgba(246, 211, 101, 0.8) 100%)'
+  'linear-gradient(135deg, rgba(102, 126, 234, 0.6) 0%, rgba(118, 75, 162, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(240, 147, 251, 0.6) 0%, rgba(245, 87, 108, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(79, 172, 254, 0.6) 0%, rgba(0, 242, 254, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(67, 233, 123, 0.6) 0%, rgba(56, 249, 215, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(250, 112, 154, 0.6) 0%, rgba(254, 225, 64, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(48, 207, 208, 0.6) 0%, rgba(51, 8, 103, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(168, 237, 234, 0.6) 0%, rgba(254, 214, 227, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(255, 154, 158, 0.6) 0%, rgba(254, 207, 239, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(255, 236, 210, 0.6) 0%, rgba(252, 182, 159, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(255, 110, 127, 0.6) 0%, rgba(191, 233, 255, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(224, 195, 252, 0.6) 0%, rgba(142, 197, 252, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(248, 177, 149, 0.6) 0%, rgba(246, 114, 128, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(210, 153, 194, 0.6) 0%, rgba(254, 249, 215, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(253, 219, 146, 0.6) 0%, rgba(209, 253, 255, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(152, 144, 227, 0.6) 0%, rgba(177, 244, 207, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(235, 192, 253, 0.6) 0%, rgba(217, 222, 216, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(150, 251, 196, 0.6) 0%, rgba(249, 245, 134, 0.6) 100%)',
+  'linear-gradient(135deg, rgba(253, 160, 133, 0.6) 0%, rgba(246, 211, 101, 0.6) 100%)'
 ];
 </script>
 
