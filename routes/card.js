@@ -65,6 +65,9 @@ router.get('/', (req, res) => {
 
 // 获取指定菜单的卡片（包含标签）
 router.get('/:menuId', (req, res) => {
+  // 不设置缓存，确保数据实时性
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  
   const { subMenuId } = req.query;
   let query, params;
   

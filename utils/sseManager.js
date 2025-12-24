@@ -30,6 +30,8 @@ function broadcastVersionChange(version) {
   clients.forEach(client => {
     try {
       client.write(data);
+      // 确保数据立即发送，不被缓冲
+      if (client.flush) client.flush();
     } catch (e) {
       // 写入失败，移除该客户端
       clients.delete(client);

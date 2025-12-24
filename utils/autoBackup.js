@@ -343,9 +343,9 @@ async function notifyDataChange() {
  * 防抖备份 - 数据修改后触发
  * 注意：此函数会同时触发数据变更通知（立即）和自动备份（延迟）
  */
-function triggerDebouncedBackup() {
-  // 立即通知数据变更，让前端实时刷新
-  notifyDataChange();
+async function triggerDebouncedBackup() {
+  // 立即通知数据变更，让前端实时刷新（等待完成）
+  await notifyDataChange();
   
   if (!config.debounce.enabled) {
     return;

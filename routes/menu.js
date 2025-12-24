@@ -70,6 +70,7 @@ router.get('/', (req, res) => {
 
 // 获取指定菜单的子菜单
 router.get('/:id/submenus', (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   db.all('SELECT * FROM sub_menus WHERE parent_id = ? ORDER BY "order"', [req.params.id], (err, rows) => {
     if (err) return res.status(500).json({error: err.message});
     res.json(rows);

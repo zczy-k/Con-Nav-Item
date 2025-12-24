@@ -157,6 +157,7 @@ app.get('/api/sse/data-sync', async (req, res) => {
     'Connection': 'keep-alive',
     'X-Accel-Buffering': 'no' // 禁用nginx缓冲
   });
+  res.flushHeaders(); // 立即发送响应头
   
   // 发送初始版本号
   try {
