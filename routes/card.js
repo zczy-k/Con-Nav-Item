@@ -172,14 +172,8 @@ router.patch('/batch-update', auth, (req, res) => {
                 if (err) {
                   return res.status(500).json({ error: err.message });
                 }
-                triggerDebouncedBackup(); // 触发自动备份
-                
-                // 获取新的数据版本号返回给前端
-                db.getDataVersion().then(version => {
-                  res.json({ success: true, updated: completed, dataVersion: version });
-                }).catch(() => {
-                  res.json({ success: true, updated: completed });
-                });
+                triggerDebouncedBackup(); // 触发自动备份和SSE广播
+                res.json({ success: true, updated: completed });
               });
             }
           }
@@ -264,22 +258,11 @@ router.put('/:id', auth, (req, res) => {
             if (err) return res.status(500).json({error: err.message});
             if (!card) return res.status(404).json({error: '卡片不存在'});
             
-            triggerDebouncedBackup();
-            
-            // 获取新的数据版本号返回给前端
-            db.getDataVersion().then(version => {
-              res.json({ 
-                success: true,
-                changed: changes,
-                card: card,
-                dataVersion: version
-              });
-            }).catch(() => {
-              res.json({ 
-                success: true,
-                changed: changes,
-                card: card
-              });
+            triggerDebouncedBackup(); // 触发自动备份和SSE广播
+            res.json({ 
+              success: true,
+              changed: changes,
+              card: card
             });
           });
         };
@@ -330,20 +313,10 @@ router.delete('/:id', auth, (req, res) => {
               return res.status(500).json({ error: '提交事务失败: ' + err.message });
             }
             
-            triggerDebouncedBackup();
-            
-            // 获取新的数据版本号返回给前端
-            db.getDataVersion().then(version => {
-              res.json({ 
-                success: true,
-                deleted: deletedCount,
-                dataVersion: version
-              });
-            }).catch(() => {
-              res.json({ 
-                success: true,
-                deleted: deletedCount
-              });
+            triggerDebouncedBackup(); // 触发自动备份和SSE广播
+            res.json({ 
+              success: true,
+              deleted: deletedCount
             });
           });
         });
