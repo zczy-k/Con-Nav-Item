@@ -6,7 +6,7 @@
       class="menu-item"
       :data-menu-id="menu.id"
       @mouseenter="showSubMenu(menu.id)"
-      @mouseleave="hideSubMenu(menu.id)"
+      @mouseleave="scheduleHideSubMenu(menu.id)"
     >
       <button 
         @click="handleMenuClick(menu)" 
@@ -20,6 +20,8 @@
         v-if="editMode" 
         class="menu-dropdown"
         :class="{ 'show': hoveredMenuId === menu.id }"
+        @mouseenter="cancelHideSubMenu(menu.id)"
+        @mouseleave="scheduleHideSubMenu(menu.id)"
       >
         <!-- 主菜单操作按钮 -->
         <div class="menu-actions-row">
@@ -63,6 +65,8 @@
         v-if="!editMode && menu.subMenus && menu.subMenus.length > 0" 
         class="sub-menu"
         :class="{ 'show': hoveredMenuId === menu.id }"
+        @mouseenter="cancelHideSubMenu(menu.id)"
+        @mouseleave="scheduleHideSubMenu(menu.id)"
       >
         <div v-for="subMenu in menu.subMenus" :key="subMenu.id" class="sub-menu-row">
           <button 
@@ -99,21 +103,37 @@ const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSub
 const hoveredMenuId = ref(null);
 const menuBarRef = ref(null);
 let sortableInstance = null;
+let hideTimer = null;
 
 function handleMenuClick(menu) {
   emit('select', menu);
 }
 
 function showSubMenu(menuId) {
+  // 清除隐藏定时器
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
   hoveredMenuId.value = menuId;
 }
 
-function hideSubMenu(menuId) {
-  setTimeout(() => {
+function scheduleHideSubMenu(menuId) {
+  // 延迟隐藏，给用户时间移动到下拉框
+  hideTimer = setTimeout(() => {
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null;
     }
-  }, 300);
+  }, 150);
+}
+
+function cancelHideSubMenu(menuId) {
+  // 鼠标进入下拉框时取消隐藏
+  if (hideTimer) {
+    clearTimeout(hideTimer);
+    hideTimer = null;
+  }
+  hoveredMenuId.value = menuId;
 }
 
 // 初始化拖拽排序
