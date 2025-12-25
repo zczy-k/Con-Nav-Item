@@ -528,7 +528,7 @@
     </div>
     
     <!-- 菜单编辑弹窗 -->
-    <div v-if="showMenuModal" class="modal-overlay" @click="showMenuModal = false">
+    <div v-if="showMenuModal" class="modal-overlay">
       <div class="modal-content menu-modal" @click.stop>
         <div class="modal-header">
           <h3>{{ menuModalMode === 'add' ? '添加' : '编辑' }}{{ menuModalType === 'menu' ? '菜单' : '子菜单' }}</h3>

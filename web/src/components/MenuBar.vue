@@ -113,7 +113,7 @@ function hideSubMenu(menuId) {
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null;
     }
-  }, 100);
+  }, 300);
 }
 
 // 初始化拖拽排序
