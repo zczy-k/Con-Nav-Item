@@ -89,7 +89,28 @@ router.post('/', auth, (req, res) => {
 
 router.put('/:id', auth, (req, res) => {
   const { name, order } = req.body;
-  db.run('UPDATE menus SET name=?, "order"=? WHERE id=?', [name, order || 0, req.params.id], function(err) {
+  
+  // 支持部分更新：只更新提供的字段
+  const updates = [];
+  const params = [];
+  
+  if (name !== undefined) {
+    updates.push('name=?');
+    params.push(name);
+  }
+  if (order !== undefined) {
+    updates.push('"order"=?');
+    params.push(order);
+  }
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ error: '没有提供要更新的字段' });
+  }
+  
+  params.push(req.params.id);
+  const sql = `UPDATE menus SET ${updates.join(', ')} WHERE id=?`;
+  
+  db.run(sql, params, function(err) {
     if (err) return res.status(500).json({error: err.message});
     triggerDebouncedBackup(); // 触发自动备份
     res.json({ changed: this.changes });
@@ -167,7 +188,28 @@ router.post('/:id/submenus', auth, (req, res) => {
 
 router.put('/submenus/:id', auth, (req, res) => {
   const { name, order } = req.body;
-  db.run('UPDATE sub_menus SET name=?, "order"=? WHERE id=?', [name, order || 0, req.params.id], function(err) {
+  
+  // 支持部分更新：只更新提供的字段
+  const updates = [];
+  const params = [];
+  
+  if (name !== undefined) {
+    updates.push('name=?');
+    params.push(name);
+  }
+  if (order !== undefined) {
+    updates.push('"order"=?');
+    params.push(order);
+  }
+  
+  if (updates.length === 0) {
+    return res.status(400).json({ error: '没有提供要更新的字段' });
+  }
+  
+  params.push(req.params.id);
+  const sql = `UPDATE sub_menus SET ${updates.join(', ')} WHERE id=?`;
+  
+  db.run(sql, params, function(err) {
     if (err) return res.status(500).json({error: err.message});
     triggerDebouncedBackup(); // 触发自动备份
     res.json({ changed: this.changes });

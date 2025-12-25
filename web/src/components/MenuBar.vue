@@ -35,7 +35,7 @@
         <!-- 子菜单列表 -->
         <div v-if="menu.subMenus && menu.subMenus.length > 0" class="sub-menu-list">
           <div 
-            v-for="subMenu in menu.subMenus" 
+            v-for="(subMenu, index) in menu.subMenus" 
             :key="subMenu.id" 
             class="sub-menu-row"
             :data-submenu-id="subMenu.id"
@@ -48,6 +48,18 @@
               {{ subMenu.name }}
             </button>
             <div class="sub-menu-actions">
+              <button 
+                v-if="index > 0"
+                class="action-btn-sm sort-btn" 
+                @click.stop="$emit('moveSubMenuUp', subMenu, menu, index)" 
+                title="上移"
+              >↑</button>
+              <button 
+                v-if="index < menu.subMenus.length - 1"
+                class="action-btn-sm sort-btn" 
+                @click.stop="$emit('moveSubMenuDown', subMenu, menu, index)" 
+                title="下移"
+              >↓</button>
               <button class="action-btn-sm" @click.stop="$emit('editSubMenu', subMenu, menu)" title="编辑">✏️</button>
               <button class="action-btn-sm" @click.stop="$emit('deleteSubMenu', subMenu, menu)" title="删除">🗑️</button>
             </div>
@@ -98,7 +110,7 @@ const props = defineProps({
   editMode: Boolean
 });
 
-const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSubMenu', 'editSubMenu', 'deleteSubMenu', 'menusReordered']);
+const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSubMenu', 'editSubMenu', 'deleteSubMenu', 'menusReordered', 'moveSubMenuUp', 'moveSubMenuDown']);
 
 const hoveredMenuId = ref(null);
 const menuBarRef = ref(null);
@@ -396,6 +408,15 @@ onUnmounted(() => {
 
 .action-btn-sm:hover {
   background: rgba(99, 179, 237, 0.6);
+}
+
+.action-btn-sm.sort-btn {
+  font-size: 10px;
+  font-weight: bold;
+}
+
+.action-btn-sm.sort-btn:hover {
+  background: rgba(74, 222, 128, 0.6);
 }
 
 .add-sub-menu-btn {

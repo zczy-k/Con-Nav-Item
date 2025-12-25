@@ -14,6 +14,8 @@
         @editSubMenu="openEditSubMenuModal"
         @deleteSubMenu="handleDeleteSubMenu"
         @menusReordered="handleMenusReordered"
+        @moveSubMenuUp="handleMoveSubMenuUp"
+        @moveSubMenuDown="handleMoveSubMenuDown"
       />
     </div>
     
@@ -2758,6 +2760,58 @@ async function handleMenusReordered(menuIds) {
       // 刷新恢复原顺序
       const menusRes = await getMenus(true);
       menus.value = menusRes.data;
+    }
+  }
+}
+
+// 处理子菜单上移
+async function handleMoveSubMenuUp(subMenu, parentMenu, index) {
+  if (index <= 0) return;
+  
+  const subMenus = parentMenu.subMenus;
+  const prevSubMenu = subMenus[index - 1];
+  
+  try {
+    // 交换两个子菜单的 order
+    await Promise.all([
+      updateSubMenu(subMenu.id, { order: index - 1 }),
+      updateSubMenu(prevSubMenu.id, { order: index })
+    ]);
+    
+    // 刷新菜单数据
+    const menusRes = await getMenus(true);
+    menus.value = menusRes.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      handleTokenInvalid();
+    } else {
+      alert('排序失败：' + (error.response?.data?.error || error.message));
+    }
+  }
+}
+
+// 处理子菜单下移
+async function handleMoveSubMenuDown(subMenu, parentMenu, index) {
+  const subMenus = parentMenu.subMenus;
+  if (index >= subMenus.length - 1) return;
+  
+  const nextSubMenu = subMenus[index + 1];
+  
+  try {
+    // 交换两个子菜单的 order
+    await Promise.all([
+      updateSubMenu(subMenu.id, { order: index + 1 }),
+      updateSubMenu(nextSubMenu.id, { order: index })
+    ]);
+    
+    // 刷新菜单数据
+    const menusRes = await getMenus(true);
+    menus.value = menusRes.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      handleTokenInvalid();
+    } else {
+      alert('排序失败：' + (error.response?.data?.error || error.message));
     }
   }
 }
