@@ -2670,7 +2670,12 @@ async function saveMenuModal() {
     menus.value = menusRes.data;
     showMenuModal.value = false;
   } catch (error) {
-    alert('操作失败：' + (error.response?.data?.error || error.message));
+    if (error.response?.status === 401) {
+      showMenuModal.value = false;
+      handleTokenInvalid();
+    } else {
+      alert('操作失败：' + (error.response?.data?.error || error.message));
+    }
   } finally {
     menuModalLoading.value = false;
   }
@@ -2697,7 +2702,11 @@ async function handleDeleteMenu(menu) {
       await loadCards(true);
     }
   } catch (error) {
-    alert('删除失败：' + (error.response?.data?.error || error.message));
+    if (error.response?.status === 401) {
+      handleTokenInvalid();
+    } else {
+      alert('删除失败：' + (error.response?.data?.error || error.message));
+    }
   }
 }
 
@@ -2716,7 +2725,11 @@ async function handleDeleteSubMenu(subMenu, parentMenu) {
       await loadCards(true);
     }
   } catch (error) {
-    alert('删除失败：' + (error.response?.data?.error || error.message));
+    if (error.response?.status === 401) {
+      handleTokenInvalid();
+    } else {
+      alert('删除失败：' + (error.response?.data?.error || error.message));
+    }
   }
 }
 
