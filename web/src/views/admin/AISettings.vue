@@ -406,30 +406,35 @@ export default {
       this.starting = true;
       this.batchType = type;
       this.batchMode = mode;
-      this.batchProgress = { current: 0, total: 0, currentCard: '' };
+      this.batchProgress = { current: 0, total: 0, currentCard: '正在启动...' };
+      // 立即显示进度条
+      this.batchRunning = true;
 
       try {
         // 启动后台任务
         const res = await api.post('/api/ai/batch-task/start', { type, mode });
         
         if (!res.data.success) {
+          this.batchRunning = false;
           this.showMessage(res.data.message || '启动任务失败', 'error');
           return;
         }
         
         if (res.data.total === 0) {
+          this.batchRunning = false;
           this.showMessage('没有需要处理的卡片', 'info');
           return;
         }
         
-        this.batchRunning = true;
         this.batchProgress.total = res.data.total;
+        this.batchProgress.currentCard = '';
         this.showMessage(`任务已启动，共 ${res.data.total} 个卡片`, 'info');
         
         // 开始轮询任务状态
         this.pollTaskStatus();
         
       } catch (e) {
+        this.batchRunning = false;
         this.showMessage(e.response?.data?.message || '启动任务失败', 'error');
       } finally {
         this.starting = false;
@@ -437,8 +442,10 @@ export default {
     },
     async pollTaskStatus() {
       // 轮询任务状态
+      let pollCount = 0;
       const poll = async () => {
         if (!this.batchRunning) return;
+        pollCount++;
         
         try {
           const res = await api.get('/api/ai/batch-task/status');
@@ -450,13 +457,21 @@ export default {
               // 继续轮询
               setTimeout(poll, 1000);
             } else {
-              // 任务完成
-              this.batchRunning = false;
-              const successCount = res.data.successCount || 0;
-              const total = res.data.total || this.batchProgress.total;
-              this.showMessage(`完成！成功处理 ${successCount} / ${total} 个卡片`, 'success');
-              // 延迟一点再刷新统计，确保数据已更新
-              setTimeout(() => this.refreshStats(), 500);
+              // 任务未运行，检查是否刚启动（前几次轮询可能任务还没开始）
+              if (pollCount <= 3 && this.batchProgress.current === 0) {
+                // 可能任务还没开始，继续等待
+                setTimeout(poll, 1000);
+              } else {
+                // 任务完成
+                this.batchRunning = false;
+                const successCount = res.data.successCount || 0;
+                const total = res.data.total || this.batchProgress.total;
+                if (total > 0) {
+                  this.showMessage(`完成！成功处理 ${successCount} / ${total} 个卡片`, 'success');
+                }
+                // 延迟一点再刷新统计，确保数据已更新
+                setTimeout(() => this.refreshStats(), 500);
+              }
             }
           }
         } catch (e) {
@@ -465,7 +480,8 @@ export default {
         }
       };
       
-      poll();
+      // 延迟 500ms 开始第一次轮询，给后端一点时间启动任务
+      setTimeout(poll, 500);
     },
     async stopBatch() {
       if (this.stopping) return;
