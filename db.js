@@ -597,9 +597,9 @@ async function getCardsNeedingAI(type) {
   } else if (type === 'tags') {
     sql += ` WHERE c.id NOT IN (SELECT DISTINCT card_id FROM card_tags)`;
   } else if (type === 'name') {
-    // 缺少名称：名称为空，或名称看起来像域名（包含.且没有空格，长度超过10）
+    // 缺少名称：名称为空，或名称是完整URL（包含://或以www.开头）
     sql += ` WHERE c.title IS NULL OR c.title = '' 
-             OR (c.title LIKE '%.%' AND c.title NOT LIKE '% %' AND LENGTH(c.title) > 10)`;
+             OR c.title LIKE '%://%' OR c.title LIKE 'www.%'`;
   } else {
     // both - 缺少描述或标签的
     sql += ` WHERE (c.desc IS NULL OR c.desc = '') 

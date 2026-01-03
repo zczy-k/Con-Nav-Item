@@ -441,7 +441,8 @@ export default {
               const successCount = res.data.successCount || 0;
               const total = res.data.total || this.batchProgress.total;
               this.showMessage(`完成！成功处理 ${successCount} / ${total} 个卡片`, 'success');
-              await this.refreshStats();
+              // 延迟一点再刷新统计，确保数据已更新
+              setTimeout(() => this.refreshStats(), 500);
             }
           }
         } catch (e) {
