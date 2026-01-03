@@ -170,10 +170,10 @@ router.post('/generate', authMiddleware, async (req, res) => {
   }
 });
 
-// 获取缺少描述/标签的卡片
+// 获取缺少描述/标签/名称的卡片
 router.get('/empty-cards', authMiddleware, async (req, res) => {
   try {
-    const { type, mode } = req.query; // type: 'description' | 'tags' | 'both', mode: 'empty' | 'all'
+    const { type, mode } = req.query; // type: 'description' | 'tags' | 'name' | 'both', mode: 'empty' | 'all'
     
     // mode=all 时返回所有卡片（用于重新生成）
     if (mode === 'all') {
@@ -221,6 +221,157 @@ router.post('/batch-generate', authMiddleware, async (req, res) => {
   }
 });
 
+// ==================== 后台批量任务管理 ====================
+let batchTask = null; // 当前运行的批量任务
+
+// 获取批量任务状态
+router.get('/batch-task/status', authMiddleware, (req, res) => {
+  if (!batchTask) {
+    return res.json({ success: true, running: false });
+  }
+  res.json({
+    success: true,
+    running: batchTask.running,
+    type: batchTask.type,
+    mode: batchTask.mode,
+    current: batchTask.current,
+    total: batchTask.total,
+    successCount: batchTask.successCount,
+    currentCard: batchTask.currentCard
+  });
+});
+
+// 启动后台批量任务
+router.post('/batch-task/start', authMiddleware, async (req, res) => {
+  try {
+    const { type, mode } = req.body; // type: 'name' | 'description' | 'tags', mode: 'empty' | 'all'
+    
+    if (!type || !mode) {
+      return res.status(400).json({ success: false, message: '参数不完整' });
+    }
+    
+    // 检查是否已有任务在运行
+    if (batchTask && batchTask.running) {
+      return res.status(400).json({ success: false, message: '已有批量任务在运行中' });
+    }
+    
+    const config = await getDecryptedAIConfig();
+    if (!config.provider || !config.apiKey) {
+      return res.status(400).json({ success: false, message: '请先配置 AI 服务' });
+    }
+    
+    // 获取待处理卡片
+    let cards;
+    if (mode === 'all') {
+      cards = await db.getAllCards();
+    } else {
+      cards = await db.getCardsNeedingAI(type);
+    }
+    
+    if (!cards || cards.length === 0) {
+      return res.json({ success: true, message: '没有需要处理的卡片', total: 0 });
+    }
+    
+    // 初始化任务状态
+    batchTask = {
+      running: true,
+      type,
+      mode,
+      current: 0,
+      total: cards.length,
+      successCount: 0,
+      currentCard: '',
+      shouldStop: false
+    };
+    
+    // 立即返回响应，任务在后台执行
+    res.json({ success: true, message: '批量任务已启动', total: cards.length });
+    
+    // 后台执行批量任务
+    runBatchTask(config, cards, type);
+    
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 停止后台批量任务
+router.post('/batch-task/stop', authMiddleware, (req, res) => {
+  if (!batchTask || !batchTask.running) {
+    return res.json({ success: true, message: '没有运行中的任务' });
+  }
+  
+  batchTask.shouldStop = true;
+  res.json({ success: true, message: '正在停止任务...' });
+});
+
+// 后台执行批量任务
+async function runBatchTask(config, cards, type) {
+  const { notifyDataChange } = require('../utils/autoBackup');
+  const existingTags = type === 'tags' ? await db.getAllTagNames() : [];
+  const rawConfig = await db.getAIConfig();
+  const delay = parseInt(rawConfig.requestDelay) || 1500;
+  
+  for (let i = 0; i < cards.length; i++) {
+    if (!batchTask || batchTask.shouldStop) {
+      break;
+    }
+    
+    const card = cards[i];
+    batchTask.current = i + 1;
+    batchTask.currentCard = card.title || card.url;
+    
+    try {
+      let updated = false;
+      
+      if (type === 'name') {
+        const namePrompt = buildNamePrompt({ title: card.title, url: card.url });
+        const name = await callAI(config, namePrompt);
+        const cleanedName = cleanName(name);
+        if (cleanedName) {
+          await db.updateCardName(card.id, cleanedName);
+          updated = true;
+        }
+      } else if (type === 'description') {
+        const descPrompt = buildDescriptionPrompt({ title: card.title, url: card.url });
+        const desc = await callAI(config, descPrompt);
+        const cleanedDesc = cleanDescription(desc);
+        if (cleanedDesc) {
+          await db.updateCardDescription(card.id, cleanedDesc);
+          updated = true;
+        }
+      } else if (type === 'tags') {
+        const tagsPrompt = buildTagsPrompt({ title: card.title, url: card.url, desc: card.desc }, existingTags);
+        const tagsResponse = await callAI(config, tagsPrompt);
+        const { tags, newTags } = parseTagsResponse(tagsResponse, existingTags);
+        const allTagNames = [...tags, ...newTags];
+        if (allTagNames.length > 0) {
+          await db.updateCardTags(card.id, allTagNames);
+          updated = true;
+        }
+      }
+      
+      if (updated) {
+        batchTask.successCount++;
+        // 立即通知前端刷新数据
+        await notifyDataChange();
+      }
+    } catch (e) {
+      // 单个卡片处理失败，继续下一个
+    }
+    
+    // 延迟（避免 API 限流）
+    if (i < cards.length - 1 && batchTask && !batchTask.shouldStop) {
+      await new Promise(r => setTimeout(r, delay));
+    }
+  }
+  
+  // 任务完成
+  if (batchTask) {
+    batchTask.running = false;
+  }
+}
+
 // 更新卡片描述
 router.post('/update-description', authMiddleware, async (req, res) => {
   try {
@@ -232,6 +383,22 @@ router.post('/update-description', authMiddleware, async (req, res) => {
     
     await db.updateCardDescription(cardId, description);
     res.json({ success: true, message: '描述更新成功' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+});
+
+// 更新卡片名称
+router.post('/update-name', authMiddleware, async (req, res) => {
+  try {
+    const { cardId, name } = req.body;
+    
+    if (!cardId || typeof name !== 'string') {
+      return res.status(400).json({ success: false, message: '参数不完整' });
+    }
+    
+    await db.updateCardName(cardId, name);
+    res.json({ success: true, message: '名称更新成功' });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });
   }

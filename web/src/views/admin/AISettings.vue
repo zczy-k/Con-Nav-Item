@@ -101,6 +101,10 @@
           <span class="stat-label">总卡片数</span>
         </div>
         <div class="stat-item">
+          <span class="stat-value">{{ stats.emptyName }}</span>
+          <span class="stat-label">缺少名称</span>
+        </div>
+        <div class="stat-item">
           <span class="stat-value">{{ stats.emptyDesc }}</span>
           <span class="stat-label">缺少描述</span>
         </div>
@@ -117,6 +121,13 @@
           <h4>补充缺失内容</h4>
           <p class="hint">只为缺少内容的卡片生成</p>
           <div class="btn-group">
+            <button 
+              class="btn btn-secondary" 
+              @click="startBatch('name', 'empty')"
+              :disabled="!stats || stats.emptyName === 0"
+            >
+              📝 生成缺少的名称 ({{ stats?.emptyName || 0 }})
+            </button>
             <button 
               class="btn btn-secondary" 
               @click="startBatch('description', 'empty')"
@@ -138,6 +149,13 @@
           <h4>重新生成所有</h4>
           <p class="hint">覆盖所有卡片的现有内容</p>
           <div class="btn-group">
+            <button 
+              class="btn btn-warning" 
+              @click="startBatch('name', 'all')"
+              :disabled="!stats || stats.total === 0"
+            >
+              🔄 重新生成所有名称 ({{ stats?.total || 0 }})
+            </button>
             <button 
               class="btn btn-warning" 
               @click="startBatch('description', 'all')"
@@ -256,7 +274,8 @@ export default {
       return Math.round((this.batchProgress.current / this.batchProgress.total) * 100);
     },
     batchLabel() {
-      const typeLabel = this.batchType === 'description' ? '描述' : '标签';
+      const typeLabels = { name: '名称', description: '描述', tags: '标签' };
+      const typeLabel = typeLabels[this.batchType] || '内容';
       const modeLabel = this.batchMode === 'all' ? '重新生成所有' : '生成缺少的';
       return `${modeLabel}${typeLabel}`;
     }
@@ -264,6 +283,7 @@ export default {
   async mounted() {
     await this.loadConfig();
     await this.refreshStats();
+    await this.checkRunningTask();
   },
   methods: {
     async loadConfig() {
@@ -277,6 +297,26 @@ export default {
           this.config.model = cfg.model || '';
           this.config.requestDelay = cfg.requestDelay || 1500;
           this.config.autoGenerate = cfg.autoGenerate || false;
+        }
+      } catch (e) {
+        // 静默处理
+      }
+    },
+    async checkRunningTask() {
+      try {
+        const res = await api.get('/api/ai/batch-task/status');
+        if (res.data.success && res.data.running) {
+          // 有正在运行的任务，恢复显示
+          this.batchRunning = true;
+          this.batchType = res.data.type;
+          this.batchMode = res.data.mode;
+          this.batchProgress = {
+            current: res.data.current,
+            total: res.data.total,
+            currentCard: res.data.currentCard
+          };
+          // 开始轮询
+          this.pollTaskStatus();
         }
       } catch (e) {
         // 静默处理
@@ -328,12 +368,14 @@ export default {
     },
     async refreshStats() {
       try {
-        const [descRes, tagsRes, allRes] = await Promise.all([
+        const [nameRes, descRes, tagsRes, allRes] = await Promise.all([
+          api.get('/api/ai/empty-cards?type=name'),
           api.get('/api/ai/empty-cards?type=description'),
           api.get('/api/ai/empty-cards?type=tags'),
           api.get('/api/ai/empty-cards?type=description&mode=all')
         ]);
         this.stats = {
+          emptyName: nameRes.data.total || 0,
           emptyDesc: descRes.data.total || 0,
           emptyTags: tagsRes.data.total || 0,
           total: allRes.data.total || 0
@@ -345,95 +387,78 @@ export default {
     async startBatch(type, mode) {
       // mode: 'empty' = 只处理缺少的, 'all' = 处理所有
       if (mode === 'all') {
-        const confirmMsg = type === 'description' 
-          ? '确定要重新生成所有卡片的描述吗？这将覆盖现有描述。'
-          : '确定要重新生成所有卡片的标签吗？这将覆盖现有标签。';
+        const typeLabels = { name: '名称', description: '描述', tags: '标签' };
+        const confirmMsg = `确定要重新生成所有卡片的${typeLabels[type]}吗？这将覆盖现有${typeLabels[type]}。`;
         if (!confirm(confirmMsg)) return;
       }
       
       this.batchType = type;
       this.batchMode = mode;
-      this.batchRunning = true;
-      this.shouldStop = false;
       this.batchProgress = { current: 0, total: 0, currentCard: '' };
 
       try {
-        // 获取待处理卡片
-        const url = mode === 'all' 
-          ? `/api/ai/empty-cards?type=${type}&mode=all`
-          : `/api/ai/empty-cards?type=${type}`;
-        const res = await api.get(url);
-        const cards = res.data.cards || [];
+        // 启动后台任务
+        const res = await api.post('/api/ai/batch-task/start', { type, mode });
         
-        if (cards.length === 0) {
-          this.showMessage('没有需要处理的卡片', 'info');
-          this.batchRunning = false;
+        if (!res.data.success) {
+          this.showMessage(res.data.message || '启动任务失败', 'error');
           return;
         }
-
-        this.batchProgress.total = cards.length;
-        const delay = this.config.requestDelay || 1500;
-        let successCount = 0;
-
-        for (let i = 0; i < cards.length; i++) {
-          if (this.shouldStop) break;
-
-          const card = cards[i];
-          this.batchProgress.current = i + 1;
-          this.batchProgress.currentCard = card.title || card.url;
-
-          try {
-            // 调用 AI 生成
-            const genRes = await api.post('/api/ai/generate', {
-              type,
-              card,
-              existingTags: type === 'tags' ? await this.getExistingTags() : []
-            });
-
-            if (genRes.data.success) {
-              // 更新卡片
-              if (type === 'description' && genRes.data.description) {
-                await api.post('/api/ai/update-description', {
-                  cardId: card.id,
-                  description: genRes.data.description
-                });
-                successCount++;
-              } else if (type === 'tags' && genRes.data.tags) {
-                const allTags = [...(genRes.data.tags.tags || []), ...(genRes.data.tags.newTags || [])];
-                if (allTags.length > 0) {
-                  await api.post('/api/ai/update-tags', {
-                    cardId: card.id,
-                    tags: allTags
-                  });
-                  successCount++;
-                }
-              }
-            }
-          } catch (e) {
-            // 处理失败，继续下一个
-          }
-
-          // 延迟
-          if (i < cards.length - 1 && !this.shouldStop) {
-            await new Promise(r => setTimeout(r, delay));
-          }
+        
+        if (res.data.total === 0) {
+          this.showMessage('没有需要处理的卡片', 'info');
+          return;
         }
-
-        this.showMessage(
-          this.shouldStop 
-            ? `已停止，成功处理 ${successCount} 个卡片` 
-            : `完成！成功处理 ${successCount} / ${cards.length} 个卡片`,
-          successCount > 0 ? 'success' : 'info'
-        );
-        await this.refreshStats();
+        
+        this.batchRunning = true;
+        this.batchProgress.total = res.data.total;
+        this.showMessage(`任务已启动，共 ${res.data.total} 个卡片`, 'info');
+        
+        // 开始轮询任务状态
+        this.pollTaskStatus();
+        
       } catch (e) {
-        this.showMessage(e.response?.data?.message || '批量生成失败', 'error');
-      } finally {
-        this.batchRunning = false;
+        this.showMessage(e.response?.data?.message || '启动任务失败', 'error');
       }
     },
-    stopBatch() {
-      this.shouldStop = true;
+    async pollTaskStatus() {
+      // 轮询任务状态
+      const poll = async () => {
+        if (!this.batchRunning) return;
+        
+        try {
+          const res = await api.get('/api/ai/batch-task/status');
+          if (res.data.success) {
+            if (res.data.running) {
+              this.batchProgress.current = res.data.current;
+              this.batchProgress.total = res.data.total;
+              this.batchProgress.currentCard = res.data.currentCard;
+              // 继续轮询
+              setTimeout(poll, 1000);
+            } else {
+              // 任务完成
+              this.batchRunning = false;
+              const successCount = res.data.successCount || 0;
+              const total = res.data.total || this.batchProgress.total;
+              this.showMessage(`完成！成功处理 ${successCount} / ${total} 个卡片`, 'success');
+              await this.refreshStats();
+            }
+          }
+        } catch (e) {
+          // 轮询失败，继续尝试
+          setTimeout(poll, 2000);
+        }
+      };
+      
+      poll();
+    },
+    async stopBatch() {
+      try {
+        await api.post('/api/ai/batch-task/stop');
+        this.showMessage('正在停止任务...', 'info');
+      } catch (e) {
+        // 静默处理
+      }
     },
     async getExistingTags() {
       try {
