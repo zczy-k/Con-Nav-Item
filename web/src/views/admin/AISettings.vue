@@ -457,10 +457,13 @@ export default {
               // 继续轮询
               setTimeout(poll, 1000);
             } else {
-              // 任务未运行，检查是否刚启动（前几次轮询可能任务还没开始）
-              if (pollCount <= 3 && this.batchProgress.current === 0) {
-                // 可能任务还没开始，继续等待
-                setTimeout(poll, 1000);
+              // 任务未运行
+              // 检查是否有处理结果（successCount > 0 或 current > 0 表示任务已执行过）
+              const hasResult = (res.data.successCount > 0) || (res.data.current > 0);
+              
+              if (pollCount <= 5 && !hasResult) {
+                // 前几次轮询且没有处理结果，可能任务还没开始，继续等待
+                setTimeout(poll, 800);
               } else {
                 // 任务完成
                 this.batchRunning = false;
