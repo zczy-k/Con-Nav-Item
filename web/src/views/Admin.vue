@@ -45,6 +45,7 @@
         <li :class="{active: page==='friend'}" @click="page='friend'; closeSider()">友链管理</li>
         <li :class="{active: page==='user'}" @click="page='user'; closeSider()">用户管理</li>
         <li :class="{active: page==='backup'}" @click="page='backup'; closeSider()">备份管理</li>
+        <li :class="{active: page==='ai'}" @click="page='ai'; closeSider()">AI 设置</li>
       </ul>
     </aside>
     <main class="admin-main">
@@ -84,6 +85,7 @@ import PromoManage from './admin/PromoManage.vue';
 import FriendLinkManage from './admin/FriendLinkManage.vue';
 import UserManage from './admin/UserManage.vue';
 import BackupManage from './admin/BackupManage.vue';
+import AISettings from './admin/AISettings.vue';
 
 const page = ref('welcome');
 
@@ -165,7 +167,8 @@ const componentMap = {
   promo: PromoManage,
   friend: FriendLinkManage,
   user: UserManage,
-  backup: BackupManage
+  backup: BackupManage,
+  ai: AISettings
 };
 
 // 当前组件
@@ -205,6 +208,7 @@ const pageTitle = computed(() => {
     case 'friend': return '友链管理';
     case 'user': return '用户管理';
     case 'backup': return '备份管理';
+    case 'ai': return 'AI 设置';
     default: return '';
   }
 });

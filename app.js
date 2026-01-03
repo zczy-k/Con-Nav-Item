@@ -18,6 +18,7 @@ const searchEngineRoutes = require('./routes/searchEngine');
 const backupRoutes = require('./routes/backup');
 const tagRoutes = require('./routes/tag');
 const bookmarkSyncRoutes = require('./routes/bookmarkSync');
+const aiRoutes = require('./routes/ai');
 const compression = require('compression');
 const { helmetConfig, sanitizeMiddleware, generalLimiter } = require('./middleware/security');
 const { globalErrorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -132,6 +133,7 @@ app.use('/api/search-engines', searchEngineRoutes);
 app.use('/api/backup', backupRoutes);
 app.use('/api/tags', tagRoutes);
 app.use('/api/bookmark-sync', bookmarkSyncRoutes);
+app.use('/api/ai', aiRoutes);
 
 // 数据版本号API（用于前端缓存同步）
 app.get('/api/data-version', async (req, res) => {

@@ -185,6 +185,13 @@ async function initializeDatabase() {
       await dbRun('INSERT INTO data_version (id, version) VALUES (1, 1)');
     }
 
+    // 设置表（用于存储 AI 配置等）
+    await dbRun(`CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )`);
+
     // 2. 检查并插入默认数据
     await seedDefaultData();
   } catch (error) {
@@ -524,6 +531,126 @@ async function getDataVersion() {
   }
 }
 
+// ==================== AI 相关方法 ====================
+
+// 获取 AI 配置
+async function getAIConfig() {
+  try {
+    const keys = ['ai_provider', 'ai_api_key', 'ai_base_url', 'ai_model', 'ai_request_delay'];
+    const rows = await dbAll(
+      `SELECT key, value FROM settings WHERE key IN (${keys.map(() => '?').join(',')})`,
+      keys
+    );
+    
+    const config = {};
+    for (const row of rows) {
+      const key = row.key.replace('ai_', '');
+      config[key === 'request_delay' ? 'requestDelay' : key] = row.value;
+    }
+    
+    return config;
+  } catch (e) {
+    // settings 表可能不存在
+    return {};
+  }
+}
+
+// 保存 AI 配置
+async function saveAIConfig(config) {
+  const mappings = {
+    provider: 'ai_provider',
+    apiKey: 'ai_api_key',
+    baseUrl: 'ai_base_url',
+    model: 'ai_model',
+    requestDelay: 'ai_request_delay'
+  };
+  
+  for (const [key, dbKey] of Object.entries(mappings)) {
+    if (config[key] !== undefined) {
+      await dbRun(
+        'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        [dbKey, config[key]?.toString() || '']
+      );
+    }
+  }
+}
+
+// 获取需要 AI 处理的卡片
+async function getCardsNeedingAI(type) {
+  let sql = 'SELECT c.id, c.title as name, c.url, c.desc as description FROM cards c';
+  
+  if (type === 'description') {
+    sql += " WHERE c.desc IS NULL OR c.desc = ''";
+  } else if (type === 'tags') {
+    sql += ` WHERE c.id NOT IN (SELECT DISTINCT card_id FROM card_tags)`;
+  } else {
+    // both - 缺少描述或标签的
+    sql += ` WHERE (c.desc IS NULL OR c.desc = '') 
+             OR c.id NOT IN (SELECT DISTINCT card_id FROM card_tags)`;
+  }
+  
+  return await dbAll(sql);
+}
+
+// 根据 ID 获取卡片
+async function getCardsByIds(ids) {
+  if (!ids || ids.length === 0) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  return await dbAll(
+    `SELECT id, title as name, url, desc as description FROM cards WHERE id IN (${placeholders})`,
+    ids
+  );
+}
+
+// 获取所有标签名称
+async function getAllTagNames() {
+  const rows = await dbAll('SELECT name FROM tags ORDER BY "order"');
+  return rows.map(r => r.name);
+}
+
+// 更新卡片描述
+async function updateCardDescription(cardId, description) {
+  await dbRun('UPDATE cards SET desc = ? WHERE id = ?', [description, cardId]);
+  await incrementDataVersion();
+}
+
+// 更新卡片标签
+async function updateCardTags(cardId, tagNames) {
+  // 先删除现有标签关联
+  await dbRun('DELETE FROM card_tags WHERE card_id = ?', [cardId]);
+  
+  for (const tagName of tagNames) {
+    // 查找或创建标签
+    let tag = await dbGet('SELECT id FROM tags WHERE name = ?', [tagName]);
+    
+    if (!tag) {
+      // 创建新标签
+      const result = await dbRun(
+        'INSERT INTO tags (name, color) VALUES (?, ?)',
+        [tagName, getRandomColor()]
+      );
+      tag = { id: result.lastID };
+    }
+    
+    // 创建关联
+    await dbRun(
+      'INSERT OR IGNORE INTO card_tags (card_id, tag_id) VALUES (?, ?)',
+      [cardId, tag.id]
+    );
+  }
+  
+  await incrementDataVersion();
+}
+
+// 生成随机颜色
+function getRandomColor() {
+  const colors = [
+    '#3b82f6', '#ef4444', '#10b981', '#8b5cf6', '#f59e0b',
+    '#06b6d4', '#ec4899', '#6366f1', '#14b8a6', '#f97316'
+  ];
+  return colors[Math.floor(Math.random() * colors.length)];
+}
+
 // 创建一个包装对象，确保始终使用最新的数据库连接
 const dbWrapper = {
   // 代理所有 sqlite3 数据库方法
@@ -540,7 +667,15 @@ const dbWrapper = {
   reconnect: reconnectDatabase,
   initPromise: dbInitPromise,
   incrementDataVersion,
-  getDataVersion
+  getDataVersion,
+  // AI 相关方法
+  getAIConfig,
+  saveAIConfig,
+  getCardsNeedingAI,
+  getCardsByIds,
+  getAllTagNames,
+  updateCardDescription,
+  updateCardTags
 };
 
 module.exports = dbWrapper;

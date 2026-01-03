@@ -604,15 +604,35 @@
             </div>
             <div class="form-group">
               <label>描述</label>
-              <textarea 
-                v-model="cardEditForm.desc" 
-                placeholder="请输入描述"
-                class="batch-textarea"
-                rows="4"
-              ></textarea>
+              <div class="input-with-ai">
+                <textarea 
+                  v-model="cardEditForm.desc" 
+                  placeholder="请输入描述"
+                  class="batch-textarea"
+                  rows="3"
+                ></textarea>
+                <button 
+                  @click="generateAIDescription" 
+                  class="ai-btn" 
+                  :disabled="aiGenerating"
+                  title="AI 生成描述"
+                >
+                  {{ aiGenerating ? '⏳' : '✨' }}
+                </button>
+              </div>
             </div>
             <div class="form-group">
-              <label>标签</label>
+              <label>
+                标签
+                <button 
+                  @click="generateAITags" 
+                  class="ai-btn-inline" 
+                  :disabled="aiGeneratingTags"
+                  title="AI 推荐标签"
+                >
+                  {{ aiGeneratingTags ? '⏳' : '🏷️ AI推荐' }}
+                </button>
+              </label>
               <div class="tag-select-area">
                 <div class="selected-tags">
                   <span 
@@ -802,6 +822,17 @@
 <script setup>
 import { ref, onMounted, onBeforeMount, computed, defineAsyncComponent, onUnmounted } from 'vue';
 import { getMenus, getCards, getAllCards, getPromos, getFriends, verifyPassword, batchParseUrls, batchAddCards, getRandomWallpaper, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags, getDataVersion, addMenu, updateMenu, deleteMenu, addSubMenu, updateSubMenu, deleteSubMenu } from '../api';
+import axios from 'axios';
+
+// AI API 辅助函数
+function authHeaders() {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+const api = {
+  get: (url) => axios.get(url, { headers: authHeaders() }),
+  post: (url, data) => axios.post(url, data, { headers: authHeaders() })
+};
 import MenuBar from '../components/MenuBar.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
 import { isDuplicateCard } from '../utils/urlNormalizer';
@@ -839,6 +870,10 @@ const showEditPasswordModal = ref(false);
 const editLoading = ref(false);
 const editError = ref('');
 const rememberEditPassword = ref(false);
+
+// AI 生成相关状态
+const aiGenerating = ref(false);
+const aiGeneratingTags = ref(false);
 
 // 批量移动相关状态
 const selectedCards = ref([]);
@@ -3185,6 +3220,95 @@ async function createQuickTag() {
   }
 }
 
+// AI 生成描述
+async function generateAIDescription() {
+  if (!cardEditForm.value.url) {
+    showToastMessage('请先输入网址', 'error');
+    return;
+  }
+  
+  aiGenerating.value = true;
+  try {
+    const res = await api.post('/api/ai/generate', {
+      type: 'description',
+      card: {
+        name: cardEditForm.value.title || '',
+        url: cardEditForm.value.url
+      }
+    });
+    
+    if (res.data.success && res.data.description) {
+      cardEditForm.value.desc = res.data.description;
+      showToastMessage('描述生成成功');
+    } else {
+      showToastMessage(res.data.message || 'AI 生成失败', 'error');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.message || 'AI 服务不可用，请先在后台配置';
+    showToastMessage(msg, 'error');
+  } finally {
+    aiGenerating.value = false;
+  }
+}
+
+// AI 推荐标签
+async function generateAITags() {
+  if (!cardEditForm.value.url) {
+    showToastMessage('请先输入网址', 'error');
+    return;
+  }
+  
+  aiGeneratingTags.value = true;
+  try {
+    const existingTags = allTags.value.map(t => t.name);
+    const res = await api.post('/api/ai/generate', {
+      type: 'tags',
+      card: {
+        name: cardEditForm.value.title || '',
+        url: cardEditForm.value.url,
+        description: cardEditForm.value.desc || ''
+      },
+      existingTags
+    });
+    
+    if (res.data.success && res.data.tags) {
+      const { tags: recommendedTags, newTags } = res.data.tags;
+      
+      // 添加推荐的现有标签
+      for (const tagName of recommendedTags) {
+        const tag = allTags.value.find(t => t.name === tagName);
+        if (tag && !cardEditForm.value.tagIds.includes(tag.id)) {
+          cardEditForm.value.tagIds.push(tag.id);
+        }
+      }
+      
+      // 创建并添加新标签
+      for (const tagName of newTags) {
+        if (!allTags.value.find(t => t.name === tagName)) {
+          try {
+            const createRes = await api.post('/api/tags', { name: tagName });
+            if (createRes.data && createRes.data.id) {
+              allTags.value.push(createRes.data);
+              cardEditForm.value.tagIds.push(createRes.data.id);
+            }
+          } catch (e) {
+            console.warn('创建标签失败:', tagName, e);
+          }
+        }
+      }
+      
+      showToastMessage('标签推荐成功');
+    } else {
+      showToastMessage(res.data.message || 'AI 推荐失败', 'error');
+    }
+  } catch (err) {
+    const msg = err.response?.data?.message || 'AI 服务不可用，请先在后台配置';
+    showToastMessage(msg, 'error');
+  } finally {
+    aiGeneratingTags.value = false;
+  }
+}
+
 // 保存卡片编辑
 async function saveCardEdit() {
   if (!cardEditForm.value.title.trim()) {
@@ -4336,6 +4460,66 @@ async function saveCardEdit() {
   outline: none;
   border-color: #1890ff;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* AI 按钮样式 */
+.input-with-ai {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.input-with-ai .batch-textarea {
+  flex: 1;
+}
+
+.ai-btn {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-btn:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+.ai-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.ai-btn-inline {
+  padding: 4px 10px;
+  margin-left: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  vertical-align: middle;
+}
+
+.ai-btn-inline:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+}
+
+.ai-btn-inline:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .batch-error {
