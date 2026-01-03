@@ -373,5 +373,7 @@ module.exports = {
   decryptWebDAVConfig,
   generateBackupSignature,
   verifyBackupSignature,
-  initCryptoSecret
+  initCryptoSecret,
+  // 清除缓存的密钥（用于备份恢复后重新加载）
+  clearCachedSecret: () => { cachedSecret = null; }
 };

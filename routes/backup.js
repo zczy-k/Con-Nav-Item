@@ -733,6 +733,26 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     // 3. 覆盖文件（保护关键配置）
     const skippedFiles = [];
     const restoredFiles = [];
+    
+    // 在恢复数据库之前，先关闭当前数据库连接
+    const db = require('../db');
+    let dbClosed = false;
+    if (backupContents.includes('database')) {
+      try {
+        // 关闭数据库连接，确保文件可以被安全替换
+        await new Promise((resolve, reject) => {
+          db.close((err) => {
+            if (err) {
+              console.warn('关闭数据库连接时出现警告:', err.message);
+            }
+            dbClosed = true;
+            resolve();
+          });
+        });
+      } catch (e) {
+        console.warn('关闭数据库连接失败，继续恢复:', e.message);
+      }
+    }
 
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
@@ -829,10 +849,20 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
     // 在响应发送后异步重连数据库
     setImmediate(async () => {
       try {
-        const db = require('../db');
-        if (db.reconnect) {
+        // 如果之前关闭了数据库连接，现在重新连接
+        if (dbClosed && db.reconnect) {
           await db.reconnect();
           console.log('✓ 数据库已重新连接，恢复的数据已生效');
+        }
+        
+        // 清除加密密钥缓存并重新初始化（确保使用恢复的密钥）
+        try {
+          const { clearCachedSecret, initCryptoSecret } = require('../utils/crypto');
+          clearCachedSecret();
+          await initCryptoSecret();
+          console.log('✓ 加密密钥已重新加载');
+        } catch (e) {
+          console.warn('重新加载加密密钥失败:', e.message);
         }
       } catch (e) {
         console.error('数据库重连失败:', e);
