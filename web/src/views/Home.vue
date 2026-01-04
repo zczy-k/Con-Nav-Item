@@ -974,7 +974,7 @@ const presetBackgrounds = [
   { id: 8, name: '沙漠星空', thumb: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1509316785289-025f5b846b35?w=1920&h=1080&fit=crop' },
   { id: 9, name: '湖光山色', thumb: 'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1439066615861-d1af74d74000?w=1920&h=1080&fit=crop' },
   { id: 10, name: '云端之上', thumb: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1534088568595-a066f410bcda?w=1920&h=1080&fit=crop' },
-  { id: 11, name: '秋日红叶', thumb: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=1920&h=1080&fit=crop' },
+  { id: 11, name: '秋日红叶', thumb: 'https://images.unsplash.com/photo-1476820865390-c52aeebb9891?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1476820865390-c52aeebb9891?w=1920&h=1080&fit=crop' },
   { id: 12, name: '瀑布飞流', thumb: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1432405972618-c60b0225b8f9?w=1920&h=1080&fit=crop' },
   { id: 13, name: '草原晨曦', thumb: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?w=1920&h=1080&fit=crop' },
   { id: 14, name: '城市夜景', thumb: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=300&h=200&fit=crop', url: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=1920&h=1080&fit=crop' },
@@ -4760,6 +4760,7 @@ async function saveCardEdit() {
 
 .bg-panel-content {
   padding: 20px;
+  padding-bottom: 30px;
   max-height: calc(80vh - 60px);
   overflow-y: auto;
 }
