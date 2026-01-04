@@ -127,12 +127,9 @@ function triggerAnimation() {
   // 无动画，立即显示
 }
 
-// 获取卡片样式（只有渐变色，无动画延迟）
+// 获取卡片样式（纯毛玻璃，无渐变色）
 function getCardStyle(index) {
-  const gradient = gradients[index % gradients.length];
-  return {
-    background: gradient
-  };
+  return {};
 }
 
 // 提取域名
@@ -236,62 +233,52 @@ function truncate(str) {
 function isCardSelected(card) {
   return props.selectedCards?.some(c => c.id === card.id) || false;
 }
-
-// 随机渐变色配置（透明度45%，更通透的毛玻璃效果）
-const gradients = [
-  'linear-gradient(135deg, rgba(102, 126, 234, 0.45) 0%, rgba(118, 75, 162, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(240, 147, 251, 0.45) 0%, rgba(245, 87, 108, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(79, 172, 254, 0.45) 0%, rgba(0, 242, 254, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(67, 233, 123, 0.45) 0%, rgba(56, 249, 215, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(250, 112, 154, 0.45) 0%, rgba(254, 225, 64, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(48, 207, 208, 0.45) 0%, rgba(51, 8, 103, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(168, 237, 234, 0.45) 0%, rgba(254, 214, 227, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(255, 154, 158, 0.45) 0%, rgba(254, 207, 239, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(255, 236, 210, 0.45) 0%, rgba(252, 182, 159, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(255, 110, 127, 0.45) 0%, rgba(191, 233, 255, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(224, 195, 252, 0.45) 0%, rgba(142, 197, 252, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(248, 177, 149, 0.45) 0%, rgba(246, 114, 128, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(210, 153, 194, 0.45) 0%, rgba(254, 249, 215, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(253, 219, 146, 0.45) 0%, rgba(209, 253, 255, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(152, 144, 227, 0.45) 0%, rgba(177, 244, 207, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(235, 192, 253, 0.45) 0%, rgba(217, 222, 216, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(150, 251, 196, 0.45) 0%, rgba(249, 245, 134, 0.45) 100%)',
-  'linear-gradient(135deg, rgba(253, 160, 133, 0.45) 0%, rgba(246, 211, 101, 0.45) 100%)'
-];
 </script>
 
 <style scoped>
 /* ========== 网格布局 ========== */
 .container {
-  max-width: 70rem;
+  max-width: 68rem;
   margin: 0 auto;
-  margin-top: 2vh;
+  margin-top: 2.5vh;
   width: 100%;
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  gap: 14px;
+  gap: 16px;
   position: relative;
   z-index: 1;
+  padding: 0 1rem;
 }
 
 @media (max-width: 1200px) {
-  .container { grid-template-columns: repeat(4, 1fr); }
+  .container { 
+    grid-template-columns: repeat(5, 1fr); 
+    gap: 14px;
+  }
 }
 @media (max-width: 768px) {
-  .container { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .container { 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 12px;
+    padding: 0 0.8rem;
+  }
 }
 @media (max-width: 480px) {
-  .container { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .container { 
+    grid-template-columns: repeat(3, 1fr); 
+    gap: 10px;
+    padding: 0 0.6rem;
+  }
 }
 
-/* ========== 卡片主体 - 现代毛玻璃风格 ========== */
+/* ========== 卡片主体 - 纯毛玻璃风格 ========== */
 .link-item {
-  /* 背景由 JS 动态设置渐变色 */
+  background: rgba(255, 255, 255, 0.15);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border-radius: 14px;
-  min-height: 82px;
-  height: 82px;
+  border-radius: 16px;
+  min-height: 88px;
+  height: 88px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -299,13 +286,13 @@ const gradients = [
   position: relative;
   overflow: hidden;
   /* 精致的边框 */
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   /* 柔和的阴影 */
   box-shadow: 
-    0 4px 24px -1px rgba(0, 0, 0, 0.12),
-    0 0 1px rgba(255, 255, 255, 0.1) inset;
+    0 4px 20px -2px rgba(0, 0, 0, 0.1),
+    0 0 1px rgba(255, 255, 255, 0.2) inset;
   /* 平滑过渡 */
-  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
@@ -314,8 +301,8 @@ const gradients = [
   content: '';
   position: absolute;
   top: 0;
-  left: 10%;
-  right: 10%;
+  left: 15%;
+  right: 15%;
   height: 1px;
   background: linear-gradient(90deg, 
     transparent, 
@@ -327,16 +314,17 @@ const gradients = [
 
 /* 悬停效果 */
 .link-item:hover {
-  transform: translateY(-6px) scale(1.02);
-  border-color: rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.25);
+  transform: translateY(-8px) scale(1.03);
+  border-color: rgba(255, 255, 255, 0.4);
   box-shadow: 
-    0 12px 40px -5px rgba(0, 0, 0, 0.2),
-    0 0 1px rgba(255, 255, 255, 0.2) inset;
+    0 16px 40px -8px rgba(0, 0, 0, 0.2),
+    0 0 1px rgba(255, 255, 255, 0.3) inset;
 }
 
 /* 点击效果 */
 .link-item:active {
-  transform: translateY(-2px) scale(0.98);
+  transform: translateY(-4px) scale(0.98);
   transition: transform 0.1s ease;
 }
 
@@ -358,16 +346,16 @@ const gradients = [
 
 /* ========== 图标样式 ========== */
 .link-icon {
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
-  transition: transform 0.25s ease;
-  margin-bottom: 4px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 6px;
 }
 
 .link-item:hover .link-icon {
-  transform: scale(1.12);
+  transform: scale(1.15);
 }
 
 /* ========== 文字样式 ========== */
@@ -376,16 +364,16 @@ const gradients = [
   font-weight: 500;
   text-align: center;
   color: #ffffff;
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
   max-width: 100%;
-  padding: 0 4px;
+  padding: 0 6px;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
   text-overflow: ellipsis;
-  line-height: 1.3;
-  letter-spacing: 0.01em;
+  line-height: 1.35;
+  letter-spacing: 0.02em;
 }
 
 /* ========== 编辑模式 ========== */

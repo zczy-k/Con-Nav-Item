@@ -3788,29 +3788,47 @@ async function saveCardEdit() {
 .search-container {
   display: flex;
   align-items: center;
-  background: rgba(255, 255, 255, 0.95);
-  border-radius: 25px;
-  padding: 0.4rem 0.6rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
-  backdrop-filter: blur(10px);
-  max-width: 640px;
-  width: 92%;
+  background: rgba(255, 255, 255, 0.92);
+  border-radius: 28px;
+  padding: 0.5rem 0.8rem;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  max-width: 620px;
+  width: 90%;
   position: relative;
   z-index: 10;
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  transition: all 0.3s ease;
+}
+
+.search-container:focus-within {
+  box-shadow: 
+    0 12px 40px rgba(24, 144, 255, 0.2),
+    0 4px 12px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  border-color: rgba(24, 144, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .search-input {
   flex: 1;
   border: none;
   background: transparent;
-  padding: .2rem .8rem;
-  font-size: 1.1rem;
+  padding: .4rem 1rem;
+  font-size: 1rem;
   color: #333;
   outline: none;
+  font-weight: 400;
+  letter-spacing: 0.01em;
 }
 
 .search-input::placeholder {
-  color: #999;
+  color: #9ca3af;
+  font-weight: 400;
 }
 
 .clear-btn {
@@ -3835,27 +3853,32 @@ async function saveCardEdit() {
 }
 
 .search-btn {
-  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
   color: #ffffff;
   border: none;
   border-radius: 50%;
-  width: 40px;
-  height: 40px;
+  width: 42px;
+  height: 42px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.35);
 }
 
 .search-btn:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.5);
+  transform: scale(1.08);
+  box-shadow: 0 6px 20px rgba(24, 144, 255, 0.5);
+  background: linear-gradient(135deg, #40a9ff 0%, #1890ff 100%);
+}
+
+.search-btn:active {
+  transform: scale(0.95);
 }
 
 .home-container {
-  min-height: 95vh;
+  min-height: 100vh;
   background-image: url('/background.webp');
   background-size: cover;
   background-position: center;
@@ -3863,9 +3886,8 @@ async function saveCardEdit() {
   background-attachment: fixed;
   display: flex;
   flex-direction: column;
-  /* padding: 1rem 1rem; */
   position: relative;
-  padding-top: 50px; 
+  padding-top: 50px;
 }
 
 .home-container::before {
@@ -3875,7 +3897,12 @@ async function saveCardEdit() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.25) 0%,
+    rgba(0, 0, 0, 0.15) 50%,
+    rgba(0, 0, 0, 0.35) 100%
+  );
   z-index: 1;
 }
 
@@ -3884,10 +3911,10 @@ async function saveCardEdit() {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 1.5rem 0 0 0;
+  padding: 1rem 0 0 0;
   position: relative;
   z-index: 50;
-  margin-top: 12vh;
+  margin-top: 10vh;
 }
 
 .search-box-wrapper {
@@ -3895,7 +3922,8 @@ async function saveCardEdit() {
   flex-direction: column;
   align-items: center;
   width: 100%;
-  max-width: 640px;
+  max-width: 620px;
+  padding: 0 1rem;
 }
 
 /* 迷你标签栏 */
@@ -3903,8 +3931,8 @@ async function saveCardEdit() {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 0.5rem 1rem;
+  gap: 10px;
+  padding: 0.8rem 1rem;
   position: relative;
   z-index: 2;
 }
@@ -3912,19 +3940,28 @@ async function saveCardEdit() {
 .selected-tag-display {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
 
 .mini-tag-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 12px;
-  border-radius: 16px;
+  padding: 6px 14px;
+  border-radius: 20px;
   font-size: 13px;
   color: white;
   font-weight: 500;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(4px);
+  transition: all 0.2s ease;
+}
+
+.mini-tag-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .mini-tag-close {
@@ -3968,36 +4005,38 @@ async function saveCardEdit() {
 .mini-tag-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1.5px solid rgba(102, 126, 234, 0.3);
-  border-radius: 16px;
-  font-size: 12px;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1.5px solid rgba(24, 144, 255, 0.25);
+  border-radius: 20px;
+  font-size: 13px;
   color: #1890ff;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(8px);
 }
 
 .mini-tag-btn:hover {
-  background: #1890ff;
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
   color: white;
-  border-color: #1890ff;
-  transform: translateY(-1px);
-  box-shadow: 0 3px 8px rgba(102, 126, 234, 0.3);
+  border-color: transparent;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(24, 144, 255, 0.35);
 }
 
 .tag-count {
-  background: rgba(102, 126, 234, 0.1);
-  padding: 2px 6px;
-  border-radius: 10px;
+  background: rgba(24, 144, 255, 0.12);
+  padding: 2px 8px;
+  border-radius: 12px;
   font-weight: 600;
   font-size: 11px;
+  transition: all 0.3s ease;
 }
 
 .mini-tag-btn:hover .tag-count {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
   color: white;
 }
 
@@ -4013,35 +4052,43 @@ async function saveCardEdit() {
   align-items: flex-start;
   justify-content: center;
   z-index: 1000;
-  padding-top: 15vh;
+  padding-top: 12vh;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .tag-panel {
-  background: white;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.98);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
   width: 90%;
-  max-width: 600px;
+  max-width: 560px;
   max-height: 60vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 16px 48px rgba(0, 0, 0, 0.2),
+    0 0 1px rgba(255, 255, 255, 0.5) inset;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .tag-panel-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid #e5e7eb;
-  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+  padding: 18px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
 }
 
 .tag-panel-header h4 {
   margin: 0;
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 600;
   color: white;
+  letter-spacing: 0.01em;
 }
 
 .tag-panel-header h4 .selected-count {
@@ -4051,9 +4098,9 @@ async function saveCardEdit() {
 }
 
 .panel-close-btn {
-  background: none;
+  background: rgba(255, 255, 255, 0.15);
   border: none;
-  font-size: 28px;
+  font-size: 24px;
   color: white;
   cursor: pointer;
   padding: 0;
@@ -4063,20 +4110,21 @@ async function saveCardEdit() {
   align-items: center;
   justify-content: center;
   border-radius: 50%;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
   line-height: 1;
 }
 
 .panel-close-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+  transform: rotate(90deg);
 }
 
 .tag-panel-content {
-  padding: 20px;
+  padding: 20px 24px;
   overflow-y: auto;
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 12px;
   align-content: flex-start;
 }
 
@@ -4084,25 +4132,25 @@ async function saveCardEdit() {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 16px;
+  padding: 10px 18px;
   border: 2px solid;
-  border-radius: 20px;
+  border-radius: 24px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   backdrop-filter: blur(5px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .panel-tag-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  transform: translateY(-3px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .panel-tag-btn.active {
   transform: scale(1.05);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 }
 
 .panel-tag-btn .tag-check {
@@ -4111,26 +4159,29 @@ async function saveCardEdit() {
 }
 
 .tag-panel-footer {
-  padding: 12px 20px;
-  border-top: 1px solid #e5e7eb;
+  padding: 14px 24px;
+  border-top: 1px solid rgba(0, 0, 0, 0.06);
   display: flex;
   justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.02);
 }
 
 .clear-all-btn {
-  background: #ff4d4f;
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
   color: white;
   border: none;
-  border-radius: 8px;
-  padding: 8px 16px;
+  border-radius: 10px;
+  padding: 10px 20px;
   font-size: 14px;
+  font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 77, 79, 0.3);
 }
 
 .clear-all-btn:hover {
-  background: #ff7875;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(255, 77, 79, 0.4);
 }
 
 /* 浮层动画 */
@@ -4213,35 +4264,42 @@ async function saveCardEdit() {
 .footer {
   margin-top: auto;
   text-align: center;
-  padding-top: 1rem;
-  padding-bottom: 2rem;
+  padding-top: 2rem;
+  padding-bottom: 1.5rem;
   position: relative;
   z-index: 2;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.15) 100%);
 }
 
 .footer-content {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 50px;
+  gap: 40px;
+  flex-wrap: wrap;
 }
 
 .friend-link-btn {
   display: flex;
   align-items: center;
   gap: 8px;
-  background: none;
-  border: none;
-  color: rgba(255, 255, 255, 0.8);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  padding: 8px 16px;
+  color: rgba(255, 255, 255, 0.9);
   cursor: pointer;
   transition: all 0.3s ease;
   font-size: 14px;
-  padding: 0;
+  backdrop-filter: blur(8px);
 }
 
 .friend-link-btn:hover {
-  color: #1976d2;
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.4);
+  color: #fff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 }
 
 /* 弹窗样式 */
@@ -4251,25 +4309,31 @@ async function saveCardEdit() {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.7);
+  background: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  backdrop-filter: blur(5px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 
 .modal-content {
-  background: #8585859c;
-  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: 20px;
   width: 55rem;
   height: 30rem;
   max-width: 95vw;
-  max-height: 95vh;
+  max-height: 90vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  box-shadow: 
+    0 24px 80px rgba(0, 0, 0, 0.25),
+    0 0 1px rgba(255, 255, 255, 0.5) inset;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .modal-content.menu-modal {
@@ -4282,16 +4346,17 @@ async function saveCardEdit() {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
-  border-bottom: 1px solid #e5e7eb;
-  background: #d3d6d8;
+  padding: 16px 24px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.08) 0%, rgba(64, 169, 255, 0.05) 100%);
 }
 
 .modal-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 20px;
   font-weight: 600;
-  color: #111827;
+  color: #1f2937;
+  letter-spacing: -0.01em;
 }
 
 .close-btn {
@@ -4299,19 +4364,20 @@ async function saveCardEdit() {
   border: none;
   cursor: pointer;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #6b7280;
-  transition: all 0.2s;
+  transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background: #f3f4f6;
-  color: #cf1313;
+  background: rgba(239, 68, 68, 0.1);
+  color: #ef4444;
+  transform: rotate(90deg);
 }
 
 .modal-body {
   flex: 1;
-  padding: 32px;
+  padding: 28px;
   overflow-y: auto;
 }
 
@@ -4334,20 +4400,21 @@ async function saveCardEdit() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 6px;
-  background: #cfd3d661;
-  border-radius: 15px;
+  padding: 12px 8px;
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
   text-decoration: none;
   color: inherit;
-  transition: all 0.2s ease;
-  border: 1px solid #cfd3d661;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .friend-link-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.08);
-  background: #ffffff8e;
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  background: #ffffff;
+  border-color: rgba(24, 144, 255, 0.2);
 }
 
 .friend-link-logo {
@@ -4393,18 +4460,21 @@ async function saveCardEdit() {
 }
 
 .copyright {
-  color: rgba(255, 255, 255, 0.8);
-  font-size: 14px;
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
   margin: 0;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  letter-spacing: 0.02em;
 }
 .footer-link {
-  color: #ffffffcc;
+  color: rgba(255, 255, 255, 0.85);
   text-decoration: none;
-  transition: color 0.2s;
+  transition: all 0.2s ease;
+  border-bottom: 1px solid transparent;
 }
 .footer-link:hover {
-  color: #1976d2;
+  color: #40a9ff;
+  border-bottom-color: #40a9ff;
 }
 
 :deep(.menu-bar) {
@@ -4468,7 +4538,27 @@ async function saveCardEdit() {
 
 @media (max-width: 768px) {
   .home-container {
-    padding-top: 80px;
+    padding-top: 70px;
+  }
+  
+  .search-section {
+    margin-top: 6vh;
+    padding: 0.8rem 0 0 0;
+  }
+  
+  .search-container {
+    width: 94%;
+    padding: 0.4rem 0.5rem;
+  }
+  
+  .search-input {
+    font-size: 0.95rem;
+    padding: .3rem .6rem;
+  }
+  
+  .search-btn {
+    width: 38px;
+    height: 38px;
   }
   
   .content-wrapper {
@@ -4484,40 +4574,118 @@ async function saveCardEdit() {
     font-size: 12px;
     padding: 1rem 0.5rem;
   }
+  
   .footer {
-    padding-top: 2rem;
+    padding-top: 1.5rem;
+    padding-bottom: 1rem;
   }
-  .friend-link-btn {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: none;
-    border: none;
-    color: rgba(255, 255, 255, 0.8);
-    cursor: pointer;
-    transition: all 0.3s ease;
-    font-size: 0.7rem;
-    padding: 0;
-  }
-  .copyright {
-    color: rgba(255, 255, 255, 0.8);
-    font-size: 0.7rem;
-    margin: 0;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-  }
+  
   .footer-content {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 20px;
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .friend-link-btn {
+    font-size: 13px;
+    padding: 6px 14px;
+  }
+  
+  .copyright {
+    font-size: 11px;
+  }
+  
+  .fab-container {
+    right: 16px;
+    bottom: 16px;
+  }
+  
+  .fab-toggle-btn {
+    width: 44px;
+    height: 44px;
+  }
+  
+  .batch-add-btn,
+  .change-bg-btn,
+  .edit-mode-btn,
+  .exit-edit-btn {
+    width: 36px;
+    height: 36px;
+    margin-bottom: 10px;
+  }
+  
+  .mini-tag-bar {
+    padding: 0.5rem 0.8rem;
+    gap: 6px;
+  }
+  
+  .mini-tag-chip {
+    padding: 4px 10px;
+    font-size: 12px;
+  }
+  
+  .mini-tag-btn {
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-container {
+    padding-top: 60px;
+  }
+  
+  .search-section {
+    margin-top: 4vh;
+  }
+  
+  .search-container {
+    width: 96%;
+    border-radius: 22px;
+  }
+  
+  .search-input {
+    font-size: 0.9rem;
+  }
+  
+  .search-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .engine-selector {
+    padding: 6px 8px;
+  }
+  
+  .engine-icon-img {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .fab-container {
+    right: 12px;
+    bottom: 12px;
+  }
+  
+  .fab-toggle-btn {
+    width: 42px;
+    height: 42px;
+  }
+  
+  .batch-add-btn,
+  .change-bg-btn,
+  .edit-mode-btn,
+  .exit-edit-btn {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 8px;
   }
 }
 
 /* 浮动操作按钮 */
 .fab-container {
   position: fixed;
-  right: 30px;
-  bottom: 30px;
+  right: 24px;
+  bottom: 24px;
   z-index: 999;
   display: flex;
   flex-direction: column-reverse;
@@ -4525,14 +4693,16 @@ async function saveCardEdit() {
 }
 
 .fab-toggle-btn {
-  width: 40px;
-  height: 40px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #1890ff, #69c0ff);
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
   border: none;
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+  box-shadow: 
+    0 6px 20px rgba(24, 144, 255, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   align-items: center;
@@ -4542,39 +4712,40 @@ async function saveCardEdit() {
 
 .fab-toggle-btn:hover {
   transform: scale(1.1) rotate(90deg);
-  box-shadow: 0 6px 30px rgba(102, 126, 234, 0.6);
+  box-shadow: 
+    0 8px 28px rgba(24, 144, 255, 0.5),
+    0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .batch-add-btn,
 .change-bg-btn {
-  /* Common styles for FAB items */
   position: relative;
-  width: 37px;
-  height: 37px;
-  margin-bottom: 10px;
+  width: 40px;
+  height: 40px;
+  margin-bottom: 12px;
   border-radius: 50%;
   border: none;
   color: white;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .batch-add-btn {
-  background: linear-gradient(135deg, #89f7fe, #66a6ff);
+  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
 }
 
 .change-bg-btn {
-  background: linear-gradient(135deg, #34a853, #0f9d58);
+  background: linear-gradient(135deg, #722ed1 0%, #9254de 100%);
 }
 
 .batch-add-btn:hover,
 .change-bg-btn:hover:not(:disabled) {
-  transform: scale(1.1);
-  box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+  transform: scale(1.12) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
 }
 
 .change-bg-btn:disabled {
@@ -4929,31 +5100,33 @@ async function saveCardEdit() {
 
 .btn {
   padding: 10px 24px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   border: none;
 }
 
 .btn-cancel {
   background: #f3f4f6;
-  color: #374151;
+  color: #4b5563;
 }
 
 .btn-cancel:hover {
   background: #e5e7eb;
+  transform: translateY(-1px);
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #1890ff, #69c0ff);
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
   color: white;
+  box-shadow: 0 4px 12px rgba(24, 144, 255, 0.3);
 }
 
 .btn-primary:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(24, 144, 255, 0.4);
 }
 
 .btn-primary:disabled {
@@ -5276,34 +5449,34 @@ async function saveCardEdit() {
 
 .edit-mode-btn,
 .exit-edit-btn {
-  width: 33px;
-  height: 33px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   border: none;
-  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
+  background: linear-gradient(135deg, #1890ff 0%, #40a9ff 100%);
   color: white;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-  transition: all 0.3s ease;
-  margin-bottom: 10px;
+  box-shadow: 0 4px 16px rgba(24, 144, 255, 0.4);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: 12px;
 }
 
 .edit-mode-btn:hover,
 .exit-edit-btn:hover {
-  transform: scale(1.1);
-  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.3);
+  transform: scale(1.12) translateY(-2px);
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.5);
 }
 
 .exit-edit-btn {
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
-  box-shadow: 0 4px 15px rgba(239, 68, 68, 0.4);
+  background: linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%);
+  box-shadow: 0 4px 16px rgba(255, 77, 79, 0.4);
 }
 
 .exit-edit-btn:hover {
-  box-shadow: 0 6px 25px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 8px 24px rgba(255, 77, 79, 0.5);
 }
 
 .batch-move-btn {

@@ -66,10 +66,10 @@ const uploadLimiter = rateLimit({
 // 壁纸切换限流器
 const wallpaperLimiter = rateLimit({
   windowMs: 60 * 1000, // 1分钟
-  max: 6, // 限制6次切换
+  max: 15, // 限制15次切换
   message: { 
     success: false,
-    error: '壁纸切换过于频繁，请稍后再试（每分钟最多6次）' 
+    error: '壁纸切换过于频繁，请稍后再试（每分钟最多15次）' 
   },
   standardHeaders: true,
   legacyHeaders: false,

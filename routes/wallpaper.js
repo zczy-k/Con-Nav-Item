@@ -16,7 +16,7 @@ const NATURE_PHOTO_IDS = [
   136, 137, 139, 140, 141, 142, 143, 144, 145, 146, 147, 149, 150, 151, 152, 153
 ];
 
-// 获取随机壁纸（每分钟最多6次）- 限制为自然风景类
+// 获取随机壁纸（每分钟最多15次）- 限制为自然风景类
 router.get('/random', wallpaperLimiter, async (req, res) => {
   try {
     // 使用 Unsplash 获取自然风景壁纸

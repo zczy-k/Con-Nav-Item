@@ -208,6 +208,7 @@ onUnmounted(() => {
   flex-wrap: wrap;
   padding: 0 1rem;
   position: relative;
+  gap: 4px;
 }
 
 .menu-item {
@@ -218,41 +219,45 @@ onUnmounted(() => {
   background: transparent;
   border: none;
   color: #fff;
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 500;
-  padding: 0.8rem 2rem;
+  padding: 0.75rem 1.5rem;
   cursor: pointer;
-  transition: all 0.3s ease;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   box-shadow: none;
-  border-radius: 8px;
+  border-radius: 10px;
   position: relative;
   overflow: hidden;
+  letter-spacing: 0.02em;
 }
 
 .menu-bar button::before {
   content: '';
   position: absolute;
-  bottom: 0;
+  bottom: 6px;
   left: 50%;
   width: 0;
   height: 2px;
-  background: #399dff;
-  transition: all 0.3s ease;
+  background: linear-gradient(90deg, #40a9ff, #1890ff);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(-50%);
+  border-radius: 2px;
 }
 
 .menu-bar button:hover {
-  color: #399dff;
+  color: #40a9ff;
+  background: rgba(255, 255, 255, 0.08);
   transform: translateY(-1px);
 }
 
 .menu-bar button.active {
-  color: #399dff;
+  color: #40a9ff;
+  background: rgba(64, 169, 255, 0.1);
 }
 
 .menu-bar button.active::before {
-  width: 60%;
+  width: 50%;
 }
 
 /* 编辑模式样式 */
@@ -273,25 +278,28 @@ onUnmounted(() => {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.95);
-  backdrop-filter: blur(8px);
-  border-radius: 8px;
+  background: rgba(25, 25, 30, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 12px;
   min-width: max-content;
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  margin-top: 4px;
-  padding: 8px 0;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 1px rgba(255, 255, 255, 0.1) inset;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 6px;
+  padding: 10px 0;
 }
 
 .menu-dropdown.show {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(4px);
 }
 
 /* 菜单操作行 */
@@ -447,25 +455,28 @@ onUnmounted(() => {
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.9);
-  backdrop-filter: blur(8px);
-  border-radius: 6px;
+  background: rgba(25, 25, 30, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 12px;
   min-width: max-content;
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
-  transition: all 0.2s ease;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  margin-top: -2px;
-  padding: 4px 0;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 1px rgba(255, 255, 255, 0.1) inset;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-top: 0;
+  padding: 6px 0;
 }
 
 .sub-menu.show {
   opacity: 1;
   visibility: visible;
-  transform: translateX(-50%) translateY(2px);
+  transform: translateX(-50%) translateY(4px);
 }
 
 /* 添加菜单按钮 */
@@ -502,12 +513,13 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .menu-bar {
-    gap: 0.2rem;
+    gap: 2px;
+    padding: 0 0.5rem;
   }
   
   .menu-bar button {
-    font-size: 14px;
-    padding: .4rem .8rem;
+    font-size: 13px;
+    padding: .5rem .8rem;
   }
   
   .menu-dropdown,
@@ -517,19 +529,31 @@ onUnmounted(() => {
   
   .sub-menu-item {
     font-size: 12px !important;
-    padding: 0.3rem 0.6rem !important;
+    padding: 0.35rem 0.7rem !important;
   }
   
   .action-btn {
-    width: 20px;
-    height: 20px;
-    font-size: 10px;
+    width: 22px;
+    height: 22px;
+    font-size: 11px;
   }
   
   .action-btn-sm {
-    width: 16px;
-    height: 16px;
-    font-size: 8px;
+    width: 18px;
+    height: 18px;
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .menu-bar {
+    gap: 1px;
+    padding: 0 0.3rem;
+  }
+  
+  .menu-bar button {
+    font-size: 12px;
+    padding: .4rem .6rem;
   }
 }
 </style>
