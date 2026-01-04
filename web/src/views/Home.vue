@@ -926,7 +926,6 @@ const menus = ref([]);
 const activeMenu = ref(null);
 const activeSubMenu = ref(null);
 const cards = ref([]);
-const cardsLoading = ref(false); // 禁用骨架屏
 const allCards = ref([]); // 存储所有菜单的卡片，用于搜索
 const searchQuery = ref('');
 const leftPromos = ref([]);

@@ -5,7 +5,6 @@ const { wallpaperLimiter } = require('../middleware/security');
 const router = express.Router();
 
 // 内置背景图片列表（存放在 public/backgrounds/ 目录）
-// 这些是本地文件，不依赖外部网络
 const BUILTIN_BACKGROUNDS = [
   { id: 1, name: '默认', file: 'background.webp' },
   { id: 2, name: '山峦', file: 'bg-mountain.webp' },
@@ -17,9 +16,8 @@ const BUILTIN_BACKGROUNDS = [
   { id: 8, name: '极光', file: 'bg-aurora.webp' }
 ];
 
-// 在线壁纸源（作为可选增强，网络可用时使用）
+// 在线壁纸源（picsum.photos 精选风景图片ID）
 const ONLINE_SOURCES = [
-  // picsum.photos 精选风景图片ID
   10, 11, 15, 16, 17, 18, 19, 20, 22, 24, 27, 28, 29, 37, 39, 40, 41, 42, 47, 48,
   49, 50, 53, 54, 55, 56, 57, 58, 59, 60, 62, 63, 64, 66, 67, 68, 69, 71, 73, 74,
   76, 77, 78, 79, 82, 83, 84, 85, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98
@@ -29,47 +27,45 @@ const ONLINE_SOURCES = [
 let recentIds = [];
 const MAX_RECENT = 10;
 
-// 获取内置背景列表
-router.get('/builtin', (req, res) => {
-  // 检查哪些内置背景文件实际存在
-  const staticDir = fs.existsSync(path.join(__dirname, '../web/dist/backgrounds'))
-    ? path.join(__dirname, '../web/dist/backgrounds')
-    : path.join(__dirname, '../public/backgrounds');
-  
-  const availableBackgrounds = BUILTIN_BACKGROUNDS.filter(bg => {
-    const filePath = path.join(staticDir, bg.file);
-    return fs.existsSync(filePath);
-  }).map(bg => ({
-    id: bg.id,
-    name: bg.name,
-    url: `/backgrounds/${bg.file}`
-  }));
+// 获取背景文件目录（统一方法）
+function getBackgroundsDir() {
+  const distDir = path.join(__dirname, '../web/dist/backgrounds');
+  const publicDir = path.join(__dirname, '../public/backgrounds');
+  return fs.existsSync(distDir) ? distDir : publicDir;
+}
+
+// 获取可用的内置背景列表
+function getAvailableBackgrounds() {
+  const bgDir = getBackgroundsDir();
+  const available = BUILTIN_BACKGROUNDS.filter(bg => {
+    return fs.existsSync(path.join(bgDir, bg.file));
+  });
   
   // 如果没有找到任何背景文件，返回默认背景
-  if (availableBackgrounds.length === 0) {
-    availableBackgrounds.push({
-      id: 1,
-      name: '默认',
-      url: '/background.webp'
-    });
+  if (available.length === 0) {
+    return [{ id: 1, name: '默认', file: 'background.webp', url: '/background.webp' }];
   }
   
-  res.json({
-    success: true,
-    backgrounds: availableBackgrounds
-  });
+  return available.map(bg => ({
+    ...bg,
+    url: `/backgrounds/${bg.file}`
+  }));
+}
+
+// 获取内置背景列表
+router.get('/builtin', (req, res) => {
+  const backgrounds = getAvailableBackgrounds();
+  res.json({ success: true, backgrounds });
 });
 
 // 获取随机壁纸（支持本地和在线两种模式）
 router.get('/random', wallpaperLimiter, (req, res) => {
-  const source = req.query.source || 'auto'; // auto | local | online
+  const source = req.query.source || 'auto';
   
-  // 本地模式：只使用内置背景
   if (source === 'local') {
     return getLocalBackground(res);
   }
   
-  // 在线模式：只使用在线壁纸
   if (source === 'online') {
     return getOnlineBackground(res);
   }
@@ -80,35 +76,17 @@ router.get('/random', wallpaperLimiter, (req, res) => {
 
 // 获取本地背景
 function getLocalBackground(res) {
-  const staticDir = fs.existsSync(path.join(__dirname, '../web/dist/backgrounds'))
-    ? path.join(__dirname, '../web/dist/backgrounds')
-    : path.join(__dirname, '../public/backgrounds');
-  
-  // 过滤出实际存在的背景文件
-  const availableBackgrounds = BUILTIN_BACKGROUNDS.filter(bg => {
-    const filePath = path.join(staticDir, bg.file);
-    return fs.existsSync(filePath);
-  });
-  
-  if (availableBackgrounds.length === 0) {
-    // 没有背景文件，返回默认
-    return res.json({
-      success: true,
-      source: 'local',
-      url: '/background.webp',
-      name: '默认'
-    });
-  }
+  const available = getAvailableBackgrounds();
   
   // 过滤掉最近使用过的
-  let available = availableBackgrounds.filter(bg => !recentIds.includes(`local_${bg.id}`));
-  if (available.length === 0) {
-    recentIds = [];
-    available = availableBackgrounds;
+  let candidates = available.filter(bg => !recentIds.includes(`local_${bg.id}`));
+  if (candidates.length === 0) {
+    recentIds = recentIds.filter(id => !id.startsWith('local_'));
+    candidates = available;
   }
   
   // 随机选择
-  const selected = available[Math.floor(Math.random() * available.length)];
+  const selected = candidates[Math.floor(Math.random() * candidates.length)];
   
   // 记录使用
   recentIds.push(`local_${selected.id}`);
@@ -117,7 +95,7 @@ function getLocalBackground(res) {
   res.json({
     success: true,
     source: 'local',
-    url: `/backgrounds/${selected.file}`,
+    url: selected.url,
     name: selected.name
   });
 }
@@ -139,23 +117,17 @@ function getOnlineBackground(res, fallbackToLocal = false) {
     recentIds.push(`online_${selectedId}`);
     if (recentIds.length > MAX_RECENT) recentIds.shift();
     
-    const timestamp = Date.now();
-    const wallpaperUrl = `https://picsum.photos/id/${selectedId}/1920/1080?_t=${timestamp}`;
-    
     res.json({
       success: true,
       source: 'online',
-      url: wallpaperUrl,
+      url: `https://picsum.photos/id/${selectedId}/1920/1080?_t=${Date.now()}`,
       id: selectedId
     });
   } catch (error) {
     if (fallbackToLocal) {
       return getLocalBackground(res);
     }
-    res.status(500).json({
-      success: false,
-      error: '获取在线壁纸失败'
-    });
+    res.status(500).json({ success: false, error: '获取在线壁纸失败' });
   }
 }
 

@@ -54,15 +54,6 @@ const verifyLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-// 文件上传限流器
-const uploadLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1小时
-  max: 50, // 限制50次上传
-  message: { error: '上传过于频繁，请稍后再试' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-
 // 壁纸切换限流器
 const wallpaperLimiter = rateLimit({
   windowMs: 60 * 1000, // 1分钟
@@ -218,7 +209,6 @@ module.exports = {
   generalLimiter,
   loginLimiter,
   backupLimiter,
-  uploadLimiter,
   wallpaperLimiter,
   bookmarkSyncLimiter,
   verifyLimiter,
