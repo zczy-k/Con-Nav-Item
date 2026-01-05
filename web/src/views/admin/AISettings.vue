@@ -83,9 +83,19 @@
 
         <div class="form-item">
           <label>模型</label>
-          <select v-model="config.model" class="input">
-            <option v-for="m in currentProvider.models" :key="m" :value="m">{{ m }}</option>
-          </select>
+          <div class="model-select">
+            <select v-model="modelSelect" class="input" @change="onModelChange">
+              <option value="">自定义模型</option>
+              <option v-for="m in currentProvider.models" :key="m" :value="m">{{ m }}</option>
+            </select>
+            <input 
+              v-if="modelSelect === ''" 
+              type="text" 
+              v-model="config.model" 
+              :placeholder="currentProvider.defaultModel || '输入模型名称'"
+              class="input"
+            />
+          </div>
         </div>
 
         <div class="form-item switch-item">
@@ -225,6 +235,7 @@ export default {
     return {
       providers: PROVIDERS,
       config: { provider: 'deepseek', apiKey: '', baseUrl: '', model: 'deepseek-chat', autoGenerate: false, hasApiKey: false },
+      modelSelect: 'deepseek-chat',
       showApiKey: false,
       testing: false,
       saving: false,
@@ -291,10 +302,16 @@ export default {
     selectProvider(key) {
       this.config.provider = key;
       this.config.model = this.currentProvider.defaultModel;
+      this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
       this.config.baseUrl = this.currentProvider.defaultBaseUrl || '';
       this.config.apiKey = '';
       this.config.hasApiKey = false;
       this.connectionTested = false;
+    },
+    onModelChange() {
+      if (this.modelSelect) {
+        this.config.model = this.modelSelect;
+      }
     },
     async loadConfig() {
       try {
@@ -305,6 +322,7 @@ export default {
           this.config.hasApiKey = c.hasApiKey;
           this.config.baseUrl = c.baseUrl || '';
           this.config.model = c.model || this.currentProvider.defaultModel;
+          this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
           this.config.autoGenerate = c.autoGenerate || false;
         }
       } catch {}
@@ -508,6 +526,8 @@ export default {
 .label-status { font-size: 12px; color: #6b7280; }
 .label-status.ok { color: #10b981; }
 .input-group { display: flex; gap: 6px; }
+.model-select { display: flex; flex-direction: column; gap: 6px; }
+.model-select select { flex-shrink: 0; }
 .input { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
 .input:focus { outline: none; border-color: #3b82f6; }
 .input-btn { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #f9fafb; cursor: pointer; }
