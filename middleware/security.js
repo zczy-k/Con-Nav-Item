@@ -60,7 +60,7 @@ const helmetConfig = helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
-      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Vue需要
+      scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'", "https://static.cloudflareinsights.com"], // Vue需要 & Cloudflare Insights
       imgSrc: ["'self'", "data:", "https:", "http:", "blob:"],
       connectSrc: ["'self'", "https:", "http:"], // 允许所有 HTTP/HTTPS 连接
       fontSrc: ["'self'", "data:", "https:"], // 允许加载 CDN 字体

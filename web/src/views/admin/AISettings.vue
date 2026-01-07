@@ -230,6 +230,75 @@ import {
   aiStopTask, 
   getTags 
 } from '../../api';
+import AIBatchWizard from '../../components/AIBatchWizard.vue';
+
+const PROVIDERS = {
+  deepseek: {
+    name: 'DeepSeek',
+    icon: '🐳',
+    recommended: true,
+    docsUrl: 'https://platform.deepseek.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'deepseek-chat',
+    models: ['deepseek-chat', 'deepseek-reasoner']
+  },
+  openai: {
+    name: 'OpenAI',
+    icon: '🤖',
+    docsUrl: 'https://platform.openai.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
+  },
+  gemini: {
+    name: 'Google Gemini',
+    icon: '♊',
+    docsUrl: 'https://aistudio.google.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'gemini-1.5-flash',
+    models: ['gemini-1.5-flash', 'gemini-1.5-pro']
+  },
+  anthropic: {
+    name: 'Anthropic',
+    icon: '🎨',
+    docsUrl: 'https://console.anthropic.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'claude-3-haiku-20240307',
+    models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307']
+  },
+  zhipu: {
+    name: '智谱 AI',
+    icon: '🧠',
+    docsUrl: 'https://open.bigmodel.cn/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'glm-4-flash',
+    models: ['glm-4-flash', 'glm-4']
+  },
+  ollama: {
+    name: 'Ollama',
+    icon: '🦙',
+    local: true,
+    docsUrl: 'https://ollama.com/',
+    needsApiKey: false,
+    needsBaseUrl: true,
+    defaultBaseUrl: 'http://localhost:11434',
+    defaultModel: 'llama3',
+    models: ['llama3', 'qwen2', 'mistral']
+  },
+  custom: {
+    name: '自定义',
+    icon: '🛠️',
+    needsApiKey: true,
+    needsBaseUrl: true,
+    defaultModel: '',
+    models: []
+  }
+};
 
 export default {
   name: 'AISettings',
