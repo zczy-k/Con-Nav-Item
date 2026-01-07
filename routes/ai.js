@@ -901,9 +901,12 @@ router.get('/batch-task/status', authMiddleware, (req, res) => {
 });
 
 router.get('/batch-task/stream', authMiddleware, (req, res) => {
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  res.set({
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+    'X-Accel-Buffering': 'no'
+  });
   res.flushHeaders();
   res.write(`data: ${JSON.stringify(taskManager.getStatus())}\n\n`);
 

@@ -5,11 +5,20 @@ const db = require('../db');
 const JWT_SECRET = config.server.jwtSecret;
 
 function authMiddleware(req, res, next) {
+  let token = null;
   const auth = req.headers.authorization;
-  if (!auth || !auth.startsWith('Bearer ')) {
+  
+  if (auth && auth.startsWith('Bearer ')) {
+    token = auth.slice(7);
+  } else if (req.query && req.query.token) {
+    // 允许通过查询参数传递 token，主要用于 SSE (EventSource)
+    token = req.query.token;
+  }
+
+  if (!token) {
     return res.status(401).json({ error: '未授权' });
   }
-  const token = auth.slice(7);
+
   try {
     const payload = jwt.verify(token, JWT_SECRET);
     

@@ -54,7 +54,8 @@ app.use((req, res, next) => {
     '/api/bookmark-sync', // 书签云同步 API
     '/api/users/profile', // 用户信息
     '/api/cards/detect-duplicates', // 去重检测（需要实时数据）
-    '/api/data-version' // 数据版本号（必须实时）
+    '/api/data-version', // 数据版本号（必须实时）
+    '/api/ai/batch-task/stream' // AI 任务 SSE 
   ];
 
   const shouldCache = req.method === 'GET' &&

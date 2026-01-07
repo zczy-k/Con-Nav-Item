@@ -416,14 +416,14 @@ export default {
         }
         this.refreshing = false;
       },
-    // 初始化实时更新 (SSE)
-    async initRealtimeUpdates() {
-      this.closeEventSource();
-      
-      const token = localStorage.getItem('token');
-      const url = `/api/ai/batch-task/stream${token ? '?token=' + token : ''}`;
-      
-      this.eventSource = new EventSource(url);
+      // 初始化实时更新 (SSE)
+      async initRealtimeUpdates() {
+        this.closeEventSource();
+        
+        const token = localStorage.getItem('token');
+        const url = `/api/ai/batch-task/stream${token ? '?token=' + encodeURIComponent(token) : ''}`;
+        
+        this.eventSource = new EventSource(url);
       
       this.eventSource.onmessage = (event) => {
         try {
