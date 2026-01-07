@@ -106,3 +106,10 @@ export const restoreBackup = (filename) => axios.post(`${BASE}/backup/restore/${
 
 // 数据版本号API（用于缓存同步）
 export const getDataVersion = () => axios.get(`${BASE}/data-version`);
+
+// AI 批量生成 API
+export const aiFilterCards = (filters) => axios.post(`${BASE}/ai/filter-cards`, filters, { headers: authHeaders() });
+export const aiPreview = (data) => axios.post(`${BASE}/ai/preview`, data, { headers: authHeaders() });
+export const aiStartBatchTask = (data) => axios.post(`${BASE}/ai/batch-task/start`, data, { headers: authHeaders() });
+export const aiGetTaskStatus = () => axios.get(`${BASE}/ai/batch-task/status`, { headers: authHeaders() });
+export const aiStopTask = () => axios.post(`${BASE}/ai/batch-task/stop`, {}, { headers: authHeaders() });

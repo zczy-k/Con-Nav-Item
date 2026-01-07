@@ -28,8 +28,7 @@ class BatchTaskManager {
     }
     return {
       running: this.task.running,
-      type: this.task.type,
-      mode: this.task.mode,
+      types: this.task.types,
       current: this.task.current,
       total: this.task.total,
       successCount: this.task.successCount,
@@ -48,7 +47,7 @@ class BatchTaskManager {
   }
 
   // 启动任务
-  async start(config, cards, type, mode) {
+  async start(config, cards, types, strategy = {}) {
     if (this.isRunning()) {
       throw new Error('已有任务在运行中');
     }
@@ -56,8 +55,8 @@ class BatchTaskManager {
     this.abortController = new AbortController();
     this.task = {
       running: true,
-      type,
-      mode,
+      types: Array.isArray(types) ? types : [types],
+      strategy,
       current: 0,
       total: cards.length,
       successCount: 0,
@@ -73,7 +72,7 @@ class BatchTaskManager {
     };
 
     // 异步执行任务
-    this.runTask(config, cards, type).catch(() => {
+    this.runTask(config, cards).catch(() => {
       if (this.task) {
         this.task.running = false;
       }
@@ -95,9 +94,11 @@ class BatchTaskManager {
 
 
   // 执行任务（自适应并发）
-  async runTask(config, cards, type) {
+  async runTask(config, cards) {
     const { notifyDataChange } = require('../utils/autoBackup');
-    const existingTags = type === 'tags' ? await db.getAllTagNames() : [];
+    const types = this.task.types || ['name'];
+    const strategy = this.task.strategy || {};
+    const existingTags = types.includes('tags') ? await db.getAllTagNames() : [];
     const rawConfig = await db.getAIConfig();
     const baseDelay = Math.max(500, Math.min(10000, parseInt(rawConfig.requestDelay) || 1500));
 
@@ -118,7 +119,7 @@ class BatchTaskManager {
 
       // 并行处理当前批次
       const results = await Promise.allSettled(
-        batch.map(card => this.processCardWithRetry(config, card, type, existingTags))
+        batch.map(card => this.processCardWithRetry(config, card, types, existingTags, strategy))
       );
 
       // 分析结果，调整并发策略
@@ -235,11 +236,11 @@ class BatchTaskManager {
 
 
   // 带重试的卡片处理
-  async processCardWithRetry(config, card, type, existingTags, retryCount = 0) {
+  async processCardWithRetry(config, card, types, existingTags, strategy = {}, retryCount = 0) {
     const maxRetries = 2;
     
     try {
-      const updated = await this.processCard(config, card, type, existingTags);
+      const updated = await this.processCard(config, card, types, existingTags, strategy);
       return { success: updated, rateLimited: false };
     } catch (error) {
       const isRateLimit = this.isRateLimitError(error);
@@ -248,7 +249,7 @@ class BatchTaskManager {
         // 限流错误，等待后重试
         const retryDelay = Math.pow(2, retryCount + 1) * 1000; // 2s, 4s
         await this.sleep(retryDelay);
-        return this.processCardWithRetry(config, card, type, existingTags, retryCount + 1);
+        return this.processCardWithRetry(config, card, types, existingTags, strategy, retryCount + 1);
       }
       
       return { 
@@ -276,41 +277,54 @@ class BatchTaskManager {
            message.includes('请求过于频繁');
   }
 
-  // 处理单个卡片
-  async processCard(config, card, type, existingTags) {
+  // 处理单个卡片（支持多类型和策略）
+  async processCard(config, card, types, existingTags, strategy = {}) {
     let updated = false;
+    const isFillMode = strategy.mode !== 'overwrite';
 
-    switch (type) {
-      case 'name': {
-        const prompt = buildNamePrompt(card);
-        const result = await callAI(config, prompt);
-        const name = cleanName(result);
-        if (name && name !== card.title) {
-          await db.updateCardName(card.id, name);
-          updated = true;
+    for (const type of types) {
+      switch (type) {
+        case 'name': {
+          // fill 模式下跳过已有名称的卡片
+          if (isFillMode && card.title && !card.title.includes('://') && !card.title.startsWith('www.')) {
+            continue;
+          }
+          const prompt = buildPromptWithStrategy(buildNamePrompt(card), strategy);
+          const result = await callAI(config, prompt);
+          const name = cleanName(result);
+          if (name && name !== card.title) {
+            await db.updateCardName(card.id, name);
+            card.title = name; // 更新本地引用，供后续类型使用
+            updated = true;
+          }
+          break;
         }
-        break;
-      }
-      case 'description': {
-        const prompt = buildDescriptionPrompt(card);
-        const result = await callAI(config, prompt);
-        const desc = cleanDescription(result);
-        if (desc && desc !== card.desc) {
-          await db.updateCardDescription(card.id, desc);
-          updated = true;
+        case 'description': {
+          if (isFillMode && card.desc) {
+            continue;
+          }
+          const prompt = buildPromptWithStrategy(buildDescriptionPrompt(card), strategy);
+          const result = await callAI(config, prompt);
+          const desc = cleanDescription(result);
+          if (desc && desc !== card.desc) {
+            await db.updateCardDescription(card.id, desc);
+            card.desc = desc;
+            updated = true;
+          }
+          break;
         }
-        break;
-      }
-      case 'tags': {
-        const prompt = buildTagsPrompt(card, existingTags);
-        const result = await callAI(config, prompt);
-        const { tags, newTags } = parseTagsResponse(result, existingTags);
-        const allTags = [...tags, ...newTags];
-        if (allTags.length > 0) {
-          await db.updateCardTags(card.id, allTags);
-          updated = true;
+        case 'tags': {
+          // tags 总是可以补充
+          const prompt = buildPromptWithStrategy(buildTagsPrompt(card, existingTags), strategy);
+          const result = await callAI(config, prompt);
+          const { tags, newTags } = parseTagsResponse(result, existingTags);
+          const allTags = [...tags, ...newTags];
+          if (allTags.length > 0) {
+            await db.updateCardTags(card.id, allTags);
+            updated = true;
+          }
+          break;
         }
-        break;
       }
     }
 
@@ -709,6 +723,100 @@ router.get('/empty-cards', authMiddleware, async (req, res) => {
   }
 });
 
+// 高级筛选卡片
+router.post('/filter-cards', authMiddleware, async (req, res) => {
+  try {
+    const { status = [], menuIds = [], subMenuIds = [], tagIds = [], excludeTagIds = [] } = req.body;
+    const cards = await db.filterCardsForAI({ status, menuIds, subMenuIds, tagIds, excludeTagIds });
+    res.json({ success: true, cards, total: cards.length });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '筛选失败: ' + error.message });
+  }
+});
+
+// AI 预览生成（不保存）
+router.post('/preview', authMiddleware, async (req, res) => {
+  try {
+    const { cardIds, types = ['name', 'description', 'tags'], strategy = {} } = req.body;
+    
+    if (!cardIds || cardIds.length === 0) {
+      return res.status(400).json({ success: false, message: '请选择要预览的卡片' });
+    }
+    
+    const config = await getDecryptedAIConfig();
+    const validation = validateAIConfig(config);
+    if (!validation.valid) {
+      return res.status(400).json({ success: false, message: validation.message });
+    }
+    
+    const cards = await db.getCardsByIds(cardIds);
+    const existingTags = types.includes('tags') ? await db.getAllTagNames() : [];
+    const previews = [];
+    
+    for (const card of cards) {
+      const preview = { cardId: card.id, title: card.title, url: card.url, fields: {} };
+      
+      for (const type of types) {
+        const shouldGenerate = strategy.mode === 'overwrite' || 
+          (type === 'name' && (!card.title || card.title.includes('://') || card.title.startsWith('www.'))) ||
+          (type === 'description' && !card.desc) ||
+          (type === 'tags');
+        
+        if (!shouldGenerate) continue;
+        
+        try {
+          let prompt, result, cleaned;
+          if (type === 'name') {
+            prompt = buildPromptWithStrategy(buildNamePrompt(card), strategy);
+            result = await callAI(config, prompt);
+            cleaned = cleanName(result);
+            preview.fields.name = { original: card.title, generated: cleaned };
+          } else if (type === 'description') {
+            prompt = buildPromptWithStrategy(buildDescriptionPrompt(card), strategy);
+            result = await callAI(config, prompt);
+            cleaned = cleanDescription(result);
+            preview.fields.description = { original: card.desc, generated: cleaned };
+          } else if (type === 'tags') {
+            prompt = buildPromptWithStrategy(buildTagsPrompt(card, existingTags), strategy);
+            result = await callAI(config, prompt);
+            const parsed = parseTagsResponse(result, existingTags);
+            preview.fields.tags = { original: [], generated: [...parsed.tags, ...parsed.newTags] };
+          }
+        } catch (e) {
+          preview.fields[type] = { error: e.message };
+        }
+      }
+      previews.push(preview);
+    }
+    
+    res.json({ success: true, previews });
+  } catch (error) {
+    res.status(500).json({ success: false, message: '预览失败: ' + error.message });
+  }
+});
+
+// 根据策略调整 Prompt
+function buildPromptWithStrategy(basePrompt, strategy = {}) {
+  if (!strategy.style || strategy.style === 'default') return basePrompt;
+  
+  const styleHints = {
+    concise: '请尽量简洁，用最少的字表达。',
+    professional: '请使用专业、正式的语言风格。',
+    friendly: '请使用友好、轻松的语言风格。',
+    seo: '请优化关键词，便于搜索引擎收录。'
+  };
+  
+  if (styleHints[strategy.style] && basePrompt[0]?.role === 'system') {
+    basePrompt[0].content += '\n' + styleHints[strategy.style];
+  }
+  
+  if (strategy.customPrompt && basePrompt[0]?.role === 'system') {
+    basePrompt[0].content += '\n用户要求：' + strategy.customPrompt;
+  }
+  
+  return basePrompt;
+}
+
 // 单个卡片生成
 router.post('/generate', authMiddleware, async (req, res) => {
   try {
@@ -759,18 +867,10 @@ router.get('/batch-task/status', authMiddleware, (req, res) => {
   res.json({ success: true, ...taskManager.getStatus() });
 });
 
-// 启动批量任务
+// 启动批量任务（支持高级模式）
 router.post('/batch-task/start', authMiddleware, async (req, res) => {
   try {
-    const { type, mode } = req.body;
-    
-    if (!type || !['name', 'description', 'tags'].includes(type)) {
-      return res.status(400).json({ success: false, message: '无效的任务类型' });
-    }
-    
-    if (!mode || !['empty', 'all'].includes(mode)) {
-      return res.status(400).json({ success: false, message: '无效的任务模式' });
-    }
+    const { type, mode, cardIds, types, strategy } = req.body;
     
     if (taskManager.isRunning()) {
       return res.status(409).json({ success: false, message: '已有任务在运行中' });
@@ -778,26 +878,46 @@ router.post('/batch-task/start', authMiddleware, async (req, res) => {
     
     const config = await getDecryptedAIConfig();
     const validation = validateAIConfig(config);
-    
     if (!validation.valid) {
       return res.status(400).json({ success: false, message: validation.message });
     }
     
-    const cards = mode === 'all' 
-      ? await db.getAllCards() 
-      : await db.getCardsNeedingAI(type);
+    let cards;
+    let taskTypes;
+    let taskStrategy = strategy || {};
+    
+    // 高级模式：指定 cardIds 和 types
+    if (cardIds && Array.isArray(cardIds) && cardIds.length > 0) {
+      cards = await db.getCardsByIds(cardIds);
+      taskTypes = types || ['name', 'description', 'tags'];
+      taskStrategy.mode = taskStrategy.mode || 'fill';
+    } 
+    // 兼容旧模式
+    else if (type && mode) {
+      if (!['name', 'description', 'tags'].includes(type)) {
+        return res.status(400).json({ success: false, message: '无效的任务类型' });
+      }
+      if (!['empty', 'all'].includes(mode)) {
+        return res.status(400).json({ success: false, message: '无效的任务模式' });
+      }
+      cards = mode === 'all' ? await db.getAllCards() : await db.getCardsNeedingAI(type);
+      taskTypes = [type];
+      taskStrategy.mode = mode === 'all' ? 'overwrite' : 'fill';
+    } else {
+      return res.status(400).json({ success: false, message: '参数不完整' });
+    }
     
     if (!cards || cards.length === 0) {
       return res.json({ success: true, message: '没有需要处理的卡片', total: 0 });
     }
     
-    const result = await taskManager.start(config, cards, type, mode);
+    const result = await taskManager.start(config, cards, taskTypes, taskStrategy);
     
     res.json({ 
       success: true, 
-      message: '任务已启动（自适应并发模式）',
+      message: '任务已启动',
       total: result.total,
-      initialConcurrency: taskManager.initialConcurrency
+      types: taskTypes
     });
   } catch (error) {
     res.status(500).json({ success: false, message: error.message });

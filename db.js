@@ -700,6 +700,61 @@ function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// 高级筛选卡片（用于 AI 批量生成）
+async function filterCardsForAI({ status = [], menuIds = [], subMenuIds = [], tagIds = [], excludeTagIds = [] }) {
+  let sql = 'SELECT DISTINCT c.id, c.title, c.url, c.desc, c.menu_id, c.sub_menu_id FROM cards c';
+  const conditions = [];
+  const params = [];
+  
+  // 标签筛选需要 JOIN
+  if (tagIds.length > 0) {
+    sql += ' INNER JOIN card_tags ct ON c.id = ct.card_id';
+    conditions.push(`ct.tag_id IN (${tagIds.map(() => '?').join(',')})`);
+    params.push(...tagIds);
+  }
+  
+  // 状态筛选
+  const statusConditions = [];
+  if (status.includes('empty_name')) {
+    statusConditions.push("(c.title IS NULL OR c.title = '' OR c.title LIKE '%://%' OR c.title LIKE 'www.%')");
+  }
+  if (status.includes('empty_desc')) {
+    statusConditions.push("(c.desc IS NULL OR c.desc = '')");
+  }
+  if (status.includes('empty_tags')) {
+    statusConditions.push("c.id NOT IN (SELECT DISTINCT card_id FROM card_tags)");
+  }
+  if (statusConditions.length > 0) {
+    conditions.push(`(${statusConditions.join(' OR ')})`);
+  }
+  
+  // 菜单筛选
+  if (menuIds.length > 0) {
+    conditions.push(`c.menu_id IN (${menuIds.map(() => '?').join(',')})`);
+    params.push(...menuIds);
+  }
+  
+  // 子菜单筛选
+  if (subMenuIds.length > 0) {
+    conditions.push(`c.sub_menu_id IN (${subMenuIds.map(() => '?').join(',')})`);
+    params.push(...subMenuIds);
+  }
+  
+  // 排除标签
+  if (excludeTagIds.length > 0) {
+    conditions.push(`c.id NOT IN (SELECT card_id FROM card_tags WHERE tag_id IN (${excludeTagIds.map(() => '?').join(',')}))`);
+    params.push(...excludeTagIds);
+  }
+  
+  if (conditions.length > 0) {
+    sql += ' WHERE ' + conditions.join(' AND ');
+  }
+  
+  sql += ' ORDER BY c.id';
+  
+  return await dbAll(sql, params);
+}
+
 // 创建一个包装对象，确保始终使用最新的数据库连接
 const dbWrapper = {
   // 代理所有 sqlite3 数据库方法
@@ -727,7 +782,8 @@ const dbWrapper = {
   updateCardDescription,
   updateCardName,
   updateCardNameAndDescription,
-  updateCardTags
+  updateCardTags,
+  filterCardsForAI
 };
 
 module.exports = dbWrapper;

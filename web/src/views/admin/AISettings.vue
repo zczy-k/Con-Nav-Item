@@ -160,14 +160,22 @@
 
       <!-- 操作按钮 -->
       <div class="batch-actions" v-else>
-        <button 
-          class="btn primary lg" 
-          v-if="totalMissing > 0"
-          @click="startTask('name', 'empty')"
-          :disabled="!config.hasApiKey || starting"
-        >
-          ✨ 一键补全 ({{ totalMissing }})
+        <!-- 高级向导入口 -->
+        <button class="btn primary lg wizard-btn" @click="showWizard = true" :disabled="!config.hasApiKey">
+          🎯 高级批量生成向导
         </button>
+
+        <div class="quick-actions">
+          <span class="quick-label">快捷操作：</span>
+          <button 
+            class="btn" 
+            v-if="totalMissing > 0"
+            @click="startTask('name', 'empty')"
+            :disabled="!config.hasApiKey || starting"
+          >
+            ✨ 一键补全 ({{ totalMissing }})
+          </button>
+        </div>
 
         <div class="action-grid">
           <div class="action-card" v-for="item in actionItems" :key="item.type">
@@ -195,6 +203,9 @@
       </div>
     </div>
 
+    <!-- AI 批量生成向导 -->
+    <AIBatchWizard :visible="showWizard" @close="onWizardClose" />
+
     <!-- Toast -->
     <div class="toast" :class="[toast.type, { show: toast.show }]">
       {{ toast.msg }}
@@ -204,6 +215,7 @@
 
 <script>
 import axios from 'axios';
+import AIBatchWizard from '../../components/AIBatchWizard.vue';
 
 const authHeaders = () => {
   const token = localStorage.getItem('token');
@@ -231,6 +243,7 @@ const PROVIDERS = {
 
 export default {
   name: 'AISettings',
+  components: { AIBatchWizard },
   data() {
     return {
       providers: PROVIDERS,
@@ -247,7 +260,8 @@ export default {
       stats: null,
       task: { running: false, type: '', mode: '', current: 0, total: 0, currentCard: '', startTime: 0 },
       pollInterval: null,
-      toast: { show: false, msg: '', type: 'info' }
+      toast: { show: false, msg: '', type: 'info' },
+      showWizard: false
     };
   },
   computed: {
@@ -273,7 +287,11 @@ export default {
     },
     taskTitle() {
       const labels = { name: '名称', description: '描述', tags: '标签' };
-      return `正在生成${labels[this.task.type] || '内容'}`;
+      const types = this.task.types || [this.task.type];
+      if (Array.isArray(types) && types.length > 0) {
+        return `正在生成${types.map(t => labels[t] || t).join('、')}`;
+      }
+      return '正在生成内容';
     },
     taskEta() {
       if (!this.task.startTime || this.task.current < 2) return '';
@@ -476,6 +494,11 @@ export default {
     showToast(msg, type = 'info') {
       this.toast = { show: true, msg, type };
       setTimeout(() => { this.toast.show = false; }, 3000);
+    },
+    onWizardClose() {
+      this.showWizard = false;
+      this.refreshStats();
+      this.checkTask();
     }
   }
 };
@@ -579,6 +602,9 @@ export default {
 
 /* Batch Actions */
 .batch-actions { display: flex; flex-direction: column; gap: 16px; }
+.wizard-btn { margin-bottom: 8px; }
+.quick-actions { display: flex; align-items: center; gap: 10px; padding: 12px; background: #f9fafb; border-radius: 8px; }
+.quick-label { font-size: 13px; color: #6b7280; }
 .action-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
 .action-card { padding: 14px; background: #f9fafb; border-radius: 10px; }
 .action-header { font-size: 14px; font-weight: 500; margin-bottom: 10px; }
