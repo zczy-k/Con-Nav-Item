@@ -173,9 +173,9 @@
                     </button>
                   </div>
                 </div>
-                <div v-else class="error-empty-hint">
-                  正在加载失败详情...
-                </div>
+                  <div v-else class="error-empty-hint">
+                    {{ taskRunning ? '正在实时同步失败详情...' : '未获取到详细错误记录' }}
+                  </div>
               </div>
 
               <div class="task-actions" v-if="taskRunning">
@@ -257,6 +257,10 @@ export default {
       // 不再在 visible 改变时清理 SSE，由父组件管理
     },
     'activeTask.running'(newVal, oldVal) {
+      // 当任务开始时，重置完成状态
+      if (newVal === true) {
+        this.taskDone = false;
+      }
       // 当任务从运行中变为停止，且当前在执行步骤时，标记为完成
       if (oldVal === true && newVal === false && this.step === 3) {
         this.taskDone = true;

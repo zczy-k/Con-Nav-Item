@@ -396,7 +396,7 @@ class BatchTaskManager extends EventEmitter {
     
     try {
       const { updated } = await generateCardFields(config, card, types, existingTags, strategy);
-      return { success: updated, rateLimited: false };
+      return { success: true, updated, rateLimited: false };
     } catch (error) {
       const isRateLimit = this.isRateLimitError(error);
       
