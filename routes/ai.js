@@ -26,6 +26,7 @@ async function generateCardFields(config, card, types, existingTags, strategy = 
   let updated = false;
   const isFillMode = strategy.mode !== 'overwrite';
   const resultData = { name: null, description: null, tags: null };
+  const fieldErrors = []; // 记录各字段的错误
 
   // 1. 过滤出真正需要生成的字段
   const neededTypes = types.filter(type => {
@@ -107,8 +108,25 @@ async function generateCardFields(config, card, types, existingTags, strategy = 
       }
     } catch (e) {
       console.error(`Failed to generate field ${type} for card ${card.id}:`, e.message);
-      if (neededTypes.length === 1) throw e; // 如果是单字段请求，向上抛出错误
+      fieldErrors.push({ field: type, error: e.message });
+      // 单字段请求时直接抛出错误
+      if (neededTypes.length === 1) throw e;
     }
+  }
+
+  // 如果有部分字段失败，抛出包含详细信息的错误
+  if (fieldErrors.length > 0 && !updated) {
+    // 全部失败
+    throw new Error(fieldErrors.map(e => `${e.field}: ${e.error}`).join('; '));
+  }
+  
+  // 部分成功：返回结果，但附带警告信息
+  if (fieldErrors.length > 0 && updated) {
+    return { 
+      updated, 
+      data: resultData, 
+      partialError: fieldErrors.map(e => `${e.field}失败`).join(', ')
+    };
   }
 
   return { updated, data: resultData };
@@ -259,7 +277,19 @@ class BatchTaskManager extends EventEmitter {
           if (result.status === 'fulfilled') {
             if (result.value.success) {
               batchSuccess++;
-              if (this.task) this.task.successCount++;
+              if (this.task) {
+                this.task.successCount++;
+                // 如果有部分字段失败，记录警告（但仍算成功）
+                if (result.value.partialError) {
+                  this.task.errors.push({
+                    cardId: card.id,
+                    cardTitle: card.title || card.url,
+                    error: `部分成功: ${result.value.partialError}`,
+                    time: Date.now(),
+                    isWarning: true // 标记为警告而非错误
+                  });
+                }
+              }
               notifyDataChange();
             } else if (result.value.rateLimited) {
               hasRateLimit = true;
@@ -395,8 +425,14 @@ class BatchTaskManager extends EventEmitter {
     const maxRetries = 2;
     
     try {
-      const { updated } = await generateCardFields(config, card, types, existingTags, strategy);
-      return { success: true, updated, rateLimited: false };
+      const result = await generateCardFields(config, card, types, existingTags, strategy);
+      // 部分成功也算成功，但记录警告
+      return { 
+        success: true, 
+        updated: result.updated, 
+        rateLimited: false,
+        partialError: result.partialError // 可能为 undefined
+      };
     } catch (error) {
       const isRateLimit = this.isRateLimitError(error);
       

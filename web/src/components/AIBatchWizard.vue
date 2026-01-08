@@ -144,26 +144,30 @@
               <div class="task-stats">
                 <span class="stat success">✓ 成功 {{ taskStatus.successCount || 0 }}</span>
                 <span class="stat fail">✗ 失败 {{ taskStatus.failCount || 0 }}</span>
-                <button v-if="taskDone && taskStatus.failCount > 0" class="btn sm outline retry-all-btn" @click="retryAllFailed" :disabled="starting || taskRunning">
+                <button v-if="taskDone && hasRealErrors" class="btn sm outline retry-all-btn" @click="retryAllFailed" :disabled="starting || taskRunning">
                   🔄 重试全部失败
                 </button>
               </div>
 
-              <div v-if="taskStatus.failCount > 0" class="error-log-container">
+              <div v-if="hasErrorsOrWarnings" class="error-log-container" :class="{ 'warning-only': !hasRealErrors }">
                 <div class="error-log-header">
-                  <span>失败详情 ({{ taskStatus.errors ? taskStatus.errors.length : 0 }}/{{ taskStatus.failCount }})</span>
-                  <span class="header-hint">可点击右侧按钮单独重试</span>
+                  <span>{{ hasRealErrors ? '失败详情' : '警告信息' }} ({{ displayErrors.length }})</span>
+                  <span class="header-hint" v-if="hasRealErrors">可点击右侧按钮单独重试</span>
                 </div>
-                <div class="error-log" v-if="taskStatus.errors && taskStatus.errors.length > 0">
-                  <div v-for="(err, i) in taskStatus.errors" :key="i" class="error-item">
+                <div class="error-log" v-if="displayErrors.length > 0">
+                  <div v-for="(err, i) in displayErrors" :key="i" class="error-item" :class="{ 'is-warning': err.isWarning }">
                     <div class="error-info">
                       <div class="error-row">
-                        <span class="error-title" :title="err.cardTitle">{{ err.cardTitle || '未知卡片' }}</span>
+                        <span class="error-title" :title="err.cardTitle">
+                          <span v-if="err.isWarning" class="warning-icon">⚠️</span>
+                          {{ err.cardTitle || '未知卡片' }}
+                        </span>
                         <span class="error-time">{{ formatTime(err.time) }}</span>
                       </div>
-                      <div class="error-msg" :title="err.error">{{ err.error || '未知错误原因' }}</div>
+                      <div class="error-msg" :class="{ 'warning-msg': err.isWarning }" :title="err.error">{{ err.error || '未知错误原因' }}</div>
                     </div>
                     <button 
+                      v-if="!err.isWarning"
                       class="btn xs outline retry-btn" 
                       @click.stop="retryCard(err)" 
                       :disabled="starting || taskRunning"
@@ -281,6 +285,18 @@ export default {
     progressPercent() {
       const s = this.taskStatus;
       return s.total ? Math.round((s.current / s.total) * 100) : 0;
+    },
+    // 所有错误和警告
+    displayErrors() {
+      return this.taskStatus.errors || [];
+    },
+    // 是否有真正的错误（非警告）
+    hasRealErrors() {
+      return this.displayErrors.some(e => !e.isWarning);
+    },
+    // 是否有错误或警告需要显示
+    hasErrorsOrWarnings() {
+      return this.displayErrors.length > 0;
     }
   },
   watch: {
@@ -388,9 +404,14 @@ export default {
       await this.doStartTask([cardIdToRetry]);
     },
     async retryAllFailed() {
-      if (!this.taskStatus.errors || this.taskStatus.errors.length === 0) return;
+      // 只获取真正失败的卡片（排除警告）
+      const realErrors = (this.taskStatus.errors || []).filter(e => !e.isWarning);
+      if (realErrors.length === 0) {
+        alert('没有需要重试的失败卡片');
+        return;
+      }
       
-      const failedIds = this.taskStatus.errors
+      const failedIds = realErrors
         .map(e => e.cardId)
         .filter(id => !!id && id !== 0);
         
@@ -537,11 +558,18 @@ textarea.input { resize: vertical; }
 .error-empty-hint { padding: 20px; text-align: center; color: #9ca3af; font-size: 13px; font-style: italic; background: #fff; }
 
 .error-log-container { margin-top: 16px; border: 1px solid #fee2e2; border-radius: 10px; overflow: hidden; box-shadow: 0 2px 4px rgba(239, 68, 68, 0.05); }
+.error-log-container.warning-only { border-color: #fef3c7; }
 .error-log-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #fef2f2; border-bottom: 1px solid #fee2e2; }
+.error-log-container.warning-only .error-log-header { background: #fffbeb; border-color: #fef3c7; }
+.error-log-container.warning-only .error-log-header span:first-child { color: #b45309; }
 .error-log-header span:first-child { font-size: 13px; font-weight: 600; color: #b91c1c; }
 .header-hint { font-size: 11px; color: #f87171; font-weight: normal; }
 .error-log { max-height: 180px; overflow-y: auto; padding: 0; background: #fff; }
 .error-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #fef2f2; gap: 12px; }
+.error-item.is-warning { border-color: #fef3c7; }
+.error-item.is-warning .error-msg { color: #b45309; }
+.warning-icon { margin-right: 4px; }
+.warning-msg { color: #b45309 !important; }
 .error-item:last-child { border-bottom: none; }
 .error-info { flex: 1; display: flex; flex-direction: column; gap: 4px; overflow: hidden; }
 .error-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
