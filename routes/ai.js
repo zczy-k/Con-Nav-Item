@@ -79,7 +79,10 @@ async function generateCardFields(config, card, types, existingTags, strategy = 
         prompt = buildPromptWithStrategy(buildNamePrompt(card), strategy);
         aiResponse = await callAI(config, prompt);
         cleaned = cleanName(aiResponse);
-        if (cleaned && cleaned !== card.title) {
+        if (!cleaned) {
+          throw new Error('AI 返回内容无效（可能是思考过程文本）');
+        }
+        if (cleaned !== card.title) {
           await db.updateCardName(card.id, cleaned);
           resultData.name = cleaned;
           card.title = cleaned;
@@ -89,7 +92,10 @@ async function generateCardFields(config, card, types, existingTags, strategy = 
         prompt = buildPromptWithStrategy(buildDescriptionPrompt(card), strategy);
         aiResponse = await callAI(config, prompt);
         cleaned = cleanDescription(aiResponse);
-        if (cleaned && cleaned !== card.desc) {
+        if (!cleaned) {
+          throw new Error('AI 返回内容无效（可能是思考过程文本）');
+        }
+        if (cleaned !== card.desc) {
           await db.updateCardDescription(card.id, cleaned);
           resultData.description = cleaned;
           card.desc = cleaned;
@@ -685,8 +691,28 @@ function buildTagsPrompt(card, existingTags) {
 
 // ==================== 响应清理函数 ====================
 
+// AI 思考过程的特征模式（需要过滤掉）
+const AI_THINKING_PATTERNS = [
+  /^(我需要|让我|由于我|首先|接下来|根据|分析|查看|访问|了解|无法).{0,50}/,
+  /^(This|I need|Let me|Since I|First|Based on|According to).{0,50}/i,
+  /(网站|地址|链接|URL).{0,20}(内容|信息|功能|特点)/,
+  /无法(直接)?访问/,
+  /外部(网站|链接)/
+];
+
+function isAIThinkingText(text) {
+  if (!text || text.length < 10) return false;
+  return AI_THINKING_PATTERNS.some(pattern => pattern.test(text));
+}
+
 function cleanName(text) {
   if (!text) return '';
+  
+  // 检测是否为 AI 思考过程文本
+  if (isAIThinkingText(text)) {
+    console.warn('Detected AI thinking text in name, rejecting:', text.substring(0, 50));
+    return '';
+  }
   
   return text
     .replace(/```[\s\S]*?```/g, '')
@@ -703,6 +729,12 @@ function cleanName(text) {
 
 function cleanDescription(text) {
   if (!text) return '';
+  
+  // 检测是否为 AI 思考过程文本
+  if (isAIThinkingText(text)) {
+    console.warn('Detected AI thinking text in description, rejecting:', text.substring(0, 50));
+    return '';
+  }
   
   let cleaned = text
     .replace(/```[\s\S]*?```/g, '')
