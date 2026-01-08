@@ -16,29 +16,35 @@ router.get('/', async (req, res) => {
 });
 
 // 新增宣传
-router.post('/', auth, (req, res) => {
+router.post('/', auth, async (req, res) => {
   const { position, img, url } = req.body;
-  db.run('INSERT INTO promos (position, img, url) VALUES (?, ?, ?)', [position, img, url], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ id: this.lastID });
-  });
+  try {
+    const result = await db.run('INSERT INTO promos (position, img, url) VALUES (?, ?, ?)', [position, img, url]);
+    res.json({ id: result.lastID });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 修改宣传
-router.put('/:id', auth, (req, res) => {
+router.put('/:id', auth, async (req, res) => {
   const { img, url } = req.body;
-  db.run('UPDATE promos SET img=?, url=? WHERE id=?', [img, url, req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ changed: this.changes });
-  });
+  try {
+    const result = await db.run('UPDATE promos SET img=?, url=? WHERE id=?', [img, url, req.params.id]);
+    res.json({ changed: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 删除宣传
-router.delete('/:id', auth, (req, res) => {
-  db.run('DELETE FROM promos WHERE id=?', [req.params.id], function(err) {
-    if (err) return res.status(500).json({ error: err.message });
-    res.json({ deleted: this.changes });
-  });
+router.delete('/:id', auth, async (req, res) => {
+  try {
+    const result = await db.run('DELETE FROM promos WHERE id=?', [req.params.id]);
+    res.json({ deleted: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 module.exports = router;

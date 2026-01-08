@@ -391,20 +391,29 @@ export default {
         this.config.model = this.modelSelect;
       }
     },
-      async loadConfig() {
-        try {
-          const { data } = await aiGetConfig();
-          if (data.success) {
-            const c = data.config;
-            this.config.provider = c.provider || 'deepseek';
-            this.config.hasApiKey = c.hasApiKey;
-            this.config.baseUrl = c.baseUrl || '';
-            this.config.model = c.model || this.currentProvider.defaultModel;
-            this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
-            this.config.autoGenerate = c.autoGenerate || false;
-          }
-        } catch {}
-      },
+        async loadConfig() {
+          try {
+            const { data } = await aiGetConfig();
+            if (data.success) {
+              const c = data.config;
+              this.config.provider = c.provider || 'deepseek';
+              this.config.hasApiKey = c.hasApiKey;
+              this.config.baseUrl = c.baseUrl || '';
+              this.config.model = c.model || this.currentProvider.defaultModel;
+              this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
+              this.config.autoGenerate = c.autoGenerate || false;
+              
+              // 初始化连接状态
+              if (c.lastTestedOk) {
+                this.connectionTested = true;
+                this.connectionOk = true;
+              } else if (c.hasApiKey) {
+                this.connectionTested = false;
+                this.connectionOk = false;
+              }
+            }
+          } catch {}
+        },
       async saveConfig() {
         this.saving = true;
         try {
@@ -486,24 +495,27 @@ export default {
       updateTaskState(data) {
         if (!data) return;
         
-        // 如果任务刚刚从运行变为不运行 (data.running 由 true 变为 false)
-        if (this.task.running && !data.running) {
-          // 确保进度条到 100%
-          this.task.current = this.task.total;
-          if (this.task.total > 0 && data.successCount !== undefined) {
-            this.showToast(`任务结束！成功 ${data.successCount || 0}，失败 ${data.failCount || 0}`, data.failCount > 0 ? 'info' : 'success');
-          }
-          
-          // 更新最终状态
-          Object.assign(this.task, { ...data, running: true }); // 保持 running 为 true 直到延迟结束
-  
-          // 延迟关闭，让用户看清结果
-          setTimeout(() => {
-            this.task.running = false;
+          // 如果任务刚刚从运行变为不运行 (data.running 由 true 变为 false)
+          if (this.task.running && !data.running) {
+            // 确保进度条到 100%
+            this.task.current = this.task.total;
+            if (this.task.total > 0 && data.successCount !== undefined) {
+              this.showToast(`任务结束！成功 ${data.successCount || 0}，失败 ${data.failCount || 0}`, data.failCount > 0 ? 'info' : 'success');
+            }
+            
+            // 立即刷新统计，确保用户能看到最新结果
             this.refreshStats();
-          }, 2000);
-          return;
-        }
+
+            // 更新最终状态
+            Object.assign(this.task, { ...data, running: true }); // 保持 running 为 true 直到延迟结束
+    
+            // 延迟关闭，让用户看清结果
+            setTimeout(() => {
+              this.task.running = false;
+              this.refreshStats(); // 再次刷新确保数据最终一致性
+            }, 2000);
+            return;
+          }
         
         // 如果后端传回的任务状态是运行中，则更新本地状态
         if (data.running) {
@@ -548,6 +560,7 @@ export default {
           if (data.total === 0) {
             this.showToast('没有需要处理的卡片', 'info');
             this.task.running = false;
+            this.refreshStats();
             return;
           }
           
@@ -568,6 +581,8 @@ export default {
         try {
           await aiStopTask();
           this.showToast('正在停止...', 'info');
+          // 立即触发一次统计刷新
+          this.refreshStats();
         } catch {}
         setTimeout(() => { this.stopping = false; }, 2000);
       },
