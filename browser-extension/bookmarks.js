@@ -28,6 +28,42 @@ function isSeparatorBookmark(url) {
     return SEPARATOR_URLS.some(sep => url.startsWith(sep));
 }
 
+// 下拉菜单管理
+function setupDropdowns() {
+    const dropdowns = document.querySelectorAll('.dropdown');
+    dropdowns.forEach(dropdown => {
+        const toggle = dropdown.querySelector('.dropdown-toggle');
+        const content = dropdown.querySelector('.dropdown-content');
+        
+        if (toggle && content) {
+            toggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                // 关闭其他所有下拉菜单
+                document.querySelectorAll('.dropdown-content').forEach(c => {
+                    if (c !== content) c.classList.remove('show');
+                });
+                content.classList.toggle('show');
+            });
+        }
+    });
+    
+    // 点击外部关闭下拉菜单
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.dropdown-content').forEach(c => {
+            c.classList.remove('show');
+        });
+    });
+    
+    // 点击下拉菜单内部项也关闭
+    document.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', () => {
+            document.querySelectorAll('.dropdown-content').forEach(c => {
+                c.classList.remove('show');
+            });
+        });
+    });
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', init);
 
@@ -36,10 +72,9 @@ async function init() {
     await loadTags();
     await loadNotes();
     await loadViewModeSetting();
-    await loadAutoUpdateHotSetting();
     await loadBookmarks();
+    setupDropdowns();
     bindEvents();
-    loadAutoSortSetting();
     renderTagCloud();
     updateViewModeButtons();
     // 预加载导航页配置
@@ -161,7 +196,49 @@ async function saveUsageData() {
     }
 }
 
-// ==================== 标签系统 ====================
+// ==================== 标签管理功能 ====================
+
+// 按文件夹为书签打标签
+async function tagBookmarksByFolder() {
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    
+    let taggedCount = 0;
+    for (const bookmark of allBookmarksList) {
+        const folderTags = extractTagsFromFolderPath(bookmark);
+        if (folderTags.length > 0) {
+            const currentTags = bookmarkTags.get(bookmark.id) || [];
+            const newTags = [...new Set([...currentTags, ...folderTags])];
+            bookmarkTags.set(bookmark.id, newTags);
+            folderTags.forEach(t => allTags.add(t));
+            taggedCount++;
+        }
+    }
+    
+    if (taggedCount > 0) {
+        await saveTags();
+        renderTagCloud();
+        renderBookmarkList();
+        alert(`成功根据文件夹为 ${taggedCount} 个书签添加了标签`);
+    }
+}
+
+// 重新生成所有标签
+async function regenerateAllTags() {
+    if (!confirm('确定要清除现有标签并重新生成吗？\n这将根据书签的文件夹、标题和内容自动生成新标签。')) return;
+    await executeAutoTag(true);
+}
+
+// 清除所有标签
+async function clearAllTags() {
+    if (!confirm('确定要清除所有书签的标签吗？此操作无法撤销。')) return;
+    bookmarkTags.clear();
+    allTags.clear();
+    await saveTags();
+    renderTagCloud();
+    renderBookmarkList();
+    alert('已清除所有标签');
+}
 // 加载标签数据
 async function loadTags() {
     try {
@@ -2098,22 +2175,8 @@ function bindEvents() {
     // 删除选中
     document.getElementById('btnDeleteSelected').addEventListener('click', deleteSelectedBookmarks);
     
-    // 查找重复
-    document.getElementById('btnFindDuplicates').addEventListener('click', findDuplicates);
-    
-    // 检测无效链接
-    document.getElementById('btnCheckLinks').addEventListener('click', showCheckOptions);
-    document.getElementById('btnStartCheck').addEventListener('click', startCheckWithOptions);
-    document.getElementById('btnCancelOptions').addEventListener('click', hideCheckOptions);
-    
-    // 使用分析
-    document.getElementById('btnAnalyzeUsage').addEventListener('click', analyzeUsage);
-    
-    // 检测长期未使用
-    document.getElementById('btnFindUnused').addEventListener('click', findUnusedBookmarks);
-    
-    // 统计面板
-    document.getElementById('btnStatistics').addEventListener('click', showStatisticsPanel);
+    // 健康中心 (作为核心维护入口)
+    document.getElementById('btnHealthDashboard').addEventListener('click', showHealthDashboard);
     
     // 时间线筛选
     document.getElementById('timelineFilter').addEventListener('change', handleTimelineFilter);
@@ -2125,8 +2188,7 @@ function bindEvents() {
     document.getElementById('btnConfirmBatchTag').addEventListener('click', confirmBatchTag);
     document.getElementById('batchTagMode').addEventListener('change', updateBatchTagUI);
     
-    // 按文件夹标签
-    document.getElementById('btnTagByFolder').addEventListener('click', tagBookmarksByFolder);
+    // 标签管理
     document.getElementById('btnRegenerateTags').addEventListener('click', regenerateAllTags);
     document.getElementById('btnClearAllTags').addEventListener('click', clearAllTags);
     
@@ -2161,7 +2223,6 @@ function bindEvents() {
     
     // 更新热门书签
     document.getElementById('btnUpdateHotBookmarks').addEventListener('click', updateHotBookmarks);
-    document.getElementById('autoUpdateHotEnabled').addEventListener('change', toggleAutoUpdateHot);
     
     // 云备份
     document.getElementById('btnCloudBackup').addEventListener('click', showCloudBackupModal);
@@ -2215,11 +2276,6 @@ function bindEvents() {
     // 视图切换
     document.getElementById('btnGridView').addEventListener('click', () => switchViewMode('grid'));
     document.getElementById('btnListView').addEventListener('click', () => switchViewMode('list'));
-    
-    // 自动排序开关
-    document.getElementById('autoSortEnabled').addEventListener('change', (e) => {
-        toggleAutoSort(e.target.checked);
-    });
     
     // 批量移动
     document.getElementById('btnBatchMove').addEventListener('click', showBatchMoveModal);
@@ -2716,7 +2772,120 @@ function closeEditModal() {
     editingItem = null;
 }
 
-// ==================== 删除功能 ====================
+// ==================== 健康中心 ====================
+
+// 显示健康中心仪表盘
+async function showHealthDashboard() {
+    const resultList = document.getElementById('resultList');
+    document.getElementById('resultTitle').textContent = '🛡️ 书签健康中心';
+    resultList.innerHTML = '<div class="loading">正在扫描书签状态...</div>';
+    document.getElementById('resultModal').classList.add('active');
+    hideResultFooterActions();
+    
+    const allBookmarksList = [];
+    collectAllBookmarks(allBookmarks, allBookmarksList);
+    
+    // 1. 计算重复项 (快速扫描)
+    const urlMap = new Map();
+    let duplicateCount = 0;
+    allBookmarksList.forEach(b => {
+        if (isInShortcutFolder(b)) return;
+        const normalized = normalizeUrl(b.url);
+        if (urlMap.has(normalized)) {
+            duplicateCount++;
+        } else {
+            urlMap.set(normalized, true);
+        }
+    });
+    
+    // 2. 加载无效链接缓存
+    const cachedLinks = await loadInvalidLinksCache();
+    const invalidCount = cachedLinks ? cachedLinks.length : 0;
+    
+    // 3. 计算空文件夹
+    const allFolders = [];
+    collectAllFolders(allBookmarks, allFolders);
+    let emptyFolderCount = 0;
+    for (const f of allFolders) {
+        if (!f.id || SYSTEM_FOLDER_IDS.includes(f.id)) continue;
+        if (!f.children || f.children.length === 0) emptyFolderCount++;
+    }
+    
+    // 4. 统计无标签项
+    const noTagCount = countNoTagBookmarks();
+    
+    let html = `
+        <div style="padding: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-bottom: 24px;">
+                <!-- 重复书签 -->
+                <div style="background: #fdf2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span style="font-size: 24px;">👯</span>
+                        <span style="background: #ef4444; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">${duplicateCount}</span>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #991b1b;">重复书签</div>
+                        <div style="font-size: 12px; color: #b91c1c; margin-top: 4px;">相同网址在不同位置</div>
+                    </div>
+                    <button class="btn btn-small" onclick="closeResultModal(); findDuplicates();" style="background: white; border: 1px solid #fecaca; color: #dc2626;">查看并处理</button>
+                </div>
+                
+                <!-- 无效链接 -->
+                <div style="background: #fffbeb; border: 1px solid #fef3c7; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span style="font-size: 24px;">🔗</span>
+                        <span style="background: #f59e0b; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">${invalidCount > 0 ? invalidCount : '?'}</span>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #92400e;">失效链接</div>
+                        <div style="font-size: 12px; color: #a16207; margin-top: 4px;">${invalidCount > 0 ? '发现已知失效链接' : '尚未进行全面检测'}</div>
+                    </div>
+                    <button class="btn btn-small" onclick="closeResultModal(); showCheckOptions();" style="background: white; border: 1px solid #fef3c7; color: #d97706;">开始深度检测</button>
+                </div>
+                
+                <!-- 空文件夹 -->
+                <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span style="font-size: 24px;">📭</span>
+                        <span style="background: #6b7280; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">${emptyFolderCount}</span>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #374151;">空文件夹</div>
+                        <div style="font-size: 12px; color: #6b7280; margin-top: 4px;">不含任何书签的目录</div>
+                    </div>
+                    <button class="btn btn-small" onclick="closeResultModal(); findEmptyFolders();" style="background: white; border: 1px solid #e5e7eb; color: #4b5563;">清理空文件夹</button>
+                </div>
+                
+                <!-- 无标签书签 -->
+                <div style="background: #eff6ff; border: 1px solid #dbeafe; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <span style="font-size: 24px;">🏷️</span>
+                        <span style="background: #3b82f6; color: white; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;">${noTagCount}</span>
+                    </div>
+                    <div>
+                        <div style="font-weight: 600; color: #1e40af;">未分类书签</div>
+                        <div style="font-size: 12px; color: #1d4ed8; margin-top: 4px;">尚未添加任何标签</div>
+                    </div>
+                    <button class="btn btn-small" onclick="closeResultModal(); filterNoTag=true; renderBookmarkList();" style="background: white; border: 1px solid #dbeafe; color: #2563eb;">去打标签</button>
+                </div>
+            </div>
+            
+            <!-- 一键清理建议 -->
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 12px; padding: 20px; color: white; margin-bottom: 16px;">
+                <div style="font-weight: 600; font-size: 16px; margin-bottom: 8px;">✨ 智能整理建议</div>
+                <div style="font-size: 13px; opacity: 0.9; line-height: 1.6; margin-bottom: 16px;">
+                    检测到 ${duplicateCount + emptyFolderCount} 个可安全清理的项目。使用自动标签可以帮助您更好地管理书签。
+                </div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn" onclick="closeResultModal(); autoTagAllBookmarks();" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">批量自动打标签</button>
+                    <button class="btn" onclick="closeResultModal(); analyzeUsage();" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.3);">分析吃灰书签</button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    resultList.innerHTML = html;
+}
 async function deleteBookmark(id) {
     if (!confirm('确定要删除这个书签吗？')) return;
     

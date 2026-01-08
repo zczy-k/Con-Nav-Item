@@ -19,7 +19,7 @@
         .toolbar { background: white; padding: 12px 16px; border-radius: 12px; margin-bottom: 20px; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .search-input { flex: 1; min-width: 200px; padding: 10px 16px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 14px; }
         .search-input:focus { outline: none; border-color: #667eea; }
-        .btn { padding: 8px 14px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap; }
+        .btn { padding: 8px 14px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; transition: all 0.2s; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
         .btn-primary { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; }
         .btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(102,126,234,0.4); }
         .btn-secondary { background: #f0f0f0; color: #333; }
@@ -27,6 +27,17 @@
         .btn-danger { background: #ef4444; color: white; }
         .btn-danger:hover { background: #dc2626; }
         .btn-small { padding: 4px 8px; font-size: 12px; }
+
+        /* 下拉菜单 */
+        .dropdown { position: relative; display: inline-block; }
+        .dropdown-content { display: none; position: absolute; background-color: white; min-width: 180px; box-shadow: 0 8px 16px rgba(0,0,0,0.1); z-index: 100; border-radius: 8px; padding: 8px 0; margin-top: 4px; right: 0; }
+        .dropdown-content.show { display: block; }
+        .dropdown-item { padding: 10px 16px; text-decoration: none; display: flex; align-items: center; gap: 8px; color: #333; font-size: 13px; transition: background 0.2s; cursor: pointer; }
+        .dropdown-item:hover { background-color: #f5f5f5; }
+        .dropdown-divider { height: 1px; background: #eee; margin: 4px 0; }
+        .dropdown-item.danger { color: #ef4444; }
+        .dropdown-item.danger:hover { background-color: #fee2e2; }
+        .dropdown-toggle::after { content: '▾'; margin-left: 4px; font-size: 10px; }
         
         /* 主内容区 - 锚点导航布局 */
         .main-layout { display: flex; gap: 20px; height: calc(100vh - 220px); min-height: 500px; }
@@ -116,6 +127,7 @@
 
         <div class="toolbar">
             <input type="text" class="search-input" id="searchInput" placeholder="🔍 搜索书签（支持拼音首字母）...">
+            
             <select id="timelineFilter" style="padding: 8px 12px; border: 1px solid #e0e0e0; border-radius: 8px; font-size: 13px; cursor: pointer;">
                 <option value="">📅 全部时间</option>
                 <option value="today">今天添加</option>
@@ -123,29 +135,46 @@
                 <option value="month">本月添加</option>
                 <option value="year">今年添加</option>
             </select>
+
             <button class="btn btn-primary" id="btnNewFolder">📁 新建文件夹</button>
-            <button class="btn btn-secondary" id="btnFindDuplicates">🔍 查找重复</button>
-            <button class="btn btn-secondary" id="btnCheckLinks">🔗 检测无效链接</button>
-            <button class="btn btn-secondary" id="btnAnalyzeUsage">📊 使用分析</button>
-            <button class="btn btn-secondary" id="btnFindUnused">📦 长期未使用</button>
-            <button class="btn btn-secondary" id="btnStatistics">📈 统计面板</button>
-            <button class="btn btn-secondary" id="btnMergeFolders">📂 合并文件夹</button>
-            <button class="btn btn-secondary" id="btnUpdateHotBookmarks" title="手动更新热门书签">🔥 更新热门</button>
-            <label style="display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer;" title="每5分钟自动更新热门书签">
-                <input type="checkbox" id="autoUpdateHotEnabled" checked>
-                <span>自动</span>
-            </label>
-            <button class="btn btn-secondary" id="btnFindEmptyFolders">📭 空文件夹</button>
-            <button class="btn btn-secondary" id="btnTagByFolder" title="根据文件夹名称为书签添加标签">📁 按文件夹标签</button>
-            <button class="btn btn-secondary" id="btnRegenerateTags" title="清除现有标签并重新根据文件夹生成">🔄 重新生成标签</button>
-            <button class="btn btn-danger" id="btnClearAllTags" title="清除所有书签的标签">🗑️ 清除所有标签</button>
-            <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; cursor: pointer; margin-left: auto;">
-                <input type="checkbox" id="autoSortEnabled">
-                <span>自动排序</span>
-            </label>
-            <button class="btn btn-primary" id="btnNavSettings" title="导航页设置">🚀 导航页设置</button>
-            <button class="btn btn-secondary" id="btnCloudBackup" title="云端备份/恢复书签">☁️ 云备份</button>
-            <button class="btn btn-secondary" id="btnShowShortcuts" title="查看快捷键">⌨️</button>
+
+            <!-- 维护工具下拉 -->
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" id="dropdownTools">🛠️ 维护工具</button>
+                <div class="dropdown-content" id="toolsContent">
+                    <div class="dropdown-item" id="btnHealthDashboard" style="font-weight: 600; color: #667eea;">🛡️ 书签健康中心</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" id="btnMergeFolders">📂 合并同名文件夹</div>
+                    <div class="dropdown-item" id="btnFindEmptyFolders">📭 查找空文件夹</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" id="btnUpdateHotBookmarks">🔥 手动更新热门</div>
+                </div>
+            </div>
+
+            <!-- 标签管理下拉 -->
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" id="dropdownTags">🏷️ 标签管理</button>
+                <div class="dropdown-content" id="tagsContent">
+                    <div class="dropdown-item" id="btnRegenerateTags">🔄 重新生成所有标签</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item danger" id="btnClearAllTags">🗑️ 清除所有标签</div>
+                </div>
+            </div>
+
+            <!-- 更多应用下拉 -->
+            <div class="dropdown">
+                <button class="btn btn-secondary dropdown-toggle" id="dropdownApps">🚀 更多功能</button>
+                <div class="dropdown-content" id="appsContent">
+                    <div class="dropdown-item" id="btnNavSettings">🚀 导航页关联设置</div>
+                    <div class="dropdown-item" id="btnCloudBackup">☁️ 书签云端备份</div>
+                    <div class="dropdown-divider"></div>
+                    <div class="dropdown-item" id="btnShowShortcuts">⌨️ 查看快捷键</div>
+                </div>
+            </div>
+
+            <div style="margin-left: auto; display: flex; align-items: center; gap: 12px;">
+                <!-- 移除了冗余的自动更新/排序勾选框，保持界面简洁 -->
+            </div>
         </div>
         
         <!-- 标签云 -->
