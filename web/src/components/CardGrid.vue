@@ -262,11 +262,11 @@ function isCardSelected(card) {
   }
 }
 
-/* ========== 卡片主体 - 轻磨砂风格 ========== */
+/* ========== 卡片主体 - 磨砂玻璃风格 ========== */
 .link-item {
-  background: rgba(45, 45, 55, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border-radius: 16px;
   min-height: 88px;
   height: 88px;
@@ -277,11 +277,9 @@ function isCardSelected(card) {
   position: relative;
   overflow: hidden;
   /* 精致的边框 */
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
   /* 柔和的阴影 */
-  box-shadow: 
-    0 4px 16px rgba(0, 0, 0, 0.2),
-    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   /* 平滑过渡 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
@@ -307,12 +305,10 @@ function isCardSelected(card) {
 
 /* 悬停效果 */
 .link-item:hover {
-  background: rgba(55, 55, 65, 0.8);
+  background: rgba(255, 255, 255, 0.25);
   transform: translateY(-6px) scale(1.02);
-  border-color: rgba(255, 255, 255, 0.15);
-  box-shadow: 
-    0 12px 32px rgba(0, 0, 0, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
 }
 
 /* 点击效果 */
