@@ -277,17 +277,16 @@ function isCardSelected(card) {
   position: relative;
   overflow: hidden;
   /* 精致的边框 */
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  /* 柔和的阴影 */
-  box-shadow: 
-    0 4px 20px -2px rgba(0, 0, 0, 0.1),
-    0 0 1px rgba(255, 255, 255, 0.2) inset;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  /* 柔和的阴影 - 移除inset避免白框 */
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.1);
   /* 平滑过渡 */
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
 }
 
-/* 顶部高光条 - 增加质感 */
+/* 顶部高光条 - 已移除，避免白色横条视觉问题 */
+/*
 .link-item::before {
   content: '';
   position: absolute;
@@ -302,15 +301,14 @@ function isCardSelected(card) {
   );
   border-radius: 1px;
 }
+*/
 
 /* 悬停效果 */
 .link-item:hover {
   background: rgba(255, 255, 255, 0.25);
   transform: translateY(-8px) scale(1.03);
-  border-color: rgba(255, 255, 255, 0.4);
-  box-shadow: 
-    0 16px 40px -8px rgba(0, 0, 0, 0.2),
-    0 0 1px rgba(255, 255, 255, 0.3) inset;
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 16px 40px -8px rgba(0, 0, 0, 0.2);
 }
 
 /* 点击效果 */
