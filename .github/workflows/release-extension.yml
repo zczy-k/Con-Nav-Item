@@ -1,0 +1,78 @@
+name: Release Browser Extension
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - 'ext-v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (留空则从 manifest.json 读取)'
+        required: false
+        type: string
+
+jobs:
+  build-extension:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(cat browser-extension/manifest.json | jq -r '.version')
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extension version: $VERSION"
+
+      - name: Create extension package
+        run: |
+          cd browser-extension
+          zip -r ../nav-extension-v${{ steps.version.outputs.version }}.zip . -x "*.git*" -x "*.DS_Store"
+          cd ..
+          echo "Package created: nav-extension-v${{ steps.version.outputs.version }}.zip"
+          ls -la *.zip
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          name: "浏览器扩展 v${{ steps.version.outputs.version }}"
+          body: |
+            ## 🧩 浏览器扩展 v${{ steps.version.outputs.version }}
+            
+            ### 安装方法
+            
+            **Chrome / Edge:**
+            1. 下载 `nav-extension-v${{ steps.version.outputs.version }}.zip` 并解压
+            2. 打开浏览器扩展管理页面 (`chrome://extensions` 或 `edge://extensions`)
+            3. 开启「开发者模式」
+            4. 点击「加载已解压的扩展程序」，选择解压后的文件夹
+            
+            **Firefox:**
+            1. 下载 `nav-extension-v${{ steps.version.outputs.version }}.zip`
+            2. 打开 `about:debugging#/runtime/this-firefox`
+            3. 点击「临时载入附加组件」，选择 zip 文件
+            
+            ---
+            > 💡 建议配合导航站后端一起使用，获得完整功能体验
+          files: |
+            nav-extension-v${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload artifact (for manual trigger)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nav-extension-v${{ steps.version.outputs.version }}
+          path: nav-extension-v${{ steps.version.outputs.version }}.zip
+          retention-days: 30
