@@ -3603,7 +3603,6 @@ async function saveCardEdit() {
   left: 0;
   min-width: 200px;
   background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(10px);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
   z-index: 10001;
@@ -3929,7 +3928,6 @@ async function saveCardEdit() {
   color: white;
   font-weight: 500;
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
-  backdrop-filter: blur(4px);
   transition: all 0.2s ease;
 }
 
@@ -3981,7 +3979,7 @@ async function saveCardEdit() {
   align-items: center;
   gap: 6px;
   padding: 6px 14px;
-  background: rgba(255, 255, 255, 0.92);
+  background: rgba(255, 255, 255, 0.95);
   border: 1.5px solid rgba(24, 144, 255, 0.25);
   border-radius: 20px;
   font-size: 13px;
@@ -3989,7 +3987,6 @@ async function saveCardEdit() {
   cursor: pointer;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
-  backdrop-filter: blur(8px);
 }
 
 .mini-tag-btn:hover {
