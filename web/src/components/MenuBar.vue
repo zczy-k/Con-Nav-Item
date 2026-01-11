@@ -15,11 +15,10 @@
         {{ menu.name }}
       </button>
       
-      <!-- 编辑模式下的下拉面板（包含操作按钮和子菜单） -->
+      <!-- 编辑模式下的下拉面板 - 按需渲染 -->
       <div 
-        v-if="editMode" 
+        v-if="editMode && hoveredMenuId === menu.id" 
         class="menu-dropdown"
-        :class="{ 'show': hoveredMenuId === menu.id }"
         @mouseenter="cancelHideSubMenu(menu.id)"
         @mouseleave="scheduleHideSubMenu(menu.id)"
       >
@@ -72,11 +71,10 @@
         </button>
       </div>
       
-      <!-- 非编辑模式下的二级菜单 -->
+      <!-- 非编辑模式下的二级菜单 - 按需渲染 -->
       <div 
-        v-if="!editMode && menu.subMenus && menu.subMenus.length > 0" 
+        v-if="!editMode && hoveredMenuId === menu.id && menu.subMenus && menu.subMenus.length > 0" 
         class="sub-menu"
-        :class="{ 'show': hoveredMenuId === menu.id }"
         @mouseenter="cancelHideSubMenu(menu.id)"
         @mouseleave="scheduleHideSubMenu(menu.id)"
       >
@@ -281,32 +279,22 @@ onUnmounted(() => {
   cursor: grabbing;
 }
 
-/* 编辑模式下拉面板 - 浅色半透明 */
+/* 编辑模式下拉面板 - 按需渲染 */
 .menu-dropdown {
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 14px;
+  background: #2a2a30;
+  border-radius: 10px;
   min-width: max-content;
   white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  margin-top: 6px;
-  padding: 12px 0;
-  isolation: isolate;
-  will-change: transform, opacity;
-}
-
-.menu-dropdown.show {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 4px;
+  padding: 10px 0;
+  overflow: hidden;
 }
 
 /* 菜单操作行 */
@@ -462,32 +450,22 @@ onUnmounted(() => {
   display: none;
 }
 
-/* 非编辑模式二级菜单样式 - 浅色半透明 */
+/* 非编辑模式二级菜单样式 - 按需渲染 */
 .sub-menu {
   position: absolute;
   top: 100%;
   left: 50%;
   transform: translateX(-50%);
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 14px;
+  background: #2a2a30;
+  border-radius: 10px;
   min-width: max-content;
   white-space: nowrap;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.25s ease, visibility 0.25s ease, transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   z-index: 1000;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  margin-top: 6px;
-  padding: 8px 0;
-  isolation: isolate;
-  will-change: transform, opacity;
-}
-
-.sub-menu.show {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  margin-top: 4px;
+  padding: 6px 0;
+  overflow: hidden;
 }
 
 /* 添加菜单按钮 */
