@@ -325,25 +325,40 @@ onUnmounted(() => {
 
 @media (max-width: 768px) {
   .menu-bar {
-    gap: 2px;
-    padding: 0 0.5rem;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    gap: 4px;
+    padding: 0 0.75rem;
+    margin: 0 auto;
+    max-width: 100vw;
+  }
+  
+  .menu-bar::-webkit-scrollbar {
+    display: none;
   }
   
   .menu-bar button {
-    font-size: 13px;
-    padding: .5rem .8rem;
+    font-size: 14px;
+    padding: 0.5rem 1rem;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 }
 
 @media (max-width: 480px) {
   .menu-bar {
-    gap: 1px;
-    padding: 0 0.3rem;
+    gap: 3px;
+    padding: 0 0.5rem;
   }
   
   .menu-bar button {
-    font-size: 12px;
-    padding: .4rem .6rem;
+    font-size: 13px;
+    padding: 0.45rem 0.85rem;
   }
 }
 </style>
