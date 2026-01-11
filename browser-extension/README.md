@@ -112,4 +112,4 @@ MIT License
 
 ## 联系方式
 
-项目地址: https://github.com/zczy-k/Con-Nav-Item
+项目地址: https://github.com/zczy-k/Ai-Nav-Item

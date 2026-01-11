@@ -1,9 +1,9 @@
 version: '3'
 
 services:
-  Con-Nav-Item:
-    image: ghcr.io/zczy-k/con-nav-item:latest
-    container_name: Con-Nav-Item
+  Ai-Nav-Item:
+    image: ghcr.io/zczy-k/ai-nav-item:latest
+    container_name: Ai-Nav-Item
     ports:
       - "3000:3000"
     environment:

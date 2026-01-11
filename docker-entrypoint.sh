@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-echo "🚀 启动 Con-Nav-Item..."
+echo "🚀 启动 Ai-Nav-Item..."
 
 # 自动创建所有必需的目录
 echo "📁 创建必需的目录..."
