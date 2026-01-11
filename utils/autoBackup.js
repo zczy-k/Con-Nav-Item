@@ -216,7 +216,7 @@ async function syncToWebDAV(backupPath, backupName, retries = 2) {
       if (!client) return false;
       
       // 确保备份目录存在
-      const remotePath = '/Con-Nav-Item-Backups';
+      const remotePath = '/Ai-Nav-Item-Backups';
       try {
         await client.createDirectory(remotePath);
       } catch (e) {
@@ -248,7 +248,7 @@ async function cleanWebDAVBackups(prefix, keepCount) {
     const client = await getWebDAVClient();
     if (!client) return;
     
-    const remotePath = '/Con-Nav-Item-Backups';
+    const remotePath = '/Ai-Nav-Item-Backups';
     
     // 获取远程备份列表
     let contents;

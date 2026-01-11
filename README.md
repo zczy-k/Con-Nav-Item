@@ -1,10 +1,10 @@
-# Con-Nav-Item - 现代化个人导航站
+# Ai-Nav-Item - 现代化AI导航站
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Vue](https://img.shields.io/badge/Vue.js-3-brightgreen.svg)](https://vuejs.org/)
 
-现代化的个人导航站，提供美观的卡片式导航界面、强大的后台管理系统和功能丰富的浏览器扩展。
+现代化的 AI 智能导航站，提供美观的卡片式导航界面、强大的 AI 辅助功能、完善的后台管理系统和功能丰富的浏览器扩展。
 
 示例站：https://con-nav-item.zeabur.app/
 
@@ -30,21 +30,24 @@
 
 ### 🏠 前端导航
 
-- **卡片式导航** - 美观现代的渐变卡片界面，支持拖拽排序
+- **卡片式导航** - 美观现代的磨砂玻璃卡片界面，支持拖拽排序
 - **多级菜单** - 支持主菜单和子菜单，点击主菜单显示所有子菜单卡片
 - **智能搜索** - 支持拼音搜索，输入首字母即可匹配中文卡片
-- **聚合搜索** - 内置 Google、百度、Bing、GitHub 等多引擎，支持自定义搜索引擎
-- **动态壁纸** - 支持随机壁纸、自定义壁纸URL
+- **聚合搜索** - 内置 Google、百度、Bing、GitHub 等多引擎，支持自定义搜索引擎和排序
+- **多标签筛选** - 支持同时选择多个标签进行组合筛选
+- **动态壁纸** - 支持随机壁纸、自定义壁纸URL，多种精美背景可选
 - **响应式设计** - 完美适配桌面端和移动端
 - **友情链接** - 底部展示友情链接
 - **宣传位** - 可选的左右两侧宣传展示区域
 - **PWA 支持** - 可安装为独立应用，支持离线访问
 - **前端编辑模式** - 无需进入后台，直接在首页进行以下操作：
   - 编辑、删除、拖拽排序卡片
+  - 批量选择卡片并移动到其他分类
   - 添加、编辑、删除主菜单和子菜单
   - 拖拽调整主菜单顺序
   - 上下移动调整子菜单顺序
-  - 批量添加网站
+  - 批量添加网站（支持 AI 智能生成）
+  - AI 辅助编辑（生成名称、描述、推荐标签）
 - **实时同步** - 通过浏览器扩展添加卡片后，页面立即刷新显示
 
 ### 🔧 后台管理
@@ -52,13 +55,27 @@
 - **用户管理** - 修改管理员用户名和密码
 - **栏目管理** - 主菜单和子菜单的增删改查，支持拖拽排序
 - **卡片管理** - 导航卡片批量管理，支持按分类筛选
-- **标签管理** - 创建和管理卡片标签，支持颜色自定义
+- **标签管理** - 创建和管理卡片标签，支持颜色自定义和多标签筛选
 - **搜索引擎** - 自定义搜索引擎配置，支持解析URL自动填充
 - **友链管理** - 管理友情链接
 - **宣传管理** - 管理左右两侧宣传位内容
 - **重复检测** - 一键检测和删除重复卡片
 - **备份管理** - 本地备份 + WebDAV 云备份（支持坚果云、Nextcloud 等）
 - **自动备份** - 智能增量备份（防抖延迟可配置）+ 定时备份
+
+### 🤖 AI 智能功能
+
+- **AI 配置管理** - 支持多种 AI 提供商（OpenAI、Anthropic、Google Gemini、DeepSeek、Moonshot 等）
+- **智能生成名称** - AI 自动为网站生成简洁易懂的中文名称
+- **智能生成描述** - AI 根据网站内容生成准确的功能描述
+- **智能推荐标签** - AI 自动分析网站并推荐合适的标签
+- **批量 AI 处理** - 支持批量为多个卡片生成名称、描述和标签
+- **自适应并发** - 智能调整并发数，避免 API 限流
+- **多种生成策略** - 支持填充模式（仅填充空白）和覆盖模式（全部重新生成）
+- **自定义风格** - 支持简洁、详细、专业、通俗等多种生成风格
+- **自定义提示词** - 可自定义 AI 提示词模板
+- **实时进度** - 批量处理时显示实时进度和统计信息
+- **自动触发** - 添加新卡片时可自动触发 AI 生成（可配置）
 
 ### 🌐 浏览器扩展
 
@@ -122,15 +139,15 @@
 **安装**：
 ```bash
 # 使用默认域名
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Ai-Nav-Item/main/scripts/install-serv00.sh)
 
 # 指定自定义域名
-DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
+DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Ai-Nav-Item/main/scripts/install-serv00.sh)
 ```
 
 **重置**（会备份数据）：
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/reset-serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Ai-Nav-Item/main/scripts/reset-serv00.sh)
 ```
 
 ### Linux 服务器
@@ -138,17 +155,17 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scrip
 **安装**：
 ```bash
 # 一键安装（自动安装 Node.js 20 + PM2）
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-linux.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Ai-Nav-Item/main/scripts/install-linux.sh)
 
 # 自定义安装目录
-INSTALL_DIR=/opt/Con-Nav-Item bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-linux.sh)
+INSTALL_DIR=/opt/Ai-Nav-Item bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Ai-Nav-Item/main/scripts/install-linux.sh)
 ```
 
 **管理命令**：
 ```bash
 pm2 status                # 查看运行状态
-pm2 logs Con-Nav-Item     # 查看日志
-pm2 restart Con-Nav-Item  # 重启应用
+pm2 logs Ai-Nav-Item      # 查看日志
+pm2 restart Ai-Nav-Item   # 重启应用
 ```
 
 ### Docker
@@ -156,23 +173,23 @@ pm2 restart Con-Nav-Item  # 重启应用
 **快速启动**：
 ```bash
 docker run -d \
-  --name Con-Nav-Item \
+  --name Ai-Nav-Item \
   -p 3000:3000 \
   -v $(pwd)/database:/app/database \
   -v $(pwd)/backups:/app/backups \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD=123456 \
   --restart unless-stopped \
-  ghcr.io/zczy-k/con-nav-item:latest
+  ghcr.io/zczy-k/ai-nav-item:latest
 ```
 
 **Docker Compose**：
 ```yaml
 version: '3'
 services:
-  Con-Nav-Item:
-    image: ghcr.io/zczy-k/con-nav-item:latest
-    container_name: Con-Nav-Item
+  Ai-Nav-Item:
+    image: ghcr.io/zczy-k/ai-nav-item:latest
+    container_name: Ai-Nav-Item
     ports:
       - "3000:3000"
     environment:
@@ -187,8 +204,8 @@ services:
 ### 源码部署
 
 ```bash
-git clone https://github.com/zczy-k/Con-Nav-Item.git
-cd Con-Nav-Item
+git clone https://github.com/zczy-k/Ai-Nav-Item.git
+cd Ai-Nav-Item
 npm install
 cd web && npm install && npm run build && cd ..
 npm start
@@ -201,6 +218,25 @@ npm start
 - **默认账号**：admin / 123456
 
 ⚠️ **首次登录后请立即修改密码！**
+
+### 🤖 配置 AI 功能（可选）
+
+如果需要使用 AI 智能生成功能：
+
+1. 登录后台管理系统
+2. 进入"AI 设置"页面
+3. 选择 AI 提供商（OpenAI、Anthropic、Google Gemini、DeepSeek、Moonshot 等）
+4. 填入 API Key 和 API 地址
+5. 测试连接成功后保存
+6. 现在可以在编辑卡片时使用 AI 辅助功能了
+
+**支持的 AI 提供商**：
+- OpenAI (GPT-4, GPT-3.5)
+- Anthropic (Claude)
+- Google Gemini
+- DeepSeek
+- Moonshot (月之暗面)
+- 其他兼容 OpenAI API 的服务
 
 ## 📱 浏览器扩展安装
 
@@ -234,6 +270,7 @@ npm start
 - **一键收藏**：点击网页右下角的浮动按钮快速添加
 - **新标签页**：设置后，每次打开新标签页都是你的导航站
 - **书签同步**：在书签管理器中开启云同步，多设备共享书签
+- **AI 辅助**：添加网站时，AI 会自动推荐合适的标签（需先配置 AI）
 
 ## 🔧 常见问题
 
@@ -253,7 +290,7 @@ node check-password.js reset 新密码
 
 Docker 环境：
 ```bash
-docker exec -it Con-Nav-Item node check-password.js reset 新密码
+docker exec -it Ai-Nav-Item node check-password.js reset 新密码
 ```
 
 ### 自定义搜索引擎
@@ -266,14 +303,34 @@ docker exec -it Con-Nav-Item node check-password.js reset 新密码
 
 1. 点击首页右下角的"+"按钮
 2. 选择"编辑模式"进入
-3. 输入管理员密码验证
+3. 输入管理员密码验证（可勾选"记住密码"2小时内免验证）
 4. 现在可以：
-   - 拖拽卡片调整顺序
-   - 点击卡片上的编辑/删除按钮
-   - 悬停菜单显示操作按钮（编辑/删除）
-   - 拖拽主菜单调整顺序
-   - 点击子菜单的上下箭头调整顺序
+   - **卡片操作**：拖拽卡片调整顺序、点击编辑/删除按钮、批量选择移动
+   - **菜单操作**：悬停菜单显示操作按钮（编辑/删除）、拖拽主菜单调整顺序
+   - **子菜单操作**：点击上下箭头调整顺序
+   - **批量添加**：点击"批量添加"按钮，输入网址列表，AI 自动解析并推荐标签
+   - **AI 辅助**：编辑卡片时点击 ✨ 按钮，AI 自动生成名称、描述或推荐标签
 5. 点击空白区域或"×"按钮退出编辑模式
+
+### AI 功能使用
+
+**单个卡片 AI 生成**：
+1. 在编辑卡片界面，点击字段旁的 ✨ 按钮
+2. AI 会根据网站 URL 和现有信息生成内容
+3. 支持生成：名称、描述、推荐标签
+
+**批量 AI 处理**：
+1. 进入后台"卡片管理"
+2. 选择需要处理的卡片
+3. 点击"批量 AI 处理"
+4. 选择生成内容（名称/描述/标签）和生成策略
+5. 实时查看处理进度和结果
+
+**生成策略**：
+- **填充模式**：仅为空白字段生成内容
+- **覆盖模式**：重新生成所有选中字段
+- **生成风格**：简洁、详细、专业、通俗等
+- **自定义提示词**：可自定义 AI 提示词模板
 
 ## 🛠️ 技术栈
 
@@ -281,8 +338,11 @@ docker exec -it Con-Nav-Item node check-password.js reset 新密码
 |------|------|
 | 前端 | Vue 3 + Vite + Sortable.js |
 | 后端 | Node.js + Express |
-| 数据库 | SQLite (better-sqlite3) |
-| 认证 | JWT + bcrypt |
+| 数据库 | SQLite (sqlite3) |
+| 认证 | JWT + bcryptjs |
+| AI 集成 | OpenAI API / Anthropic / Google Gemini / DeepSeek / Moonshot |
+| 安全 | Helmet + express-rate-limit + sanitize-html |
+| 备份 | WebDAV + node-schedule |
 | 部署 | PM2 / Docker / Passenger |
 | 扩展 | Chrome Extension Manifest V3 |
 
@@ -290,7 +350,16 @@ docker exec -it Con-Nav-Item node check-password.js reset 新密码
 
 本项目采用 **Apache License 2.0** 开源许可证。
 
-基于 [nav-item](https://github.com/eooce/nav-item) by eooce 开发，所有代码（包括原始代码和新增功能）均为开源。
+基于 [nav-item](https://github.com/eooce/nav-item) by eooce 开发，在原有基础上新增了大量功能：
+- AI 智能生成（名称、描述、标签推荐）
+- 多标签筛选系统
+- 批量卡片移动
+- 搜索引擎排序
+- 磨砂玻璃 UI 设计
+- 密码记住功能
+- 以及更多优化和改进
+
+所有代码（包括原始代码和新增功能）均为开源。
 
 **你可以：**
 - ✅ 免费使用（个人或商业）
@@ -307,8 +376,8 @@ docker exec -it Con-Nav-Item node check-password.js reset 新密码
 
 ## 🔗 链接
 
-- [GitHub](https://github.com/zczy-k/Con-Nav-Item)
-- [问题反馈](https://github.com/zczy-k/Con-Nav-Item/issues)
+- [GitHub](https://github.com/zczy-k/Ai-Nav-Item)
+- [问题反馈](https://github.com/zczy-k/Ai-Nav-Item/issues)
 
 ---
 

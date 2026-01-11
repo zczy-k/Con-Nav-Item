@@ -97,7 +97,7 @@ function startServers() {
 
 // 主流程
 console.log('='.repeat(60));
-console.log('Con-Nav-Item 服务器启动');
+console.log('Ai-Nav-Item 服务器启动');
 console.log('='.repeat(60));
 console.log('');
 

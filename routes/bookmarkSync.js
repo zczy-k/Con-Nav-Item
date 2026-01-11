@@ -15,7 +15,7 @@ const JWT_SECRET = config.server.jwtSecret;
 
 // 书签备份存储目录
 const BOOKMARKS_DIR = path.join(__dirname, '..', 'backups', 'bookmarks');
-const WEBDAV_BOOKMARK_DIR = '/Con-Nav-Item-Backups/bookmarks';
+const WEBDAV_BOOKMARK_DIR = '/Ai-Nav-Item-Backups/bookmarks';
 
 // 备份保留策略
 const BACKUP_RETENTION = {
@@ -273,7 +273,7 @@ async function syncBookmarkToWebDAV(filename, content) {
         const client = await getWebDAVClient();
         if (!client) return false;
         
-        try { await client.createDirectory('/Con-Nav-Item-Backups'); } catch (e) {}
+        try { await client.createDirectory('/Ai-Nav-Item-Backups'); } catch (e) {}
         try { await client.createDirectory(WEBDAV_BOOKMARK_DIR); } catch (e) {}
         
         const remotePath = `${WEBDAV_BOOKMARK_DIR}/${filename}`;
@@ -819,7 +819,7 @@ router.post('/webdav/sync-to-webdav', flexAuthMiddleware, async (req, res) => {
         ensureDir();
 
         // 确保WebDAV目录存在
-        try { await client.createDirectory('/Con-Nav-Item-Backups'); } catch (e) {}
+        try { await client.createDirectory('/Ai-Nav-Item-Backups'); } catch (e) {}
         try { await client.createDirectory(WEBDAV_BOOKMARK_DIR); } catch (e) {}
 
         // 获取本地文件列表

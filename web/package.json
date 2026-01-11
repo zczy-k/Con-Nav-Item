@@ -1,10 +1,10 @@
 {
-  "name": "Con-Nav-Item-frontend",
+  "name": "Ai-Nav-Item-frontend",
   "version": "1.0.0",
-  "author": "eooce",
-  "description": "Con-Nav-Item-frontend",
-  "repository": "https://github.com/eooce/Con-Nav-Item",
-  "license": "MIT",
+  "author": "zczy-k",
+  "description": "Ai-Nav-Item-frontend - AI智能导航站前端",
+  "repository": "https://github.com/zczy-k/Ai-Nav-Item",
+  "license": "Apache-2.0",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build"

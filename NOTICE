@@ -1,4 +1,4 @@
-Con-Nav-Item
+Ai-Nav-Item
 Copyright 2025 zczy-k
 
 This project is based on and derived from nav-item:
@@ -39,9 +39,15 @@ WHAT YOU MUST DO:
 ATTRIBUTION:
 
 Original Project: nav-item by eooce (https://github.com/eooce/nav-item)
-Enhanced Version: Con-Nav-Item by zczy-k (https://github.com/zczy-k/Con-Nav-Item)
+Enhanced Version: Ai-Nav-Item by zczy-k (https://github.com/zczy-k/Ai-Nav-Item)
 
 New features added by zczy-k include:
+- AI intelligent generation (name, description, tag recommendation)
+- Multi-tag filtering system
+- Batch card operations and movement
+- Search engine sorting and customization
+- Frosted glass UI design
+- Password remember functionality
 - Browser extension with bookmark management
 - Cloud bookmark backup and sync system
 - WebDAV cloud storage integration
@@ -49,7 +55,6 @@ New features added by zczy-k include:
 - Bookmark tag system
 - Smart bookmark sorting
 - Duplicate detection
-- Batch operations
 - And many other enhancements
 
 ================================================================================

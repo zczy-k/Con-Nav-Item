@@ -1,7 +1,7 @@
 {
-  "name": "Con-Nav-Item 导航站",
-  "short_name": "CNI导航",
-  "description": "个人导航页面，提供常用网站链接和工具集合",
+  "name": "Ai-Nav-Item 导航站",
+  "short_name": "ANI导航",
+  "description": "AI智能导航页面，提供常用网站链接和工具集合",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#1a1a1a",

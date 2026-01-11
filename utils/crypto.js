@@ -4,7 +4,7 @@ const path = require('path');
 
 // 加密算法
 const ALGORITHM = 'aes-256-gcm';
-const SALT = 'Con-Nav-Item-WebDAV-Salt';
+const SALT = 'Ai-Nav-Item-WebDAV-Salt';
 
 // 密钥文件路径（作为备用）
 const CRYPTO_SECRET_PATH = path.join(__dirname, '..', 'config', '.crypto-secret');

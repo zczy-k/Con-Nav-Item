@@ -1210,7 +1210,7 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
     });
     
     // 确保备份目录存在
-    const remotePath = '/Con-Nav-Item-Backups';
+    const remotePath = '/Ai-Nav-Item-Backups';
     try {
       await client.createDirectory(remotePath);
     } catch (e) {
@@ -1285,7 +1285,7 @@ router.get('/webdav/list', authMiddleware, async (req, res) => {
       password: config.password
     });
     
-    const remotePath = '/Con-Nav-Item-Backups';
+    const remotePath = '/Ai-Nav-Item-Backups';
     
     try {
       const contents = await client.getDirectoryContents(remotePath);
@@ -1371,7 +1371,7 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
       password: config.password
     });
     
-    const remotePath = `/Con-Nav-Item-Backups/${filename}`;
+    const remotePath = `/Ai-Nav-Item-Backups/${filename}`;
     const fileBuffer = await client.getFileContents(remotePath);
     
     const { skipEnv = true } = req.body; // 默认跳过.env文件
@@ -1747,7 +1747,7 @@ router.delete('/webdav/delete/:filename', authMiddleware, async (req, res) => {
       password: config.password
     });
     
-    const remotePath = `/Con-Nav-Item-Backups/${filename}`;
+    const remotePath = `/Ai-Nav-Item-Backups/${filename}`;
     await client.deleteFile(remotePath);
     
     res.json({ 

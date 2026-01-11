@@ -473,7 +473,7 @@
           </svg>
           友情链接
         </button>
-        <p class="copyright">Copyright © 2025 Con-Nav-Item | <a href="https://github.com/zczy-k/Con-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
+        <p class="copyright">Copyright © 2025 Ai-Nav-Item | <a href="https://github.com/zczy-k/Ai-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
       </div>
     </footer>
 

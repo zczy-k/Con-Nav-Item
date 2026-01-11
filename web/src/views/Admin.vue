@@ -67,7 +67,7 @@
         </transition>
       </div>
       <footer class="admin-footer">
-        <p class="admin-copyright">Copyright © 2025 Con-Nav-Item | <a href="https://github.com/zczy-k/Con-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
+        <p class="admin-copyright">Copyright © 2025 Ai-Nav-Item | <a href="https://github.com/zczy-k/Ai-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
       </footer>
     </main>
   </div>
