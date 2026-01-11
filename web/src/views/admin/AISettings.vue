@@ -379,9 +379,12 @@ export default {
     }
   },
     async mounted() {
-      await this.loadConfig();
-      await this.refreshStats();
-      await this.initRealtimeUpdates();
+      // 并行加载配置和统计，加快页面渲染
+      await Promise.all([
+        this.loadConfig(),
+        this.refreshStats()
+      ]);
+      this.initRealtimeUpdates();
       
       // 添加页面可见性监听，当用户切回标签页时自动刷新统计
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
