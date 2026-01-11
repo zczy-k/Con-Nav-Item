@@ -20,11 +20,14 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Get version from manifest
+      - name: Get version from tag or input
         id: version
         run: |
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
+          elif [[ "${{ github.ref_name }}" =~ ^(ext-)?v(.+)$ ]]; then
+            # 从 tag 名称提取版本号 (v1.0.0 或 ext-v1.0.0 -> 1.0.0)
+            VERSION="${BASH_REMATCH[2]}"
           else
             VERSION=$(cat browser-extension/manifest.json | jq -r '.version')
           fi
