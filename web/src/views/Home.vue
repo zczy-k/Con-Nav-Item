@@ -1639,7 +1639,6 @@ let isRefreshing = false;
 async function handleVersionChange(newVersion) {
   if (isRefreshing || newVersion === cachedDataVersion) return;
   
-  console.log(`[SSE] 数据版本变化: ${cachedDataVersion} -> ${newVersion}，刷新数据`);
   isRefreshing = true;
   
   try {
@@ -1663,7 +1662,7 @@ async function handleVersionChange(newVersion) {
     // 更新本地版本号
     saveDataVersion(newVersion);
   } catch (error) {
-    console.error('[SSE] 刷新数据失败:', error);
+    // 刷新失败，静默处理
   } finally {
     isRefreshing = false;
   }
@@ -1682,7 +1681,6 @@ function connectSSE() {
       try {
         const data = JSON.parse(event.data);
         if (data.type === 'connected') {
-          console.log('[SSE] 已连接，当前版本:', data.version);
           // 检查是否需要刷新
           if (data.version !== cachedDataVersion && cachedDataVersion > 0) {
             handleVersionChange(data.version);
@@ -1698,7 +1696,6 @@ function connectSSE() {
     };
     
     sseConnection.onerror = () => {
-      console.log('[SSE] 连接断开，5秒后重连');
       sseConnection?.close();
       sseConnection = null;
       
@@ -1707,7 +1704,7 @@ function connectSSE() {
       sseReconnectTimer = setTimeout(connectSSE, 5000);
     };
   } catch (e) {
-    console.error('[SSE] 连接失败:', e);
+    // SSE 连接失败，静默处理
   }
 }
 
