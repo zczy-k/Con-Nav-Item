@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Con-Nav-Item Serv00 前端显示修复脚本
-# 用于修复已部署但前端无法显示的问题
+# Con-Nav-Item Serv00 Frontend Display Fix Script
+# Fixes issues where frontend cannot display after deployment
 
 export LC_ALL=C
 red() { echo -e "\e[1;91m$1\033[0m"; }
@@ -28,78 +28,78 @@ WORKDIR="${HOME}/domains/${CURRENT_DOMAIN}/public_nodejs"
 
 echo ""
 green "=========================================="
-green "  Con-Nav-Item 前端显示修复脚本"
+green "  Con-Nav-Item Frontend Display Fix"
 green "=========================================="
 echo ""
 
-# 检查工作目录
+# Check working directory
 if [ ! -d "$WORKDIR" ]; then
-    red "错误: 未找到项目目录 ${WORKDIR}"
-    yellow "请先运行安装脚本"
+    red "Error: Project directory not found: ${WORKDIR}"
+    yellow "Please run the install script first"
     exit 1
 fi
 
 cd "$WORKDIR" || exit 1
 
-# 1. 备份当前 app.js
-yellow "1. 备份当前 app.js..."
+# 1. Backup current app.js
+yellow "1. Backing up current app.js..."
 if [ -f "app.js" ]; then
     cp app.js "app.js.backup.$(date +%Y%m%d_%H%M%S)"
-    green "   ✓ 已备份到 app.js.backup.$(date +%Y%m%d_%H%M%S)"
+    green "   Backed up to app.js.backup.$(date +%Y%m%d_%H%M%S)"
 else
-    red "   ✗ 未找到 app.js"
+    red "   app.js not found"
     exit 1
 fi
 
-# 2. 下载修复后的 app.js
-yellow "2. 下载修复后的 app.js..."
+# 2. Download fixed app.js
+yellow "2. Downloading fixed app.js..."
 if curl -s https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/app.js -o app.js.new; then
     mv app.js.new app.js
-    green "   ✓ 下载成功"
+    green "   Download successful"
 else
-    red "   ✗ 下载失败"
+    red "   Download failed"
     exit 1
 fi
 
-# 2.5. 确保 .env 中有正确的 PORT
-yellow "2.5. 配置端口..."
+# 2.5. Ensure .env has correct PORT
+yellow "2.5. Configuring port..."
 ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
 
 if [ -n "$ASSIGNED_PORT" ]; then
-    # 检查 .env 是否存在
+    # Check if .env exists
     if [ -f ".env" ]; then
-        # 删除旧的 PORT 行
+        # Remove old PORT line
         grep -v "^PORT=" .env > .env.tmp && mv .env.tmp .env
-        # 添加新的 PORT
+        # Add new PORT
         echo "PORT=${ASSIGNED_PORT}" >> .env
-        green "   ✓ 端口已配置: ${ASSIGNED_PORT}"
+        green "   Port configured: ${ASSIGNED_PORT}"
     else
-        # 创建新的 .env
+        # Create new .env
         cat > .env <<EOF
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=123456
 NODE_ENV=production
 PORT=${ASSIGNED_PORT}
 EOF
-        green "   ✓ .env 文件已创建，端口: ${ASSIGNED_PORT}"
+        green "   .env file created, port: ${ASSIGNED_PORT}"
     fi
 else
-    yellow "   ⚠ 未找到 TCP 端口，Passenger 会自动管理"
+    yellow "   TCP port not found, Passenger will manage automatically"
 fi
 
-# 3. 检查 public 目录
-yellow "3. 检查 public 目录..."
+# 3. Check public directory
+yellow "3. Checking public directory..."
 if [ -d "public" ] && [ -f "public/index.html" ]; then
-    green "   ✓ public 目录存在"
+    green "   public directory exists"
     
-    # 检查 assets 目录
+    # Check assets directory
     if [ -d "public/assets" ]; then
         ASSET_COUNT=$(ls -1 public/assets/*.js 2>/dev/null | wc -l)
-        green "   ✓ 找到 ${ASSET_COUNT} 个 JS 文件"
+        green "   Found ${ASSET_COUNT} JS files"
     else
-        yellow "   ⚠ assets 目录不存在，尝试重新下载..."
+        yellow "   assets directory missing, attempting to re-download..."
         
-        # 下载并解压 public 目录
+        # Download and extract public directory
         curl -L https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip -o temp.zip
         unzip -o temp.zip "Con-Nav-Item-main/public/*" >/dev/null 2>&1
         
@@ -107,67 +107,67 @@ if [ -d "public" ] && [ -f "public/index.html" ]; then
             rm -rf public
             mv Con-Nav-Item-main/public ./
             rm -rf Con-Nav-Item-main temp.zip
-            green "   ✓ public 目录已重新下载"
+            green "   public directory re-downloaded"
         else
-            red "   ✗ 下载 public 目录失败"
+            red "   Failed to download public directory"
             exit 1
         fi
     fi
 else
-    yellow "   ⚠ public 目录不存在，正在下载..."
+    yellow "   public directory missing, downloading..."
     
-    # 下载并解压 public 目录
+    # Download and extract public directory
     curl -L https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip -o temp.zip
     unzip -o temp.zip "Con-Nav-Item-main/public/*" >/dev/null 2>&1
     
     if [ -d "Con-Nav-Item-main/public" ]; then
         mv Con-Nav-Item-main/public ./
         rm -rf Con-Nav-Item-main temp.zip
-        green "   ✓ public 目录已下载"
+        green "   public directory downloaded"
     else
-        red "   ✗ 下载 public 目录失败"
+        red "   Failed to download public directory"
         exit 1
     fi
 fi
 
-# 4. 重启应用
-yellow "4. 重启应用..."
+# 4. Restart application
+yellow "4. Restarting application..."
 devil www restart "$CURRENT_DOMAIN" >/dev/null 2>&1
-green "   ✓ 应用已重启"
+green "   Application restarted"
 
-# 5. 等待启动
-yellow "5. 等待应用启动..."
+# 5. Wait for startup
+yellow "5. Waiting for application to start..."
 sleep 5
 
-# 6. 测试
-yellow "6. 测试访问..."
+# 6. Test access
+yellow "6. Testing access..."
 echo ""
 
-# 测试本地访问
+# Test local access
 ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
 if [ -n "$ASSIGNED_PORT" ]; then
     if curl -s -o /dev/null -w "%{http_code}" "http://localhost:${ASSIGNED_PORT}" | grep -q "200"; then
-        green "   ✓ 本地访问正常 (端口 ${ASSIGNED_PORT})"
+        green "   Local access OK (port ${ASSIGNED_PORT})"
     else
-        yellow "   ⚠ 本地访问异常"
+        yellow "   Local access issue"
     fi
 fi
 
-# 测试外部访问
+# Test external access
 if curl -s -o /dev/null -w "%{http_code}" "https://${CURRENT_DOMAIN}" | grep -q "200"; then
-    green "   ✓ 外部访问正常"
+    green "   External access OK"
 else
-    yellow "   ⚠ 外部访问异常，请稍等片刻后重试"
+    yellow "   External access issue, please wait and retry"
 fi
 
 echo ""
 green "=========================================="
-green "  修复完成！"
+green "  Fix Complete!"
 green "=========================================="
 echo ""
-green "请访问: https://${CURRENT_DOMAIN}"
+green "Visit: https://${CURRENT_DOMAIN}"
 echo ""
-yellow "如果仍有问题，请查看日志："
+yellow "If issues persist, check logs:"
 echo "  ps aux | grep node20"
 echo "  devil www restart ${CURRENT_DOMAIN}"
 echo ""

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * AI 功能路由
  * 提供 AI 配置管理、批量生成任务等功能
  * 支持自适应并发处理策略
@@ -544,38 +544,34 @@ function buildUnifiedPrompt(card, types, existingTags) {
     ? existingTags.slice(0, 25).join('、')
     : '暂无';
   
-  const rules = [];
-  if (types.includes('name')) rules.push('- name: 简洁名称（中文2-8字，英文2-15字符），优先官方品牌名或大众熟知名称，不加"官网/首页"后缀。示例：github.com→GitHub, baidu.com→百度, bilibili.com→B站');
-  if (types.includes('description')) rules.push('- description: 10-25字简洁功能描述，突出核心功能或独特价值。示例：GitHub→全球最大的代码托管和协作平台');
-  if (types.includes('tags')) rules.push('- tags: 2-4个标签数组，优先用现有标签（完全匹配），必要时才建议新标签（2-4字）');
-
-  const commonRules = `
-注意：
-1. 严禁输出任何思考过程、内心独白或“我无法访问”、“请提供更多信息”等反馈。
-2. 即使无法访问，也要根据 URL 和名称尝试推测一个最合理的简洁描述，或返回空 JSON，绝对不要输出解释性文字。
-3. 不要包含任何 HTML 标签或 markdown 格式，只返回纯文本内容。
-`;
+  // 构建few-shot示例，提高生成准确性
+  const examples = [
+    '示例1: github.com → {"name":"GitHub","description":"全球最大的代码托管和协作平台","tags":["开发工具","代码托管"]}',
+    '示例2: baidu.com → {"name":"百度","description":"中国最大的搜索引擎和AI技术平台","tags":["搜索引擎","AI"]}',
+    '示例3: bilibili.com → {"name":"B站","description":"年轻人喜爱的视频弹幕网站","tags":["视频","弹幕"]}'
+  ];
 
   return [
     {
       role: 'system',
-      content: `你是网站分析专家。请根据提供的信息，严格按 JSON 格式输出以下字段：
-${rules.join('\n')}
+      content: `你是网站命名和分析专家。根据URL生成简洁的名称和描述。
 
-输出格式示例：
-{
-  ${types.includes('name') ? '"name": "GitHub",' : ''}
-  ${types.includes('description') ? '"description": "全球最大的代码托管和协作平台",' : ''}
-  ${types.includes('tags') ? '"tags": ["代码托管", "开源"]' : ''}
-}
-${commonRules}`
+规则：
+- name: 2-8字中文或2-15字符英文品牌名，优先官方名称，不加"官网/首页"
+- description: 10-25字，突出核心功能
+- tags: 2-4个标签，优先匹配现有标签
+
+${examples.join('\n')}
+
+直接输出JSON，禁止任何解释或思考过程。`
     },
     {
       role: 'user',
-      content: `网站地址：${card.url}
-当前名称：${card.title || domain}
-当前描述：${card.desc || '无'}
-现有可用标签：${tagsStr}`
+      content: `${card.url}
+当前名：${card.title || domain}
+现有标签：${tagsStr}
+
+输出JSON：`
     }
   ];
 }
