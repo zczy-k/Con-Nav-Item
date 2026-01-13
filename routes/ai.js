@@ -543,41 +543,117 @@ function validateAIConfig(config) {
 function buildUnifiedPrompt(card, types, existingTags) {
   const domain = extractDomain(card.url);
   const tagsStr = existingTags.length > 0 
-    ? existingTags.slice(0, 25).join('、')
+    ? existingTags.slice(0, 30).join('、')
     : '暂无';
   
-  // 当前名称（用于参考）
   const currentName = card.title && !card.title.includes('://') && !card.title.startsWith('www.') 
     ? card.title : '';
 
-  // 使用对话历史格式作为few-shot示例（方案A优化）
-  // 这种格式比单行示例更接近单字段生成的精准度
   const messages = [
     {
       role: 'system',
-      content: `网站命名专家。直接输出JSON，禁止解释。
+      content: `你是一个专业的互联网产品分析师和导航站编辑。你的任务是根据网站URL和基本信息，生成高质量的导航卡片元数据。
 
-命名：官方品牌名/简称，2-8字中文或2-15字符英文，禁止"官网/首页"后缀
-描述：10-25字，核心功能
-标签：2-4个，优先现有标签`
+请严格遵守以下准则：
+1. **名称 (name)**:
+   - 提取品牌核心名称，如 "GitHub"、"哔哩哔哩"、"Notion"。
+   - 严禁包含 "官网"、"首页"、"登录页"、"Official Website" 等冗余词汇。
+   - 长度控制：中文 2-8 字，英文/品牌名 2-15 字符。
+2. **描述 (description)**:
+   - 简洁有力，一句话概括核心功能或独特价值，如 "全球领先的代码托管与协作开发平台"。
+   - 避免使用 "这是一个..."、"本网站提供..." 等废话。
+   - 长度控制：12-28 个中文字符，确保语义完整且逻辑清晰。
+3. **标签 (tags)**:
+   - 推荐 2-4 个精准标签。
+   - 优先从提供的 "现有标签列表" 中选择完全匹配的标签。
+   - 仅在现有标签无法准确覆盖时，才生成 1-2 个新的专业标签（每个 2-4 字）。
+
+输出格式：必须且只能输出合法的 JSON 对象。`
     },
-    // Few-shot示例1
-    { role: 'user', content: '网站:github.com 标签:开发工具,代码托管,AI,视频' },
-    { role: 'assistant', content: '{"name":"GitHub","description":"全球最大的代码托管和协作平台","tags":["开发工具","代码托管"]}' },
-    // Few-shot示例2
-    { role: 'user', content: '网站:bilibili.com 标签:视频,弹幕,动漫,游戏' },
-    { role: 'assistant', content: '{"name":"B站","description":"年轻人喜爱的视频弹幕网站","tags":["视频","弹幕"]}' },
-    // Few-shot示例3
-    { role: 'user', content: '网站:notion.so 标签:笔记,协作,效率工具' },
-    { role: 'assistant', content: '{"name":"Notion","description":"一体化协作笔记和知识管理工具","tags":["笔记","协作"]}' },
-    // 实际请求
-    { 
-      role: 'user', 
-      content: `网站:${card.url}${currentName ? ` 当前名:${currentName}` : ''} 标签:${tagsStr}` 
-    }
+    { role: 'user', content: '网站:github.com 现有标签:开发工具,代码托管,开源,AI,视频' },
+    { role: 'assistant', content: '{"name":"GitHub","description":"全球领先的代码托管与开源协作开发平台","tags":["开发工具","代码托管"]}' },
+    { role: 'user', content: '网站:bilibili.com 现有标签:视频,弹幕,社区,动漫,游戏' },
+    { role: 'assistant', content: '{"name":"哔哩哔哩","description":"国内领先的年轻人文化社区与视频弹幕网站","tags":["视频","社区"]}' },
+    { role: 'user', content: `网站:${card.url}${currentName ? ` 当前参考名:${currentName}` : ''} 现有标签:${tagsStr}` }
   ];
 
   return messages;
+}
+
+function buildNamePrompt(card) {
+  const domain = extractDomain(card.url);
+  const commonRules = '\n注意：严禁输出任何思考过程或解释，直接输出结果。';
+  
+  return [
+    {
+      role: 'system',
+      content: `你是一个精炼的网站命名专家。
+规则：
+1. 只输出品牌核心名称，如 "百度" 而不是 "百度一下，你就知道"。
+2. 剔除 "官网"、"首页"、"官方网站" 等后缀。
+3. 中文 2-8 字，英文 2-15 字符。
+4. 优先考虑大众熟知的品牌简称。${commonRules}`
+    },
+    {
+      role: 'user',
+      content: `网站地址：${card.url}
+当前抓取名：${card.title || '无'}
+输出名称：`
+    }
+  ];
+}
+
+function buildDescriptionPrompt(card) {
+  const domain = extractDomain(card.url);
+  const commonRules = '\n注意：严禁输出任何思考过程或解释，直接输出描述文本。';
+  
+  return [
+    {
+      role: 'system',
+      content: `你是一个资深的导航站文案编辑。
+规则：
+1. 用一句话精准描述网站的核心功能和价值。
+2. 杜绝 "这是一个"、"旨在提供" 等前缀，直击重点。
+3. 字数严格控制在 12-28 个汉字之间。
+4. 语言要专业、体面，符合中文阅读习惯。${commonRules}`
+    },
+    {
+      role: 'user',
+      content: `网站名称：${card.title || domain}
+网站地址：${card.url}
+输出描述：`
+    }
+  ];
+}
+
+function buildTagsPrompt(card, existingTags) {
+  const domain = extractDomain(card.url);
+  const tagsStr = existingTags.length > 0 
+    ? existingTags.slice(0, 30).join('、')
+    : '暂无';
+  
+  const commonRules = '\n注意：严禁输出任何思考过程，严格按 JSON 格式输出。';
+  
+  return [
+    {
+      role: 'system',
+      content: `你是一个专业的互联网资源分类专家。
+任务：为网站分配 2-4 个最合适的分类标签。
+准则：
+1. 优先从下方的 "现有标签" 列表中选择。
+2. 如果现有标签不足以准确分类，可补充 1-2 个新标签（每个 2-4 字）。
+3. 确保标签具有通用性和检索价值。
+
+输出格式：{"tags":["选中的现有标签"],"newTags":["建议的新标签"]}${commonRules}`
+    },
+    {
+      role: 'user',
+      content: `网站名称：${card.title || domain}
+网站描述：${card.desc || '暂无'}
+现有标签：${tagsStr}
+输出JSON：`
+    }
+  ];
 }
 
 function parseUnifiedResponse(text, types, existingTags) {
