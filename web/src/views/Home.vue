@@ -203,8 +203,32 @@
       </div>
     </div>
     
-    <!-- 直接显示卡片，无骨架屏 -->
+    <!-- 卡片按分类分组显示 -->
+    <div class="cards-grouped-container" v-if="!activeSubMenu && activeMenu && groupedCards.length > 0">
+      <template v-for="(group, index) in groupedCards" :key="group.key">
+        <div v-if="group.cards.length > 0" class="card-group">
+          <div v-if="group.name" class="card-group-header">
+            <span class="group-name">{{ group.name }}</span>
+            <span class="group-count">{{ group.cards.length }}</span>
+          </div>
+          <CardGrid
+            :cards="applyFilters(group.cards)" 
+            :editMode="editMode"
+            :selectedCards="selectedCards"
+            :categoryId="activeMenu?.id"
+            :subCategoryId="group.subMenuId"
+            @cardsReordered="handleCardsReordered"
+            @editCard="handleEditCard"
+            @deleteCard="handleDeleteCard"
+            @toggleCardSelection="toggleCardSelection"
+            @click.stop
+          />
+        </div>
+      </template>
+    </div>
+    <!-- 选择子菜单或搜索时，直接显示卡片 -->
     <CardGrid
+      v-else
       :cards="filteredCards" 
       :editMode="editMode"
       :selectedCards="selectedCards"
@@ -1349,6 +1373,60 @@ const filteredCards = computed(() => {
   
   return result;
 });
+
+// 分组显示的卡片（主菜单下的卡片 + 各子菜单下的卡片）
+const groupedCards = computed(() => {
+  if (!activeMenu.value || activeSubMenu.value || searchQuery.value) {
+    return [];
+  }
+  
+  const groups = [];
+  const subMenus = activeMenu.value.subMenus || [];
+  
+  // 1. 首先添加直接在主菜单下的卡片（没有子菜单的）
+  const mainCacheKey = getCardsCacheKey(activeMenu.value.id, null);
+  const mainCards = cardsCache.value[mainCacheKey] || [];
+  if (mainCards.length > 0) {
+    groups.push({
+      key: 'main',
+      name: null, // 主菜单下的卡片不显示标题
+      subMenuId: null,
+      cards: mainCards
+    });
+  }
+  
+  // 2. 按子菜单顺序添加各子菜单的卡片
+  for (const subMenu of subMenus) {
+    const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
+    const subCards = cardsCache.value[subCacheKey] || [];
+    if (subCards.length > 0) {
+      groups.push({
+        key: `sub_${subMenu.id}`,
+        name: subMenu.name,
+        subMenuId: subMenu.id,
+        cards: subCards
+      });
+    }
+  }
+  
+  return groups;
+});
+
+// 对分组内的卡片应用筛选（标签筛选）
+function applyFilters(cardList) {
+  let result = cardList;
+  
+  // 应用标签筛选
+  if (selectedTagIds.value.length > 0) {
+    result = result.filter(card => 
+      card.tags && selectedTagIds.value.every(tagId => 
+        card.tags.some(tag => tag.id === tagId)
+      )
+    );
+  }
+  
+  return result;
+}
 
 onMounted(async () => {
   // 加载保存的背景设置
@@ -5945,4 +6023,64 @@ async function saveCardEdit() {
 }
 
 /* 骨架屏已移除 */
+
+/* ========== 卡片分组显示样式 ========== */
+.cards-grouped-container {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.card-group {
+  margin-bottom: 2rem;
+}
+
+.card-group:first-child {
+  margin-top: 0;
+}
+
+.card-group-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 1rem;
+  margin-top: 1.5rem;
+  padding-left: 0.5rem;
+}
+
+.card-group:first-child .card-group-header {
+  margin-top: 0;
+}
+
+.group-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+  letter-spacing: 0.5px;
+}
+
+.group-count {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.15);
+  padding: 2px 8px;
+  border-radius: 10px;
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 768px) {
+  .cards-grouped-container {
+    padding: 0 0.8rem;
+  }
+  
+  .group-name {
+    font-size: 14px;
+  }
+  
+  .card-group-header {
+    margin-bottom: 0.8rem;
+  }
+}
 </style>

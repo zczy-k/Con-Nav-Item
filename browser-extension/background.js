@@ -189,23 +189,48 @@ function createCategorySubMenus(menus) {
     
     topMenus.forEach((menu) => {
         try {
-            // 创建主分类
-            chrome.contextMenus.create({
-                id: `nav_menu_${menu.id}`,
-                parentId: 'nav_category_parent',
-                title: menu.name || '未命名分类',
-                contexts: ['page', 'link']
-            });
-            
-            // 如果有子分类，创建子菜单（最多显示8个）
+            // 如果有子分类，创建父级菜单（可展开）
             if (menu.subMenus && Array.isArray(menu.subMenus) && menu.subMenus.length > 0) {
+                // 创建主分类作为父级
+                chrome.contextMenus.create({
+                    id: `nav_menu_parent_${menu.id}`,
+                    parentId: 'nav_category_parent',
+                    title: menu.name || '未命名分类',
+                    contexts: ['page', 'link']
+                });
+                
+                // 添加"添加到主菜单（不选子分类）"选项
+                chrome.contextMenus.create({
+                    id: `nav_menu_${menu.id}`,
+                    parentId: `nav_menu_parent_${menu.id}`,
+                    title: `📁 ${menu.name}（主菜单）`,
+                    contexts: ['page', 'link']
+                });
+                
+                // 添加分隔线
+                chrome.contextMenus.create({
+                    id: `nav_sep_${menu.id}`,
+                    parentId: `nav_menu_parent_${menu.id}`,
+                    type: 'separator',
+                    contexts: ['page', 'link']
+                });
+                
+                // 创建子菜单选项（最多显示8个）
                 menu.subMenus.slice(0, 8).forEach(subMenu => {
                     chrome.contextMenus.create({
                         id: `nav_submenu_${menu.id}_${subMenu.id}`,
-                        parentId: `nav_menu_${menu.id}`,
-                        title: subMenu.name || '未命名子分类',
+                        parentId: `nav_menu_parent_${menu.id}`,
+                        title: `📄 ${subMenu.name || '未命名子分类'}`,
                         contexts: ['page', 'link']
                     });
+                });
+            } else {
+                // 没有子分类，直接作为可点击的菜单项
+                chrome.contextMenus.create({
+                    id: `nav_menu_${menu.id}`,
+                    parentId: 'nav_category_parent',
+                    title: menu.name || '未命名分类',
+                    contexts: ['page', 'link']
                 });
             }
         } catch (e) {
