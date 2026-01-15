@@ -2017,8 +2017,8 @@ async function loadCards(forceRefresh = false) {
   if (activeSubMenu.value) {
     const cacheKey = getCardsCacheKey(activeMenu.value.id, activeSubMenu.value.id);
     
-    // 非编辑模式下，如果有缓存直接使用，不请求后端
-    if (!forceRefresh && !editMode.value && cardsCache.value[cacheKey]) {
+    // 如果有缓存直接使用，不请求后端
+    if (!forceRefresh && cardsCache.value[cacheKey]) {
       cards.value = cardsCache.value[cacheKey];
       return;
     }
@@ -2045,8 +2045,8 @@ async function loadCards(forceRefresh = false) {
     const subMenus = activeMenu.value.subMenus || [];
     const mainCacheKey = getCardsCacheKey(activeMenu.value.id, null);
     
-    // 非编辑模式下，检查是否所有分类都有缓存
-    if (!forceRefresh && !editMode.value) {
+    // 检查是否所有分类都有缓存
+    if (!forceRefresh) {
       const cachedCards = [];
       let allCached = true;
       

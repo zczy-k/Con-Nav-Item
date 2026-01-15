@@ -1,5 +1,5 @@
-﻿<template>
-  <nav ref="menuBarRef" class="menu-bar" :class="{ 'edit-mode': editMode }">
+<template>
+  <nav ref="menuBarRef" class="menu-bar">
     <div 
       v-for="menu in menus" 
       :key="menu.id" 
@@ -7,73 +7,33 @@
       :data-menu-id="menu.id"
       @mouseenter="showSubMenu(menu.id)"
       @mouseleave="scheduleHideSubMenu(menu.id)"
+      @contextmenu.prevent="handleMenuContextMenu($event, menu)"
     >
       <button 
         ref="menuBtnRefs"
         @click="handleMenuClick(menu)" 
-        :class="{active: menu.id === activeId, 'drag-handle': editMode}"
+        :class="{active: menu.id === activeId}"
         :data-menu-id="menu.id"
       >
         {{ menu.name }}
       </button>
     </div>
-    
-    <!-- 编辑模式下添加菜单按钮 -->
-    <div v-if="editMode" class="menu-item add-menu-item">
-      <button class="add-menu-btn" @click="$emit('addMenu')">+ 添加菜单</button>
-    </div>
   </nav>
   
-  <!-- 子菜单使用 Teleport 渲染到 body，避免层叠上下文问题 -->
   <Teleport to="body">
-    <!-- 编辑模式下拉面板 -->
     <div 
-      v-if="editMode && hoveredMenuId && hoveredMenu"
-      class="menu-dropdown-portal"
-      :style="dropdownStyle"
-      @mouseenter="cancelHideSubMenu(hoveredMenuId)"
-      @mouseleave="scheduleHideSubMenu(hoveredMenuId)"
-    >
-      <div class="menu-actions-row">
-        <span class="menu-actions-label">菜单操作</span>
-        <div class="menu-actions">
-          <button class="action-btn edit-btn" @click.stop="$emit('editMenu', hoveredMenu)" title="编辑">✏️</button>
-          <button class="action-btn del-btn" @click.stop="$emit('deleteMenu', hoveredMenu)" title="删除">🗑️</button>
-        </div>
-      </div>
-      <div v-if="hoveredMenu.subMenus && hoveredMenu.subMenus.length > 0" class="sub-menu-list">
-        <div 
-          v-for="(subMenu, index) in hoveredMenu.subMenus" 
-          :key="subMenu.id" 
-          class="sub-menu-row"
-        >
-          <button 
-            @click="$emit('select', subMenu, hoveredMenu)"
-            :class="{active: subMenu.id === activeSubMenuId}"
-            class="sub-menu-item"
-          >
-            {{ subMenu.name }}
-          </button>
-          <div class="sub-menu-actions">
-            <button v-if="index > 0" class="action-btn-sm sort-btn" @click.stop="$emit('moveSubMenuUp', subMenu, hoveredMenu, index)" title="上移">↑</button>
-            <button v-if="index < hoveredMenu.subMenus.length - 1" class="action-btn-sm sort-btn" @click.stop="$emit('moveSubMenuDown', subMenu, hoveredMenu, index)" title="下移">↓</button>
-            <button class="action-btn-sm" @click.stop="$emit('editSubMenu', subMenu, hoveredMenu)" title="编辑">✏️</button>
-            <button class="action-btn-sm" @click.stop="$emit('deleteSubMenu', subMenu, hoveredMenu)" title="删除">🗑️</button>
-          </div>
-        </div>
-      </div>
-      <button class="add-sub-menu-btn" @click.stop="$emit('addSubMenu', hoveredMenu)">+ 添加子菜单</button>
-    </div>
-    
-    <!-- 非编辑模式子菜单 -->
-    <div 
-      v-if="!editMode && hoveredMenuId && hoveredMenu && hoveredMenu.subMenus && hoveredMenu.subMenus.length > 0"
+      v-if="hoveredMenuId && hoveredMenu && hoveredMenu.subMenus && hoveredMenu.subMenus.length > 0"
       class="sub-menu-portal"
       :style="dropdownStyle"
       @mouseenter="cancelHideSubMenu(hoveredMenuId)"
       @mouseleave="scheduleHideSubMenu(hoveredMenuId)"
     >
-      <div v-for="subMenu in hoveredMenu.subMenus" :key="subMenu.id" class="sub-menu-row">
+      <div 
+        v-for="subMenu in hoveredMenu.subMenus" 
+        :key="subMenu.id" 
+        class="sub-menu-row"
+        @contextmenu.prevent="handleSubMenuContextMenu($event, subMenu, hoveredMenu)"
+      >
         <button 
           @click="$emit('select', subMenu, hoveredMenu)"
           :class="{active: subMenu.id === activeSubMenuId}"
@@ -83,18 +43,60 @@
         </button>
       </div>
     </div>
+    
+    <div v-if="contextMenuVisible" 
+         class="menu-context-menu"
+         :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
+         @click.stop>
+      <template v-if="contextMenuType === 'menu'">
+        <div class="context-menu-item" @click="onAddMenu">
+          <span class="context-menu-icon">➕</span>
+          <span>添加菜单</span>
+        </div>
+        <div class="context-menu-item" @click="onEditMenu">
+          <span class="context-menu-icon">✏️</span>
+          <span>编辑菜单</span>
+        </div>
+        <div class="context-menu-item" @click="onDeleteMenu">
+          <span class="context-menu-icon">🗑️</span>
+          <span>删除菜单</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" @click="onAddSubMenu">
+          <span class="context-menu-icon">📁</span>
+          <span>添加子菜单</span>
+        </div>
+      </template>
+      <template v-else-if="contextMenuType === 'subMenu'">
+        <div class="context-menu-item" @click="onEditSubMenu">
+          <span class="context-menu-icon">✏️</span>
+          <span>编辑子菜单</span>
+        </div>
+        <div class="context-menu-item" @click="onDeleteSubMenu">
+          <span class="context-menu-icon">🗑️</span>
+          <span>删除子菜单</span>
+        </div>
+        <div class="context-menu-divider"></div>
+        <div class="context-menu-item" @click="onMoveSubMenuUp" :class="{ disabled: !canMoveUp }">
+          <span class="context-menu-icon">⬆️</span>
+          <span>上移</span>
+        </div>
+        <div class="context-menu-item" @click="onMoveSubMenuDown" :class="{ disabled: !canMoveDown }">
+          <span class="context-menu-icon">⬇️</span>
+          <span>下移</span>
+        </div>
+      </template>
+    </div>
   </Teleport>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted, computed } from 'vue';
-import Sortable from 'sortablejs';
+import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue';
 
 const props = defineProps({ 
   menus: Array, 
   activeId: Number,
-  activeSubMenuId: Number,
-  editMode: Boolean
+  activeSubMenuId: Number
 });
 
 const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSubMenu', 'editSubMenu', 'deleteSubMenu', 'menusReordered', 'moveSubMenuUp', 'moveSubMenuDown']);
@@ -102,22 +104,40 @@ const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSub
 const hoveredMenuId = ref(null);
 const menuBarRef = ref(null);
 const dropdownPosition = ref({ top: 0, left: 0 });
-let sortableInstance = null;
 let hideTimer = null;
 
-// 计算当前悬停的菜单对象
+const contextMenuVisible = ref(false);
+const contextMenuX = ref(0);
+const contextMenuY = ref(0);
+const contextMenuType = ref('menu');
+const contextMenuData = ref(null);
+const contextParentMenu = ref(null);
+
 const hoveredMenu = computed(() => {
   if (!hoveredMenuId.value || !props.menus) return null;
   return props.menus.find(m => m.id === hoveredMenuId.value);
 });
 
-// 计算下拉框位置样式
 const dropdownStyle = computed(() => ({
   position: 'fixed',
   top: `${dropdownPosition.value.top}px`,
   left: `${dropdownPosition.value.left}px`,
   zIndex: 10000
 }));
+
+const canMoveUp = computed(() => {
+  if (!contextMenuData.value || !contextParentMenu.value) return false;
+  const subs = contextParentMenu.value.subMenus || [];
+  const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
+  return idx > 0;
+});
+
+const canMoveDown = computed(() => {
+  if (!contextMenuData.value || !contextParentMenu.value) return false;
+  const subs = contextParentMenu.value.subMenus || [];
+  const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
+  return idx >= 0 && idx < subs.length - 1;
+});
 
 function handleMenuClick(menu) {
   emit('select', menu);
@@ -159,54 +179,104 @@ function cancelHideSubMenu(menuId) {
   hoveredMenuId.value = menuId;
 }
 
-// 初始化拖拽排序
-function initSortable() {
-  if (!props.editMode || sortableInstance) return;
-  
-  const container = menuBarRef.value;
-  if (!container) return;
-  
-  sortableInstance = new Sortable(container, {
-    animation: 150,
-    ghostClass: 'sortable-ghost',
-    chosenClass: 'sortable-chosen',
-    dragClass: 'sortable-drag',
-    handle: '.drag-handle',
-    filter: '.add-menu-item, .action-btn, .action-btn-sm',
-    preventOnFilter: false,
-    onEnd: (evt) => {
-      const menuIds = Array.from(container.querySelectorAll('.menu-item:not(.add-menu-item)')).map((el) => {
-        return parseInt(el.getAttribute('data-menu-id'));
-      }).filter(id => !isNaN(id));
-      
-      emit('menusReordered', menuIds);
-    }
-  });
+function handleMenuContextMenu(event, menu) {
+  contextMenuType.value = 'menu';
+  contextMenuData.value = menu;
+  contextParentMenu.value = null;
+  contextMenuX.value = event.clientX;
+  contextMenuY.value = event.clientY;
+  contextMenuVisible.value = true;
 }
 
-function destroySortable() {
-  if (sortableInstance) {
-    sortableInstance.destroy();
-    sortableInstance = null;
-  }
+function handleSubMenuContextMenu(event, subMenu, parentMenu) {
+  contextMenuType.value = 'subMenu';
+  contextMenuData.value = subMenu;
+  contextParentMenu.value = parentMenu;
+  contextMenuX.value = event.clientX;
+  contextMenuY.value = event.clientY;
+  contextMenuVisible.value = true;
 }
 
-watch(() => props.editMode, (newVal) => {
-  if (newVal) {
-    nextTick(() => initSortable());
-  } else {
-    destroySortable();
+function closeContextMenu() {
+  contextMenuVisible.value = false;
+  contextMenuData.value = null;
+  contextParentMenu.value = null;
+}
+
+function onAddMenu() {
+  emit('addMenu');
+  closeContextMenu();
+}
+
+function onEditMenu() {
+  if (contextMenuData.value) {
+    emit('editMenu', contextMenuData.value);
   }
-});
+  closeContextMenu();
+}
+
+function onDeleteMenu() {
+  if (contextMenuData.value) {
+    emit('deleteMenu', contextMenuData.value);
+  }
+  closeContextMenu();
+}
+
+function onAddSubMenu() {
+  if (contextMenuData.value) {
+    emit('addSubMenu', contextMenuData.value);
+  }
+  closeContextMenu();
+}
+
+function onEditSubMenu() {
+  if (contextMenuData.value && contextParentMenu.value) {
+    emit('editSubMenu', contextMenuData.value, contextParentMenu.value);
+  }
+  closeContextMenu();
+}
+
+function onDeleteSubMenu() {
+  if (contextMenuData.value && contextParentMenu.value) {
+    emit('deleteSubMenu', contextMenuData.value, contextParentMenu.value);
+  }
+  closeContextMenu();
+}
+
+function onMoveSubMenuUp() {
+  if (!canMoveUp.value) return;
+  if (contextMenuData.value && contextParentMenu.value) {
+    const subs = contextParentMenu.value.subMenus || [];
+    const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
+    emit('moveSubMenuUp', contextMenuData.value, contextParentMenu.value, idx);
+  }
+  closeContextMenu();
+}
+
+function onMoveSubMenuDown() {
+  if (!canMoveDown.value) return;
+  if (contextMenuData.value && contextParentMenu.value) {
+    const subs = contextParentMenu.value.subMenus || [];
+    const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
+    emit('moveSubMenuDown', contextMenuData.value, contextParentMenu.value, idx);
+  }
+  closeContextMenu();
+}
+
+function handleClickOutside(event) {
+  if (contextMenuVisible.value) {
+    closeContextMenu();
+  }
+}
 
 onMounted(() => {
-  if (props.editMode) {
-    nextTick(() => initSortable());
-  }
+  document.addEventListener('click', handleClickOutside);
+  document.addEventListener('scroll', closeContextMenu);
 });
 
 onUnmounted(() => {
-  destroySortable();
+  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('scroll', closeContextMenu);
   if (hideTimer) clearTimeout(hideTimer);
 });
 </script>
@@ -279,50 +349,6 @@ onUnmounted(() => {
   width: 50%;
 }
 
-/* 编辑模式样式 */
-.menu-bar.edit-mode .menu-item:not(.add-menu-item) {
-  border: 1px dashed rgba(64, 169, 255, 0.4);
-  border-radius: 12px;
-  margin: 0 2px;
-  cursor: grab;
-}
-
-.menu-bar.edit-mode .menu-item:not(.add-menu-item):active {
-  cursor: grabbing;
-}
-
-/* 添加菜单按钮 */
-.add-menu-item {
-  border: 1px dashed rgba(99, 179, 237, 0.6) !important;
-}
-
-.add-menu-btn {
-  color: rgba(99, 179, 237, 0.8) !important;
-  font-size: 14px !important;
-}
-
-.add-menu-btn:hover {
-  color: #399dff !important;
-  background: rgba(99, 179, 237, 0.15) !important;
-}
-
-.add-menu-btn::before {
-  display: none;
-}
-
-/* 拖拽状态 */
-.sortable-ghost {
-  opacity: 0.4;
-}
-
-.sortable-chosen {
-  box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.6);
-}
-
-.sortable-drag {
-  opacity: 0.9;
-}
-
 @media (max-width: 768px) {
   .menu-bar {
     flex-wrap: nowrap;
@@ -363,11 +389,8 @@ onUnmounted(() => {
 }
 </style>
 
-<!-- 全局样式用于 Teleport 的下拉菜单 -->
 <style>
-/* 子菜单下拉框 - 渲染到 body */
-.sub-menu-portal,
-.menu-dropdown-portal {
+.sub-menu-portal {
   background: #2a2a30;
   border-radius: 10px;
   min-width: max-content;
@@ -377,10 +400,6 @@ onUnmounted(() => {
   padding: 6px 0;
   transform: translateX(-50%);
   animation: dropdownFadeIn 0.15s ease;
-}
-
-.menu-dropdown-portal {
-  padding: 10px 0;
 }
 
 @keyframes dropdownFadeIn {
@@ -394,65 +413,14 @@ onUnmounted(() => {
   }
 }
 
-/* 菜单操作行 */
-.menu-dropdown-portal .menu-actions-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 10px 8px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  margin-bottom: 4px;
-}
-
-.menu-dropdown-portal .menu-actions-label {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.menu-dropdown-portal .menu-actions {
-  display: flex;
-  gap: 4px;
-}
-
-.menu-dropdown-portal .action-btn,
-.sub-menu-portal .action-btn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 12px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.menu-dropdown-portal .action-btn:hover {
-  transform: scale(1.1);
-}
-
-.menu-dropdown-portal .action-btn.edit-btn:hover {
-  background: rgba(99, 179, 237, 0.8);
-}
-
-.menu-dropdown-portal .action-btn.del-btn:hover {
-  background: rgba(245, 101, 101, 0.8);
-}
-
-/* 子菜单列表 */
-.sub-menu-portal .sub-menu-row,
-.menu-dropdown-portal .sub-menu-row {
+.sub-menu-portal .sub-menu-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 0 4px;
 }
 
-.sub-menu-portal .sub-menu-item,
-.menu-dropdown-portal .sub-menu-item {
+.sub-menu-portal .sub-menu-item {
   flex: 1;
   display: block;
   text-align: left;
@@ -469,87 +437,86 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-.sub-menu-portal .sub-menu-item:hover,
-.menu-dropdown-portal .sub-menu-item:hover {
+.sub-menu-portal .sub-menu-item:hover {
   background: rgba(57, 157, 255, 0.25);
   color: #399dff;
 }
 
-.sub-menu-portal .sub-menu-item:focus,
-.menu-dropdown-portal .sub-menu-item:focus {
+.sub-menu-portal .sub-menu-item:focus {
   outline: none;
 }
 
-.sub-menu-portal .sub-menu-item.active,
-.menu-dropdown-portal .sub-menu-item.active {
+.sub-menu-portal .sub-menu-item.active {
   background: rgba(57, 157, 255, 0.35);
   color: #399dff;
   font-weight: 500;
 }
 
-.menu-dropdown-portal .sub-menu-actions {
-  display: flex;
-  gap: 2px;
-  padding-right: 4px;
+.menu-context-menu {
+  position: fixed;
+  background: rgba(30, 30, 30, 0.95);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  padding: 6px 0;
+  min-width: 160px;
+  z-index: 99999;
+  animation: contextMenuFadeIn 0.15s ease;
 }
 
-.menu-dropdown-portal .action-btn-sm {
-  width: 18px;
-  height: 18px;
-  border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
-  font-size: 9px;
-  cursor: pointer;
+@keyframes contextMenuFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.menu-context-menu .context-menu-item {
   display: flex;
   align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-  padding: 0;
-}
-
-.menu-dropdown-portal .action-btn-sm:hover {
-  background: rgba(99, 179, 237, 0.6);
-}
-
-.menu-dropdown-portal .action-btn-sm.sort-btn {
-  font-size: 10px;
-  font-weight: bold;
-}
-
-.menu-dropdown-portal .action-btn-sm.sort-btn:hover {
-  background: rgba(74, 222, 128, 0.6);
-}
-
-.menu-dropdown-portal .add-sub-menu-btn {
-  display: block;
-  width: calc(100% - 16px);
-  margin: 4px 8px;
-  padding: 0.4rem 0.8rem;
-  border: none;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  background: transparent;
-  color: rgba(99, 179, 237, 0.8);
-  font-size: 12px;
-  border-radius: 4px;
-  text-align: center;
+  padding: 10px 16px;
   cursor: pointer;
-  transition: all 0.2s;
+  color: #fff;
+  font-size: 14px;
+  transition: background 0.15s ease;
 }
 
-.menu-dropdown-portal .add-sub-menu-btn:hover {
-  background: rgba(99, 179, 237, 0.2);
-  color: #399dff;
+.menu-context-menu .context-menu-item:hover {
+  background: rgba(99, 179, 237, 0.3);
+}
+
+.menu-context-menu .context-menu-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.menu-context-menu .context-menu-item.disabled:hover {
+  background: transparent;
+}
+
+.menu-context-menu .context-menu-icon {
+  margin-right: 10px;
+  font-size: 14px;
+}
+
+.menu-context-menu .context-menu-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+  margin: 4px 0;
 }
 
 @media (max-width: 768px) {
-  .sub-menu-portal,
-  .menu-dropdown-portal {
+  .sub-menu-portal {
     min-width: max-content;
   }
   
-  .sub-menu-portal .sub-menu-item,
-  .menu-dropdown-portal .sub-menu-item {
+  .sub-menu-portal .sub-menu-item {
     font-size: 12px;
     padding: 0.35rem 0.7rem;
   }
