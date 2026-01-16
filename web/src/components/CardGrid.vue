@@ -9,8 +9,7 @@
          :data-card-id="card.id"
          :style="getCardStyle(index)"
          @contextmenu.prevent="handleContextMenu($event, card)"
-         @mousedown="handleMouseDown($event, card)"
-         @touchstart="handleTouchStart($event, card)"
+         @pointerdown="handleCardPointerDown($event, card)"
          @click="handleCardClick($event, card)">
       <a :href="isDragging ? 'javascript:void(0)' : card.url" 
          :target="isDragging ? '' : '_blank'" 
@@ -23,7 +22,6 @@
       <div v-if="isCardSelected(card)" class="card-selected-badge">✓</div>
     </div>
     
-    <!-- 右键菜单 -->
     <Teleport to="body">
       <div v-if="contextMenuVisible" 
            class="context-menu"
@@ -58,18 +56,27 @@
       </div>
     </Teleport>
     
-    <!-- 长按提示 -->
     <Teleport to="body">
-      <div v-if="showDragHint" class="drag-hint">
-        松开开始拖拽排序
-      </div>
+      <transition name="fade">
+        <div v-if="showHint" class="drag-hint">
+          松开开始拖拽排序
+        </div>
+      </transition>
+    </Teleport>
+    
+    <Teleport to="body">
+      <transition name="fade">
+        <div v-if="isSaving" class="saving-indicator">
+          保存中...
+        </div>
+      </transition>
     </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, watch, nextTick, onMounted, onUnmounted } from 'vue';
-import Sortable from 'sortablejs';
+import { ref, toRef, onMounted, onUnmounted, watch } from 'vue';
+import { useCardDrag } from '../composables/useCardDrag';
 
 const props = defineProps({ 
   cards: Array,
@@ -83,22 +90,47 @@ const emit = defineEmits([
   'contextEdit', 
   'contextDelete',
   'toggleCardSelection',
-  'openMovePanel'
+  'openMovePanel',
+  'saveSuccess',
+  'saveError'
 ]);
 
 const cardGridRef = ref(null);
-let sortableInstance = null;
 
 const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuCard = ref(null);
 
-const isDragging = ref(false);
-const showDragHint = ref(false);
-let longPressTimer = null;
-let longPressCard = null;
-const LONG_PRESS_DURATION = 500;
+const cardsRef = toRef(props, 'cards');
+const categoryIdRef = toRef(props, 'categoryId');
+const subCategoryIdRef = toRef(props, 'subCategoryId');
+
+const {
+  isDragging,
+  showHint,
+  isSaving,
+  handleCardPointerDown: dragPointerDown,
+  reinitSortable
+} = useCardDrag({
+  containerRef: cardGridRef,
+  cards: cardsRef,
+  categoryId: categoryIdRef,
+  subCategoryId: subCategoryIdRef,
+  onSaveSuccess: () => {
+    emit('saveSuccess');
+  },
+  onSaveError: (error) => {
+    emit('saveError', error);
+  },
+  onCardsReorder: (newOrderIds) => {
+    emit('cardsReordered', newOrderIds, props.categoryId, props.subCategoryId);
+  }
+});
+
+function handleCardPointerDown(event, card) {
+  dragPointerDown(event, card);
+}
 
 function handleContextMenu(event, card) {
   contextMenuCard.value = card;
@@ -178,136 +210,6 @@ function handleLinkClick(event) {
   }
 }
 
-function handleMouseDown(event, card) {
-  if (event.button !== 0) return;
-  if (event.ctrlKey || event.metaKey) return;
-  
-  longPressCard = card;
-  const startX = event.clientX;
-  const startY = event.clientY;
-  
-  longPressTimer = setTimeout(() => {
-    showDragHint.value = true;
-    enableDragMode();
-  }, LONG_PRESS_DURATION);
-  
-  const handleMouseMove = (e) => {
-    const dx = Math.abs(e.clientX - startX);
-    const dy = Math.abs(e.clientY - startY);
-    if (dx > 5 || dy > 5) {
-      clearLongPress();
-    }
-  };
-  
-  const handleMouseUp = () => {
-    clearLongPress();
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  };
-  
-  document.addEventListener('mousemove', handleMouseMove);
-  document.addEventListener('mouseup', handleMouseUp);
-}
-
-function handleTouchStart(event, card) {
-  longPressCard = card;
-  const touch = event.touches[0];
-  const startX = touch.clientX;
-  const startY = touch.clientY;
-  
-  longPressTimer = setTimeout(() => {
-    showDragHint.value = true;
-    enableDragMode();
-  }, LONG_PRESS_DURATION);
-  
-  const handleTouchMove = (e) => {
-    const t = e.touches[0];
-    const dx = Math.abs(t.clientX - startX);
-    const dy = Math.abs(t.clientY - startY);
-    if (dx > 10 || dy > 10) {
-      clearLongPress();
-    }
-  };
-  
-  const handleTouchEnd = () => {
-    clearLongPress();
-    document.removeEventListener('touchmove', handleTouchMove);
-    document.removeEventListener('touchend', handleTouchEnd);
-  };
-  
-  document.addEventListener('touchmove', handleTouchMove, { passive: true });
-  document.addEventListener('touchend', handleTouchEnd);
-}
-
-function clearLongPress() {
-  if (longPressTimer) {
-    clearTimeout(longPressTimer);
-    longPressTimer = null;
-  }
-  showDragHint.value = false;
-}
-
-function enableDragMode() {
-  isDragging.value = true;
-  showDragHint.value = false;
-  initSortable();
-  
-  setTimeout(() => {
-    if (!sortableInstance) return;
-    const container = cardGridRef.value;
-    if (!container || !longPressCard) return;
-    
-    const cardEl = container.querySelector(`[data-card-id="${longPressCard.id}"]`);
-    if (cardEl) {
-      cardEl.classList.add('sortable-chosen');
-    }
-  }, 50);
-}
-
-function disableDragMode() {
-  isDragging.value = false;
-  destroySortable();
-}
-
-function initSortable() {
-  if (sortableInstance) return;
-  
-  const container = cardGridRef.value;
-  if (!container) return;
-  
-  sortableInstance = new Sortable(container, {
-    animation: 150,
-    group: 'cards',
-    ghostClass: 'sortable-ghost',
-    chosenClass: 'sortable-chosen',
-    dragClass: 'sortable-drag',
-    delay: 0,
-    delayOnTouchOnly: false,
-    onStart: () => {
-      isDragging.value = true;
-    },
-    onEnd: (evt) => {
-      const targetContainer = evt.to;
-      const cardIds = Array.from(targetContainer.children).map((el) => {
-        return parseInt(el.getAttribute('data-card-id'));
-      }).filter(id => !isNaN(id));
-      
-      emit('cardsReordered', cardIds, props.categoryId, props.subCategoryId);
-      
-      setTimeout(() => {
-        disableDragMode();
-      }, 100);
-    }
-  });
-}
-
-function destroySortable() {
-  if (sortableInstance) {
-    sortableInstance.destroy();
-    sortableInstance = null;
-  }
-}
-
 onMounted(() => {
   document.addEventListener('click', handleClickOutside);
   document.addEventListener('scroll', closeContextMenu);
@@ -316,23 +218,16 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   document.removeEventListener('scroll', closeContextMenu);
-  destroySortable();
-  clearLongPress();
 });
 
 watch(() => props.cards, (newCards, oldCards) => {
   if (newCards && newCards.length > 0) {
     const isDataChanged = !oldCards || oldCards.length === 0 || JSON.stringify(newCards) !== JSON.stringify(oldCards);
-    if (isDataChanged) {
-      nextTick(() => {
-        if (isDragging.value) {
-          destroySortable();
-          nextTick(() => initSortable());
-        }
-      });
+    if (isDataChanged && !isDragging.value) {
+      reinitSortable();
     }
   }
-}, { deep: true, immediate: false });
+}, { deep: true });
 
 function getCardStyle(index) {
   return {};
@@ -471,6 +366,7 @@ function isCardSelected(card) {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   user-select: none;
+  touch-action: manipulation;
 }
 
 .link-item:hover {
@@ -635,11 +531,30 @@ function isCardSelected(card) {
   border-radius: 8px;
   font-size: 14px;
   z-index: 9999;
-  animation: fadeIn 0.2s ease;
+  pointer-events: none;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.saving-indicator {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(99, 179, 237, 0.9);
+  color: white;
+  padding: 10px 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  z-index: 9999;
+  pointer-events: none;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
 }
 </style>

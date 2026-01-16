@@ -3291,40 +3291,23 @@ async function moveCardToCategory(menuId, subMenuId) {
   }
 }
 
-// 卡片重新排序处理（拖拽完成后自动保存）
-async function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
-  requireAuth(async () => {
-    const updates = cardIds.map((cardId, index) => ({
-      id: cardId,
-      order: index,
-      menu_id: targetMenuId,
-      sub_menu_id: targetSubMenuId
-    }));
+// 卡片重新排序处理（乐观更新 - CardGrid 已处理 API 保存）
+function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
+  const reorderedCards = cardIds.map(id => {
+    return cards.value.find(c => c.id === id) || allCards.value.find(c => c.id === id);
+  }).filter(Boolean);
+  
+  if (reorderedCards.length > 0) {
+    reorderedCards.forEach((card, index) => {
+      card.order = index;
+    });
     
-    try {
-      await batchUpdateCards(updates);
-      
-      const reorderedCards = cardIds.map(id => {
-        return cards.value.find(c => c.id === id) || allCards.value.find(c => c.id === id);
-      }).filter(Boolean);
-      
-      if (reorderedCards.length > 0) {
-        cards.value = reorderedCards;
-      }
-      
-      setTimeout(() => {
-        loadAllCards();
-      }, 500);
-      
-    } catch (error) {
-      if (error.response?.status === 401) {
-        handleTokenInvalid();
-      } else {
-        alert('保存失败：' + (error.response?.data?.error || error.message));
-        await loadCards();
-      }
-    }
-  });
+    cards.value = reorderedCards;
+    
+    const cacheKey = getCardsCacheKey(targetMenuId, targetSubMenuId);
+    cardsCache.value[cacheKey] = reorderedCards;
+    saveCardsCache();
+  }
 }
 
 // 删除卡片
