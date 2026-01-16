@@ -271,15 +271,63 @@ function isCardSelected(card) {
 @media (max-width: 768px) {
   .container { 
     grid-template-columns: repeat(4, 1fr); 
-    gap: 12px;
-    padding: 0 0.8rem;
+    gap: 3vw;
+    padding: 0 3vw;
+  }
+  .link-item {
+    min-height: 80px;
+    height: auto;
+    aspect-ratio: 1 / 1;
+    border-radius: 14px;
+  }
+  .link-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .link-text {
+    font-size: 11px;
   }
 }
-@media (max-width: 480px) {
+@media (max-width: 540px) {
   .container { 
-    grid-template-columns: repeat(3, 1fr); 
-    gap: 10px;
-    padding: 0 0.6rem;
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 2.5vw;
+    padding: 0 2.5vw;
+  }
+  .link-item {
+    min-height: auto;
+    aspect-ratio: 1 / 1;
+    border-radius: 12px;
+  }
+  .link-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .link-text {
+    font-size: 10px;
+    padding: 0 4px;
+  }
+}
+@media (max-width: 380px) {
+  .container { 
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 2vw;
+    padding: 0 2vw;
+  }
+  .link-item {
+    border-radius: 10px;
+  }
+  .link-icon {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 4px;
+  }
+  .link-text {
+    font-size: 9px;
+    line-height: 1.2;
+  }
+  .card-link {
+    padding: 6px 4px;
   }
 }
 

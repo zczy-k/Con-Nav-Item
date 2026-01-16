@@ -4078,6 +4078,80 @@ async function saveCardEdit() {
   padding: 0 1rem;
 }
 
+/* 移动端搜索区域适配 */
+@media (max-width: 768px) {
+  .search-section {
+    margin-top: 8vh;
+    padding: 0.8rem 0 0 0;
+  }
+  
+  .search-box-wrapper {
+    padding: 0 3vw;
+  }
+  
+  .search-container {
+    width: 94%;
+    padding: 0.4rem 0.6rem;
+    border-radius: 24px;
+  }
+  
+  .search-input {
+    font-size: 0.9rem;
+    padding: 0.3rem 0.8rem;
+  }
+  
+  .search-btn {
+    width: 38px;
+    height: 38px;
+  }
+  
+  .engine-selector {
+    padding: 6px 8px;
+  }
+  
+  .engine-icon-img {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .search-section {
+    margin-top: 6vh;
+  }
+  
+  .search-container {
+    width: 96%;
+    padding: 0.35rem 0.5rem;
+    border-radius: 22px;
+  }
+  
+  .search-input {
+    font-size: 0.85rem;
+    padding: 0.25rem 0.6rem;
+  }
+  
+  .search-btn {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .search-btn svg {
+    width: 18px;
+    height: 18px;
+  }
+  
+  .engine-selector {
+    padding: 5px 6px;
+    border-radius: 6px;
+  }
+  
+  .engine-selector svg {
+    width: 12px;
+    height: 12px;
+  }
+}
+
 /* 迷你标签栏 */
 .mini-tag-bar {
   display: flex;
@@ -4353,6 +4427,89 @@ async function saveCardEdit() {
   transform: translateY(-20px) scale(0.95);
 }
 
+/* 移动端标签栏和面板适配 */
+@media (max-width: 768px) {
+  .mini-tag-bar {
+    gap: 6px;
+    padding: 0.5rem 3vw;
+    flex-wrap: wrap;
+  }
+  
+  .mini-tag-chip {
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 14px;
+  }
+  
+  .mini-tag-btn {
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 14px;
+  }
+  
+  .tag-panel-overlay {
+    padding-top: 10vh;
+    align-items: flex-start;
+  }
+  
+  .tag-panel {
+    width: 85%;
+    max-height: 60vh;
+    border-radius: 14px;
+  }
+  
+  .tag-panel-header {
+    padding: 12px 14px;
+  }
+  
+  .tag-panel-header h4 {
+    font-size: 14px;
+  }
+  
+  .tag-panel-content {
+    padding: 12px 14px;
+    gap: 8px;
+  }
+  
+  .panel-tag-btn {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .mini-tag-bar {
+    gap: 5px;
+    padding: 0.4rem 2.5vw;
+  }
+  
+  .mini-tag-chip {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  
+  .mini-tag-btn {
+    padding: 3px 8px;
+    font-size: 10px;
+  }
+  
+  .tag-count {
+    padding: 1px 5px;
+    font-size: 9px;
+  }
+  
+  .tag-panel {
+    width: 88%;
+    max-height: 55vh;
+  }
+  
+  .panel-tag-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+}
+
 .content-wrapper {
   display: flex;
   max-width: 1400px;
@@ -4529,6 +4686,92 @@ async function saveCardEdit() {
   flex: 1;
   padding: 28px;
   overflow-y: auto;
+}
+
+/* 移动端弹窗适配 */
+@media (max-width: 768px) {
+  .modal-content {
+    width: 88vw;
+    height: auto;
+    max-height: 70vh;
+    border-radius: 14px;
+  }
+  
+  .modal-content.menu-modal {
+    width: 85vw;
+    max-width: 320px;
+  }
+  
+  .modal-header {
+    padding: 12px 16px;
+  }
+  
+  .modal-header h3 {
+    font-size: 16px;
+  }
+  
+  .modal-body {
+    padding: 16px 14px;
+  }
+  
+  .batch-modal {
+    width: 88vw;
+    max-height: 70vh;
+  }
+  
+  .batch-step {
+    min-height: auto;
+  }
+  
+  .batch-tip {
+    font-size: 13px;
+  }
+  
+  .batch-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .btn {
+    flex: 1;
+    min-width: 80px;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+@media (max-width: 480px) {
+  .modal-content {
+    width: 90vw;
+    max-height: 65vh;
+    border-radius: 12px;
+  }
+  
+  .modal-header {
+    padding: 10px 14px;
+  }
+  
+  .modal-header h3 {
+    font-size: 15px;
+  }
+  
+  .modal-body {
+    padding: 14px 12px;
+  }
+  
+  .batch-modal {
+    width: 90vw;
+    max-height: 65vh;
+  }
+  
+  .batch-textarea {
+    font-size: 12px;
+    min-height: 100px;
+  }
+  
+  .batch-tip {
+    font-size: 12px;
+  }
 }
 
 .friend-links-grid {
@@ -4805,49 +5048,57 @@ async function saveCardEdit() {
   z-index: 999;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .toolbar-icon-btn {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   background: rgba(255, 255, 255, 0.85);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.6);
   color: #4a5568;
   cursor: pointer;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   align-items: center;
   justify-content: center;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
+.toolbar-icon-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .toolbar-icon-btn:hover {
   background: rgba(255, 255, 255, 0.95);
   transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
   color: #1890ff;
 }
 
 .toolbar-icon-btn:active {
   transform: translateY(0);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 @media (max-width: 768px) {
   .top-toolbar {
-    top: 12px;
+    top: auto;
+    bottom: 20px;
     right: 12px;
-    gap: 8px;
+    gap: 6px;
+    flex-direction: column;
   }
   
   .toolbar-icon-btn {
     width: 36px;
     height: 36px;
     border-radius: 10px;
+    box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
   }
   
   .toolbar-icon-btn svg {
@@ -4858,7 +5109,7 @@ async function saveCardEdit() {
 
 @media (max-width: 480px) {
   .top-toolbar {
-    top: 10px;
+    bottom: 16px;
     right: 10px;
     gap: 6px;
   }
@@ -4867,6 +5118,11 @@ async function saveCardEdit() {
     width: 34px;
     height: 34px;
     border-radius: 8px;
+  }
+  
+  .toolbar-icon-btn svg {
+    width: 15px;
+    height: 15px;
   }
 }
 
@@ -4984,6 +5240,64 @@ async function saveCardEdit() {
 .bg-panel-enter-from .bg-panel,
 .bg-panel-leave-to .bg-panel {
   transform: scale(0.9) translateY(20px);
+}
+
+/* 移动端背景面板适配 */
+@media (max-width: 768px) {
+  .bg-panel {
+    width: 85%;
+    max-height: 65vh;
+    border-radius: 14px;
+  }
+  
+  .bg-panel-header {
+    padding: 12px 14px;
+  }
+  
+  .bg-panel-header h4 {
+    font-size: 15px;
+  }
+  
+  .bg-panel-content {
+    padding: 12px;
+  }
+  
+  .bg-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 10px;
+  }
+  
+  .bg-item {
+    border-radius: 8px;
+  }
+  
+  .bg-item-name {
+    font-size: 11px;
+    padding: 5px 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .bg-panel {
+    width: 88%;
+    max-height: 60vh;
+    border-radius: 12px;
+  }
+  
+  .bg-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  
+  .bg-item {
+    border-radius: 6px;
+    border-width: 2px;
+  }
+  
+  .bg-item-name {
+    font-size: 10px;
+    padding: 4px 6px;
+  }
 }
 
 .spin {
