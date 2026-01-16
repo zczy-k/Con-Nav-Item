@@ -1,18 +1,13 @@
 <template>
   <div ref="cardGridRef" class="container card-grid">
-    <div v-for="(card, index) in cards" :key="card.id"
+    <div v-for="card in cards" :key="card.id"
          class="link-item" 
-         :class="{ 
-           'selected': isCardSelected(card),
-           'dragging': isDragging
-         }"
+         :class="{ 'selected': isCardSelected(card) }"
          :data-card-id="card.id"
-         :style="getCardStyle(index)"
          @contextmenu.prevent="handleContextMenu($event, card)"
-         @pointerdown="handleCardPointerDown($event, card)"
          @click="handleCardClick($event, card)">
-      <a :href="isDragging ? 'javascript:void(0)' : card.url" 
-         :target="isDragging ? '' : '_blank'" 
+      <a :href="card.url" 
+         target="_blank" 
          :title="getTooltip(card)" 
          @click="handleLinkClick($event)"
          class="card-link">
@@ -55,28 +50,11 @@
         </div>
       </div>
     </Teleport>
-    
-    <Teleport to="body">
-      <transition name="fade">
-        <div v-if="showHint" class="drag-hint">
-          松开开始拖拽排序
-        </div>
-      </transition>
-    </Teleport>
-    
-    <Teleport to="body">
-      <transition name="fade">
-        <div v-if="isSaving" class="saving-indicator">
-          保存中...
-        </div>
-      </transition>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, toRef, onMounted, onUnmounted, watch } from 'vue';
-import { useCardDrag } from '../composables/useCardDrag';
+import { ref, onMounted, onUnmounted } from 'vue';
 
 const props = defineProps({ 
   cards: Array,
@@ -86,13 +64,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits([
-  'cardsReordered', 
   'contextEdit', 
   'contextDelete',
   'toggleCardSelection',
-  'openMovePanel',
-  'saveSuccess',
-  'saveError'
+  'openMovePanel'
 ]);
 
 const cardGridRef = ref(null);
@@ -101,36 +76,6 @@ const contextMenuVisible = ref(false);
 const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuCard = ref(null);
-
-const cardsRef = toRef(props, 'cards');
-const categoryIdRef = toRef(props, 'categoryId');
-const subCategoryIdRef = toRef(props, 'subCategoryId');
-
-const {
-  isDragging,
-  showHint,
-  isSaving,
-  handleCardPointerDown: dragPointerDown,
-  reinitSortable
-} = useCardDrag({
-  containerRef: cardGridRef,
-  cards: cardsRef,
-  categoryId: categoryIdRef,
-  subCategoryId: subCategoryIdRef,
-  onSaveSuccess: () => {
-    emit('saveSuccess');
-  },
-  onSaveError: (error) => {
-    emit('saveError', error);
-  },
-  onCardsReorder: (newOrderIds) => {
-    emit('cardsReordered', newOrderIds, props.categoryId, props.subCategoryId);
-  }
-});
-
-function handleCardPointerDown(event, card) {
-  dragPointerDown(event, card);
-}
 
 function handleContextMenu(event, card) {
   contextMenuCard.value = card;
@@ -204,7 +149,7 @@ function handleCardClick(event, card) {
 }
 
 function handleLinkClick(event) {
-  if (isDragging.value || event.ctrlKey || event.metaKey) {
+  if (event.ctrlKey || event.metaKey) {
     event.preventDefault();
     event.stopPropagation();
   }
@@ -219,19 +164,6 @@ onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);
   document.removeEventListener('scroll', closeContextMenu);
 });
-
-watch(() => props.cards, (newCards, oldCards) => {
-  if (newCards && newCards.length > 0) {
-    const isDataChanged = !oldCards || oldCards.length === 0 || JSON.stringify(newCards) !== JSON.stringify(oldCards);
-    if (isDataChanged && !isDragging.value) {
-      reinitSortable();
-    }
-  }
-}, { deep: true });
-
-function getCardStyle(index) {
-  return {};
-}
 
 function getOriginUrl(url) {
   try {
@@ -366,7 +298,6 @@ function isCardSelected(card) {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   user-select: none;
-  touch-action: manipulation;
 }
 
 .link-item:hover {
@@ -384,14 +315,6 @@ function isCardSelected(card) {
 .link-item.selected {
   border: 2px solid rgba(99, 179, 237, 0.8);
   box-shadow: 0 0 0 3px rgba(99, 179, 237, 0.3), 0 4px 16px rgba(0, 0, 0, 0.1);
-}
-
-.link-item.dragging {
-  cursor: grab;
-}
-
-.link-item.dragging:active {
-  cursor: grabbing;
 }
 
 .card-link {
@@ -456,20 +379,6 @@ function isCardSelected(card) {
   z-index: 10;
 }
 
-.sortable-ghost {
-  opacity: 0.4;
-}
-
-.sortable-chosen {
-  box-shadow: 0 0 0 2px rgba(99, 179, 237, 0.6);
-  transform: scale(1.05);
-}
-
-.sortable-drag {
-  opacity: 0.9;
-  transform: rotate(1deg) scale(1.02);
-}
-
 .context-menu {
   position: fixed;
   background: rgba(30, 30, 30, 0.95);
@@ -518,43 +427,5 @@ function isCardSelected(card) {
   height: 1px;
   background: rgba(255, 255, 255, 0.1);
   margin: 4px 0;
-}
-
-.drag-hint {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: rgba(0, 0, 0, 0.8);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-size: 14px;
-  z-index: 9999;
-  pointer-events: none;
-}
-
-.saving-indicator {
-  position: fixed;
-  bottom: 20px;
-  right: 20px;
-  background: rgba(99, 179, 237, 0.9);
-  color: white;
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-size: 14px;
-  z-index: 9999;
-  pointer-events: none;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 </style>

@@ -13,7 +13,8 @@ export function useCardDrag(options = {}) {
     subCategoryId,
     onSaveSuccess = () => {},
     onSaveError = () => {},
-    onCardsReorder = null
+    onCardsReorder = null,
+    onRequireAuth = null
   } = options
 
   const dragEnabled = ref(false)
@@ -111,21 +112,35 @@ export function useCardDrag(options = {}) {
   })
 
   async function saveOrder(newOrder) {
-    isSaving.value = true
+    return new Promise((resolve, reject) => {
+      const doSave = async () => {
+        isSaving.value = true
+        try {
+          const updates = newOrder.map((id, index) => ({
+            id: Number(id),
+            order: index,
+            menu_id: categoryId?.value,
+            sub_menu_id: subCategoryId?.value || null
+          }))
+          await batchUpdateCards(updates)
+          resolve(true)
+        } catch (error) {
+          if (error.response?.status === 401 && onRequireAuth) {
+            onRequireAuth(() => doSave())
+          } else {
+            reject(error)
+          }
+        } finally {
+          isSaving.value = false
+        }
+      }
 
-    try {
-      const updates = newOrder.map((id, index) => ({
-        id: Number(id),
-        order: index,
-        menu_id: categoryId?.value,
-        sub_menu_id: subCategoryId?.value || null
-      }))
-
-      await batchUpdateCards(updates)
-      return true
-    } finally {
-      isSaving.value = false
-    }
+      if (onRequireAuth) {
+        onRequireAuth(doSave)
+      } else {
+        doSave()
+      }
+    })
   }
 
   function enableDragMode() {
