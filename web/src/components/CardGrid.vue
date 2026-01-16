@@ -1,8 +1,10 @@
 <template>
   <div ref="cardGridRef" class="container card-grid">
-    <div v-for="card in cards" :key="card.id"
+    <div v-for="(card, index) in cards" :key="card.id"
          class="link-item" 
-         :class="{ 'selected': isCardSelected(card) }"
+         :class="{ 
+           'selected': isCardSelected(card)
+         }"
          :data-card-id="card.id"
          @contextmenu.prevent="handleContextMenu($event, card)"
          @click="handleCardClick($event, card)">
@@ -67,7 +69,8 @@ const emit = defineEmits([
   'contextEdit', 
   'contextDelete',
   'toggleCardSelection',
-  'openMovePanel'
+  'openMovePanel',
+  'requireAuth'
 ]);
 
 const cardGridRef = ref(null);

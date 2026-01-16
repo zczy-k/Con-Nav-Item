@@ -233,40 +233,60 @@
     <!-- 卡片按分类分组显示 -->
     <div class="cards-grouped-container" v-if="!activeSubMenu && activeMenu && groupedCards.length > 0">
       <template v-for="(group, index) in groupedCards" :key="group.key">
-        <div v-if="group.cards.length > 0" class="card-group">
-          <div v-if="group.name" class="card-group-header">
-            <span class="group-name">{{ group.name }}</span>
-            <span class="group-count">{{ group.cards.length }}</span>
+        <div v-if="sortAndFilterCards(group.cards, group.subMenuId).length > 0" class="card-group">
+          <div class="card-group-header">
+            <div class="group-header-left">
+              <span v-if="group.name" class="group-name">{{ group.name }}</span>
+              <span v-else class="group-name main-category-name">{{ activeMenu.name }}</span>
+              <span class="group-count">{{ sortAndFilterCards(group.cards, group.subMenuId).length }}</span>
+            </div>
+            <SortDropdown
+              v-model="groupSortSettings[group.key]"
+              :storageKey="`sort_${activeMenu.id}_${group.subMenuId || 'main'}`"
+              @change="(val) => handleSortChange(group.key, val)"
+            />
           </div>
           <CardGrid
-              :cards="applyFilters(group.cards)" 
+              :cards="sortAndFilterCards(group.cards, group.subMenuId)" 
               :selectedCards="selectedCards"
               :categoryId="activeMenu?.id"
               :subCategoryId="group.subMenuId"
-              @cardsReordered="handleCardsReordered"
               @contextEdit="handleContextEdit"
               @contextDelete="handleContextDelete"
               @toggleCardSelection="handleToggleCardSelection"
               @openMovePanel="openMovePanel"
+              @requireAuth="handleRequireAuth"
               @click.stop
             />
         </div>
       </template>
     </div>
     <!-- 选择子菜单或搜索时，直接显示卡片 -->
-    <CardGrid
-      v-else
-      :cards="filteredCards" 
-      :selectedCards="selectedCards"
-      :categoryId="activeMenu?.id"
-      :subCategoryId="activeSubMenu?.id"
-      @cardsReordered="handleCardsReordered"
-      @contextEdit="handleContextEdit"
-      @contextDelete="handleContextDelete"
-      @toggleCardSelection="handleToggleCardSelection"
-      @openMovePanel="openMovePanel"
-      @click.stop
-    />
+    <div v-else class="cards-single-container">
+      <div v-if="activeMenu && sortedFilteredCards.length > 0" class="card-group-header single-header">
+        <div class="group-header-left">
+          <span class="group-name">{{ activeSubMenu?.name || activeMenu?.name || '搜索结果' }}</span>
+          <span class="group-count">{{ sortedFilteredCards.length }}</span>
+        </div>
+        <SortDropdown
+          v-model="currentSortSetting"
+          :storageKey="currentSortStorageKey"
+          @change="handleCurrentSortChange"
+        />
+      </div>
+      <CardGrid
+        :cards="sortedFilteredCards" 
+        :selectedCards="selectedCards"
+        :categoryId="activeMenu?.id"
+        :subCategoryId="activeSubMenu?.id"
+        @contextEdit="handleContextEdit"
+        @contextDelete="handleContextDelete"
+        @toggleCardSelection="handleToggleCardSelection"
+        @openMovePanel="openMovePanel"
+        @requireAuth="handleRequireAuth"
+        @click.stop
+      />
+    </div>
     
     <!-- 背景选择面板 -->
     <transition name="bg-panel">
@@ -889,6 +909,7 @@ const api = {
   post: (url, data) => axios.post(url, data, { headers: authHeaders() })
 };
 import MenuBar from '../components/MenuBar.vue';
+import SortDropdown from '../components/SortDropdown.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
 import { isDuplicateCard } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
@@ -1349,10 +1370,8 @@ async function deleteCustomEngine(engine) {
 }
 
 const filteredCards = computed(() => {
-  // 当有搜索关键词时，从所有卡片中搜索；否则只显示当前菜单的卡片
   let result = searchQuery.value ? allCards.value : cards.value;
   
-  // 先应用标签筛选（多标签：卡片需包含所有选中的标签）
   if (selectedTagIds.value.length > 0) {
     result = result.filter(card => 
       card.tags && selectedTagIds.value.every(tagId => 
@@ -1361,13 +1380,122 @@ const filteredCards = computed(() => {
     );
   }
   
-  // 再应用搜索筛选（支持拼音搜索）
   if (searchQuery.value) {
     result = filterCardsWithPinyin(result, searchQuery.value);
   }
   
   return result;
 });
+
+const groupSortSettings = ref({});
+const currentSortSetting = ref('time_desc');
+
+const currentSortStorageKey = computed(() => {
+  if (!activeMenu.value) return '';
+  return `sort_${activeMenu.value.id}_${activeSubMenu.value?.id || 'single'}`;
+});
+
+function sortCards(cardList, sortType) {
+  if (!cardList || cardList.length === 0) return [];
+  
+  const sorted = [...cardList];
+  
+  switch (sortType) {
+    case 'time_desc':
+      sorted.sort((a, b) => {
+        const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+        const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
+        return timeB - timeA;
+      });
+      break;
+    case 'time_asc':
+      sorted.sort((a, b) => {
+        const timeA = new Date(a.created_at || a.updated_at || 0).getTime();
+        const timeB = new Date(b.created_at || b.updated_at || 0).getTime();
+        return timeA - timeB;
+      });
+      break;
+    case 'freq_desc':
+      sorted.sort((a, b) => (b.click_count || 0) - (a.click_count || 0));
+      break;
+    case 'freq_asc':
+      sorted.sort((a, b) => (a.click_count || 0) - (b.click_count || 0));
+      break;
+    case 'name_asc':
+      sorted.sort((a, b) => (a.title || '').localeCompare(b.title || '', 'zh-CN'));
+      break;
+    case 'name_desc':
+      sorted.sort((a, b) => (b.title || '').localeCompare(a.title || '', 'zh-CN'));
+      break;
+    default:
+      sorted.sort((a, b) => (a.order || 0) - (b.order || 0));
+  }
+  
+  return sorted;
+}
+
+function sortAndFilterCards(cardList, subMenuId) {
+  let result = cardList;
+  
+  if (selectedTagIds.value.length > 0) {
+    result = result.filter(card => 
+      card.tags && selectedTagIds.value.every(tagId => 
+        card.tags.some(tag => tag.id === tagId)
+      )
+    );
+  }
+  
+  const groupKey = subMenuId ? `sub_${subMenuId}` : 'main';
+  const sortType = groupSortSettings.value[groupKey] || 'time_desc';
+  
+  return sortCards(result, sortType);
+}
+
+const sortedFilteredCards = computed(() => {
+  return sortCards(filteredCards.value, currentSortSetting.value);
+});
+
+function handleSortChange(groupKey, sortValue) {
+  groupSortSettings.value[groupKey] = sortValue;
+}
+
+function handleCurrentSortChange(sortValue) {
+  currentSortSetting.value = sortValue;
+}
+
+function initSortSettings() {
+  if (activeMenu.value) {
+    const mainKey = `sort_${activeMenu.value.id}_main`;
+    const savedMain = localStorage.getItem(mainKey);
+    if (savedMain) {
+      groupSortSettings.value['main'] = savedMain;
+    } else {
+      groupSortSettings.value['main'] = 'time_desc';
+    }
+    
+    const subMenus = activeMenu.value.subMenus || [];
+    subMenus.forEach(sub => {
+      const subKey = `sort_${activeMenu.value.id}_${sub.id}`;
+      const saved = localStorage.getItem(subKey);
+      const groupKey = `sub_${sub.id}`;
+      if (saved) {
+        groupSortSettings.value[groupKey] = saved;
+      } else {
+        groupSortSettings.value[groupKey] = 'time_desc';
+      }
+    });
+    
+    const singleKey = currentSortStorageKey.value;
+    if (singleKey) {
+      const savedSingle = localStorage.getItem(singleKey);
+      if (savedSingle) {
+        currentSortSetting.value = savedSingle;
+      } else {
+        currentSortSetting.value = 'time_desc';
+      }
+    }
+  }
+}
 
 // 分组显示的卡片（主菜单下的卡片 + 各子菜单下的卡片）
 const groupedCards = computed(() => {
@@ -1406,22 +1534,6 @@ const groupedCards = computed(() => {
   
   return groups;
 });
-
-// 对分组内的卡片应用筛选（标签筛选）
-function applyFilters(cardList) {
-  let result = cardList;
-  
-  // 应用标签筛选
-  if (selectedTagIds.value.length > 0) {
-    result = result.filter(card => 
-      card.tags && selectedTagIds.value.every(tagId => 
-        card.tags.some(tag => tag.id === tagId)
-      )
-    );
-  }
-  
-  return result;
-}
 
 onMounted(async () => {
   // 加载保存的背景设置
@@ -1917,24 +2029,21 @@ function closeEngineDropdown() {
 
 async function selectMenu(menu, parentMenu = null) {
   if (parentMenu) {
-    // 选择的是子菜单
     activeMenu.value = parentMenu;
     activeSubMenu.value = menu;
   } else {
-    // 选择的是主菜单
     activeMenu.value = menu;
     activeSubMenu.value = null;
   }
   
-  // 如果有数据变更标记，强制刷新
   const forceRefresh = needForceRefresh.value;
   if (forceRefresh) {
     needForceRefresh.value = false;
   }
   
   await loadCards(forceRefresh);
+  initSortSettings();
   
-  // 预加载相邻分类的卡片（后台静默执行）
   preloadAdjacentCategories();
 }
 
@@ -2811,22 +2920,24 @@ async function verifyAuthPassword() {
       action();
     }
   } catch (error) {
-    authError.value = '密码错误';
-    authLoading.value = false;
-  }
+      authError.value = '密码错误，请重新输入';
+      authPassword.value = '';
+      authLoading.value = false;
+    }
 }
 
-// 右键编辑处理
 function handleContextEdit(card) {
   requireAuth(() => handleEditCard(card));
 }
 
-// 右键删除处理
 function handleContextDelete(card) {
   requireAuth(() => handleDeleteCard(card));
 }
 
-// 批量选择操作
+function handleRequireAuth(callback) {
+  requireAuth(callback);
+}
+
 function handleToggleCardSelection(card) {
   requireAuth(() => toggleCardSelection(card));
 }
@@ -3291,26 +3402,6 @@ async function moveCardToCategory(menuId, subMenuId) {
   }
 }
 
-// 卡片重新排序处理（乐观更新 - CardGrid 已处理 API 保存）
-function handleCardsReordered(cardIds, targetMenuId, targetSubMenuId) {
-  const reorderedCards = cardIds.map(id => {
-    return cards.value.find(c => c.id === id) || allCards.value.find(c => c.id === id);
-  }).filter(Boolean);
-  
-  if (reorderedCards.length > 0) {
-    reorderedCards.forEach((card, index) => {
-      card.order = index;
-    });
-    
-    cards.value = reorderedCards;
-    
-    const cacheKey = getCardsCacheKey(targetMenuId, targetSubMenuId);
-    cardsCache.value[cacheKey] = reorderedCards;
-    saveCardsCache();
-  }
-}
-
-// 删除卡片
 const isDeletingCard = ref(false);
 
 async function handleDeleteCard(card) {
@@ -6052,6 +6143,13 @@ async function saveCardEdit() {
   padding: 0 1rem;
 }
 
+.cards-single-container {
+  width: 100%;
+  max-width: 68rem;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
 .card-group {
   margin-bottom: 2rem;
 }
@@ -6063,35 +6161,52 @@ async function saveCardEdit() {
 .card-group-header {
   display: flex;
   align-items: center;
-  gap: 10px;
+  justify-content: space-between;
   margin-bottom: 1rem;
   margin-top: 1.5rem;
-  padding-left: 0.5rem;
+  padding: 0 0.5rem;
+}
+
+.card-group-header.single-header {
+  margin-top: 2.5vh;
 }
 
 .card-group:first-child .card-group-header {
-  margin-top: 0;
+  margin-top: 2.5vh;
+}
+
+.group-header-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .group-name {
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 600;
   color: rgba(255, 255, 255, 0.95);
   text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   letter-spacing: 0.5px;
 }
 
+.group-name.main-category-name {
+  font-size: 18px;
+  font-weight: 700;
+}
+
 .group-count {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: rgba(255, 255, 255, 0.8);
   background: rgba(255, 255, 255, 0.15);
-  padding: 2px 8px;
-  border-radius: 10px;
+  padding: 3px 10px;
+  border-radius: 12px;
   backdrop-filter: blur(4px);
+  font-weight: 500;
 }
 
 @media (max-width: 768px) {
-  .cards-grouped-container {
+  .cards-grouped-container,
+  .cards-single-container {
     padding: 0 0.8rem;
   }
   
@@ -6101,6 +6216,8 @@ async function saveCardEdit() {
   
   .card-group-header {
     margin-bottom: 0.8rem;
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }
 
