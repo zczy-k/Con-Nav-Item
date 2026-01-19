@@ -28,10 +28,10 @@
         @select="selectMenu"
         @addMenu="handleAddMenu"
         @editMenu="handleEditMenu"
-        @deleteMenu="handleDeleteMenu"
+        @deleteMenu="handleDeleteMenuWithAuth"
         @addSubMenu="handleAddSubMenu"
         @editSubMenu="handleEditSubMenu"
-        @deleteSubMenu="handleDeleteSubMenu"
+        @deleteSubMenu="handleDeleteSubMenuWithAuth"
         @menusReordered="handleMenusReordered"
         @moveSubMenuUp="handleMoveSubMenuUp"
         @moveSubMenuDown="handleMoveSubMenuDown"
@@ -3246,6 +3246,14 @@ function handleAddSubMenu(parentMenu) {
 
 function handleEditSubMenu(subMenu, parentMenu) {
   requireAuth(() => openEditSubMenuModal(subMenu, parentMenu));
+}
+
+function handleDeleteMenuWithAuth(menu) {
+  requireAuth(() => handleDeleteMenu(menu));
+}
+
+function handleDeleteSubMenuWithAuth(subMenu, parentMenu) {
+  requireAuth(() => handleDeleteSubMenu(subMenu, parentMenu));
 }
 
 function openAddMenuModal() {
