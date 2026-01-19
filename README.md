@@ -1,4 +1,4 @@
-# Con-Nav-Item - 现代化个人导航站
+# Con-Nav-Item - 现代化AI导航站
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
@@ -364,3 +364,4 @@ docker exec -it Con-Nav-Item node check-password.js reset 新密码
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
+
