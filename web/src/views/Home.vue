@@ -1745,13 +1745,31 @@ onMounted(async () => {
         cachedCardsMap = cardsData || {};
         cardsCache.value = cachedCardsMap;
         
-        // 如果有首屏分类的缓存，立即显示
-        if (menus.value.length > 0) {
-          const firstMenuKey = `${menus.value[0].id}_null`;
-          if (cachedCardsMap[firstMenuKey]) {
-            cards.value = cachedCardsMap[firstMenuKey];
+          // 如果有首屏分类的缓存，立即显示（包括主菜单和所有子菜单的卡片）
+          if (menus.value.length > 0) {
+            const firstMenu = menus.value[0];
+            const allCachedCards = [];
+            
+            // 主菜单直接挂载的卡片
+            const firstMenuKey = `${firstMenu.id}_null`;
+            if (cachedCardsMap[firstMenuKey]) {
+              allCachedCards.push(...cachedCardsMap[firstMenuKey]);
+            }
+            
+            // 所有子菜单的卡片
+            if (firstMenu.subMenus && firstMenu.subMenus.length) {
+              for (const subMenu of firstMenu.subMenus) {
+                const subKey = `${firstMenu.id}_${subMenu.id}`;
+                if (cachedCardsMap[subKey]) {
+                  allCachedCards.push(...cachedCardsMap[subKey]);
+                }
+              }
+            }
+            
+            if (allCachedCards.length > 0) {
+              cards.value = allCachedCards;
+            }
           }
-        }
       }
     }
   } catch (e) {
@@ -2383,49 +2401,67 @@ async function loadCards(forceRefresh = false) {
       }
     }
     
-    // 2. 后台并行加载所有数据
-    const allPromises = [];
-    const allKeys = [];
-    
-    // 主菜单请求（直接挂在主菜单下的卡片）
-    allKeys.push(mainCacheKey);
-    allPromises.push(
-      getCards(activeMenu.value.id, null, true)
-        .then(res => res.data)
-        .catch(error => {
-          console.error('加载主菜单卡片失败:', error);
-          return cardsCache.value[mainCacheKey] || [];
-        })
-    );
-    
-    // 所有子菜单请求（并行）
-    subMenus.forEach(subMenu => {
-      const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
-      allKeys.push(subCacheKey);
+      // 2. 后台并行加载所有数据，每个请求返回后立即更新显示
+      const allPromises = [];
+      const allKeys = [];
+      const currentMenuId = activeMenu.value.id;
+      
+      // 实时更新卡片显示的函数
+      const updateCardsDisplay = () => {
+        if (activeMenu.value?.id !== currentMenuId) return;
+        const allCardsInMenu = [];
+        if (cardsCache.value[mainCacheKey]) {
+          allCardsInMenu.push(...cardsCache.value[mainCacheKey]);
+        }
+        subMenus.forEach(subMenu => {
+          const subCacheKey = getCardsCacheKey(currentMenuId, subMenu.id);
+          if (cardsCache.value[subCacheKey]) {
+            allCardsInMenu.push(...cardsCache.value[subCacheKey]);
+          }
+        });
+        if (allCardsInMenu.length > 0) {
+          cards.value = allCardsInMenu;
+        }
+      };
+      
+      // 主菜单请求（直接挂在主菜单下的卡片）
+      allKeys.push(mainCacheKey);
       allPromises.push(
-        getCards(activeMenu.value.id, subMenu.id, true)
-          .then(res => res.data)
+        getCards(activeMenu.value.id, null, true)
+          .then(res => {
+            cardsCache.value[mainCacheKey] = res.data;
+            updateCardsDisplay();
+            return res.data;
+          })
           .catch(error => {
-            console.error(`加载子菜单 ${subMenu.name} 卡片失败:`, error);
-            return cardsCache.value[subCacheKey] || [];
+            console.error('加载主菜单卡片失败:', error);
+            return cardsCache.value[mainCacheKey] || [];
           })
       );
+      
+      // 所有子菜单请求（并行），每个请求返回后立即更新显示
+      subMenus.forEach(subMenu => {
+        const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
+        allKeys.push(subCacheKey);
+        allPromises.push(
+          getCards(activeMenu.value.id, subMenu.id, true)
+            .then(res => {
+              cardsCache.value[subCacheKey] = res.data;
+              updateCardsDisplay();
+              return res.data;
+            })
+            .catch(error => {
+              console.error(`加载子菜单 ${subMenu.name} 卡片失败:`, error);
+              return cardsCache.value[subCacheKey] || [];
+            })
+      );
     });
-    
-    // 等待所有请求完成
-    const results = await Promise.all(allPromises);
-    
-    // 更新缓存并合并结果
-    const allCardsInMenu = [];
-    results.forEach((data, index) => {
-      cardsCache.value[allKeys[index]] = data;
-      allCardsInMenu.push(...data);
-    });
-    
-    cards.value = allCardsInMenu;
-    saveCardsCache();
+      
+      // 等待所有请求完成，保存缓存
+      await Promise.all(allPromises);
+      saveCardsCache();
+    }
   }
-}
 
 // 加载所有卡片用于搜索（优化版：单次请求获取所有数据）
 async function loadAllCardsForSearch() {
