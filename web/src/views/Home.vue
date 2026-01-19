@@ -3963,19 +3963,20 @@ async function saveCardEdit() {
         };
       }
       
-      // 更新 cardsCache.value（关键：同步更新缓存，避免分组显示时数据丢失）
-      for (const key of Object.keys(cardsCache.value)) {
-        const cachedCards = cardsCache.value[key];
-        const cacheIndex = cachedCards.findIndex(c => c.id === cardId);
-        if (cacheIndex > -1) {
-          cachedCards[cacheIndex] = {
-            ...cachedCards[cacheIndex],
-            ...updatedCardData
-          };
-          break;
+        // 更新 cardsCache.value（关键：使用响应式方式更新，确保 groupedCards 重新计算）
+        const newCache = { ...cardsCache.value };
+        for (const key of Object.keys(newCache)) {
+          const cachedCards = newCache[key];
+          const cacheIndex = cachedCards.findIndex(c => c.id === cardId);
+          if (cacheIndex > -1) {
+            newCache[key] = cachedCards.map((c, idx) => 
+              idx === cacheIndex ? { ...c, ...updatedCardData } : c
+            );
+            break;
+          }
         }
-      }
-      saveCardsCache();
+        cardsCache.value = newCache;
+        saveCardsCache();
       
       showToastMessage('修改成功', 'success');
       closeEditCardModal();
