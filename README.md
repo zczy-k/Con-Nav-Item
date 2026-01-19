@@ -14,17 +14,20 @@
 ## 📸 界面预览
 
 <div align="center">
-  <img width="1859" alt="首页导航界面" src="https://github.com/user-attachments/assets/819633a6-2c05-4ab0-ae37-ad928703ef50" />
+  <img width="1898" height="903" alt="image" src="https://github.com/user-attachments/assets/3b974405-312b-4cb1-9c16-5b87d45e79e5" />
   <p><i>首页导航界面</i></p>
   
-  <img width="1900" alt="后台管理界面" src="https://github.com/user-attachments/assets/7c909f50-8d9b-4287-a3be-98c9c0061b86" />
+ <img width="1907" height="905" alt="image" src="https://github.com/user-attachments/assets/b3a4bac2-f7b8-4742-8982-11a7381782cb" />
+
   <p><i>后台管理界面</i></p>
   
-  <img width="1909" alt="备份管理功能" src="https://github.com/user-attachments/assets/71067bec-66c0-46b0-a54c-27d59c121d5d" />
+  <img width="1909" height="910" alt="image" src="https://github.com/user-attachments/assets/87e50b23-9844-42a0-aa12-cbf4b523db06" />
+
   <p><i>备份管理功能</i></p>
   
-  <img width="1830" alt="前端编辑界面" src="https://github.com/user-attachments/assets/c2d01a7a-b2ef-4ce6-b3a5-838f2df64dae" />
-  <p><i>前端编辑界面</i></p>
+  <img width="1895" height="899" alt="image" src="https://github.com/user-attachments/assets/e34ab03c-fe3a-43d2-835a-775b5ceb61ed" />
+
+  <p><i>后台AI配置界面</i></p>
 </div>
 
 ## ✨ 功能特性
@@ -460,5 +463,6 @@ docker exec -it Con-Nav-Item npm run check-password reset 新密码
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
+
 
 
