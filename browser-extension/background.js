@@ -34,22 +34,28 @@ let lastDataVersion = 0;
 const DATA_SYNC_ALARM = 'nav_data_sync_check';
 const DATA_SYNC_INTERVAL_MINUTES = 1; // 1分钟定期检查（作为兜底）
 
-// 扩展安装/更新时注册右键菜单
+// 扩展安装/更新时初始化
 chrome.runtime.onInstalled.addListener(async () => {
     await registerContextMenus();
-    // 启动菜单获取重试机制
     startMenuRetryIfNeeded();
-    // 初始化数据同步轮询
     initDataSyncPolling();
+    initHotBookmarksAutoUpdate();
+    const config = await loadAutoBackupConfig();
+    if (config.enabled) {
+        initScheduledBackupTimer();
+    }
 });
 
-// 扩展启动时注册右键菜单
+// 扩展启动时初始化
 chrome.runtime.onStartup.addListener(async () => {
     await registerContextMenus();
-    // 启动菜单获取重试机制
     startMenuRetryIfNeeded();
-    // 初始化数据同步轮询
     initDataSyncPolling();
+    initHotBookmarksAutoUpdate();
+    const config = await loadAutoBackupConfig();
+    if (config.enabled) {
+        initScheduledBackupTimer();
+    }
 });
 
 // 初始化数据同步轮询（使用 chrome.alarms，即使 Service Worker 被挂起也能工作）
@@ -407,20 +413,12 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
         const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
         
         if (!config.navUrl) {
-            showNotification('请先配置', '请先在书签管理器中配置导航站地址');
-            return;
+          throw { needAuth: false, error: '请先配置导航站地址' };
         }
         
-        if (!token) {
-            showNotification('需要登录', '请在书签管理器中登录导航站');
-            let bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
-                `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
-            // 传递用户选择的分类
-            bookmarksUrl += `&menuId=${menuId}`;
-            if (subMenuId) bookmarksUrl += `&subMenuId=${subMenuId}`;
-            chrome.tabs.create({ url: bookmarksUrl });
-            return;
-        }
+      if (!token) {
+        throw { needAuth: true, error: '需要登录' };
+      }
         
         const navServerUrl = config.navUrl.replace(/\/$/, '');
         
@@ -441,17 +439,10 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
         });
         
         if (!response.ok) {
-            if (response.status === 401) {
-                await chrome.storage.local.remove(['navAuthToken']);
-                showNotification('登录已过期', '正在打开登录页面...');
-                // 打开登录页面并传递当前要添加的URL和分类
-                let bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
-                    `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
-                bookmarksUrl += `&menuId=${menuId}`;
-                if (subMenuId) bookmarksUrl += `&subMenuId=${subMenuId}`;
-                chrome.tabs.create({ url: bookmarksUrl });
-                return;
-            }
+      if (response.status === 401) {
+          await chrome.storage.local.remove(['navAuthToken']);
+          throw { needAuth: true, error: '登录已过期' };
+        }
             throw new Error('添加失败');
         }
         
@@ -460,14 +451,22 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
         // 保存为上次使用的分类
         await chrome.storage.sync.set({ lastMenuId: menuId.toString(), lastSubMenuId: subMenuId?.toString() || '' });
         
-        if (result.added > 0) {
-            showNotification('添加成功', `已添加到导航页`);
+      if (result.added > 0) {
+          showNotification('添加成功', `已添加到导航页`);
+          return { success: true, added: result.added };
         } else if (result.skipped > 0) {
-            showNotification('已跳过', '该网站已存在于导航页');
+          showNotification('已跳过', '该网站已存在于导航页');
+          return { success: true, skipped: result.skipped };
         }
-    } catch (e) {
+        
+        return { success: true };
+  } catch (e) {
         console.error('添加到分类失败:', e);
+        if (e.needAuth !== undefined) {
+          throw e;
+        }
         showNotification('添加失败', e.message);
+        throw e;
     }
 }
 
@@ -478,17 +477,11 @@ async function quickAddToNav(url, title, tabId = null) {
         const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
         
         if (!config.navUrl || !config.lastMenuId) {
-            showNotification('请先配置', '请先添加一次书签以设置默认分类');
-            chrome.tabs.create({ url: chrome.runtime.getURL('bookmarks.html') });
-            return;
+            throw { needAuth: false, error: '请先添加一次书签以设置默认分类' };
         }
         
         if (!token) {
-            showNotification('需要登录', '请在书签管理器中登录导航站');
-            const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
-                `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
-            chrome.tabs.create({ url: bookmarksUrl });
-            return;
+            throw { needAuth: true, error: '需要登录' };
         }
         
         const navServerUrl = config.navUrl.replace(/\/$/, '');
@@ -512,12 +505,7 @@ async function quickAddToNav(url, title, tabId = null) {
         if (!response.ok) {
             if (response.status === 401) {
                 await chrome.storage.local.remove(['navAuthToken']);
-                showNotification('登录已过期', '正在打开登录页面...');
-                // 打开登录页面并传递当前要添加的URL
-                const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
-                    `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
-                chrome.tabs.create({ url: bookmarksUrl });
-                return;
+                throw { needAuth: true, error: '登录已过期' };
             }
             throw new Error('添加失败');
         }
@@ -526,12 +514,19 @@ async function quickAddToNav(url, title, tabId = null) {
         
         if (result.added > 0) {
             showNotification('添加成功', `已添加 "${card.title}" 到导航页`);
+            return { success: true, added: result.added };
         } else if (result.skipped > 0) {
             showNotification('已跳过', '该网站已存在于导航页');
+            return { success: true, skipped: result.skipped };
         }
+        return { success: true };
     } catch (e) {
         console.error('快速添加失败:', e);
+        if (e.needAuth !== undefined) {
+            throw e;
+        }
         showNotification('添加失败', e.message);
+        throw e;
     }
 }
 
@@ -891,8 +886,14 @@ async function buildCardData(url, title, navServerUrl, token, tabId = null) {
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.action === 'quickAddToNav') {
         quickAddToNav(request.url, request.title)
-            .then(() => sendResponse({ success: true }))
-            .catch(e => sendResponse({ success: false, error: e.message }));
+            .then(result => sendResponse({ success: true, ...result }))
+            .catch(e => {
+                if (e.needAuth !== undefined) {
+                    sendResponse({ success: false, needAuth: e.needAuth, error: e.error });
+                } else {
+                    sendResponse({ success: false, error: e.message });
+                }
+            });
         return true;
     }
     
@@ -900,9 +901,15 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         const menuItemId = request.subMenuId 
             ? `nav_submenu_${request.menuId}_${request.subMenuId}`
             : `nav_menu_${request.menuId}`;
-        addToSpecificCategory(menuItemId, request.url, request.title || document.title)
-            .then(() => sendResponse({ success: true }))
-            .catch(e => sendResponse({ success: false, error: e.message }));
+        addToSpecificCategory(menuItemId, request.url, request.title || document.title, null)
+            .then(result => sendResponse({ success: true, ...result }))
+            .catch(e => {
+                if (e.needAuth !== undefined) {
+                    sendResponse({ success: false, needAuth: e.needAuth, error: e.error });
+                } else {
+                    sendResponse({ success: false, error: e.message });
+                }
+            });
         return true;
     }
     
@@ -973,6 +980,50 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
             const config = await chrome.storage.sync.get(['navUrl', 'lastMenuId', 'lastSubMenuId']);
             const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
             sendResponse({ ...config, hasToken: !!token });
+        })();
+        return true;
+    }
+    
+    if (request.action === 'verifyAdminPassword') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站地址' });
+                    return;
+                }
+                
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                
+                const response = await fetch(`${navServerUrl}/api/verify-password`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password: request.password })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        sendResponse({ success: false, error: data.error || '密码错误' });
+                    } else if (response.status === 429) {
+                        sendResponse({ success: false, error: data.error || '登录尝试次数过多，请稍后再试' });
+                    } else {
+                        sendResponse({ success: false, error: data.error || '验证失败，请稍后重试' });
+                    }
+                    return;
+                }
+                
+                if (data.token) {
+                    await chrome.storage.local.set({ navAuthToken: data.token });
+                    sendResponse({ success: true });
+                } else {
+                    sendResponse({ success: false, error: '验证失败' });
+                }
+            } catch (e) {
+                console.error('验证密码失败:', e);
+                sendResponse({ success: false, error: '网络错误，请检查连接' });
+            }
         })();
         return true;
     }
@@ -1183,16 +1234,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
     }
 });
 
-// 扩展启动时初始化
-chrome.runtime.onStartup.addListener(() => {
-    initHotBookmarksAutoUpdate();
-});
-
-// 扩展安装/更新时初始化
-chrome.runtime.onInstalled.addListener(() => {
-    initHotBookmarksAutoUpdate();
-});
-
 // 监听手动触发更新的消息
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     if (request.action === 'updateHotBookmarks') {
@@ -1379,7 +1420,7 @@ function getWeekNumber(date) {
     const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
     const dayNum = d.getUTCDay() || 7;
     d.setUTCDate(d.getUTCDate() + 4 - dayNum);
-    const yearStart = new Date(Date.UTC(d.get_UTC_Full_Year(), 0, 1));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
     return Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
 }
 
@@ -1448,32 +1489,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
             if (enabled) {
                 initScheduledBackupTimer();
             } else {
-                if (dailyBackupTimer) {
-                    clearInterval(dailyBackupTimer);
-                    dailyBackupTimer = null;
-                }
-                if (backupDebounceTimer) {
-                    clearTimeout(backupDebounceTimer);
-                    backupDebounceTimer = null;
-                }
+                // 使用 Chrome Alarms API，清除相关 alarm
+                chrome.alarms.clear(BACKUP_ALARM_NAME);
+                chrome.alarms.clear('dailyBackupCheck');
             }
         }
-    }
-});
-
-// 扩展启动时初始化自动备份
-chrome.runtime.onStartup.addListener(async () => {
-    const config = await loadAutoBackupConfig();
-    if (config.enabled) {
-        initScheduledBackupTimer();
-    }
-});
-
-// 扩展安装/更新时初始化
-chrome.runtime.onInstalled.addListener(async () => {
-    const config = await loadAutoBackupConfig();
-    if (config.enabled) {
-        initScheduledBackupTimer();
     }
 });
 

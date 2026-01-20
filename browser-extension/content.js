@@ -22,15 +22,6 @@
         });
     }
     
-    // 监听来自 background.js 的消息（打开快捷添加弹窗）
-    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.type === 'openQuickAddDialog') {
-            openQuickAddDialog(request.url, request.title);
-            sendResponse({ success: true });
-        }
-        return true;
-    });
-    
     // 浮动按钮只在顶层窗口显示，不在iframe中显示
     if (window !== window.top) {
         return;
@@ -658,6 +649,104 @@
                     border-top-color: #667eea;
                     margin-bottom: 10px;
                 }
+                
+                .auth-section {
+                    padding: 20px;
+                    background: linear-gradient(135deg, #f8f9ff 0%, #fff5f5 100%);
+                    border-radius: 12px;
+                    border: 1px solid #e8e8ff;
+                    margin-bottom: 16px;
+                }
+                
+                .auth-title {
+                    font-size: 14px;
+                    font-weight: 600;
+                    color: #333;
+                    margin-bottom: 4px;
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+                
+                .auth-desc {
+                    font-size: 12px;
+                    color: #666;
+                    margin-bottom: 12px;
+                }
+                
+                .auth-input-group {
+                    display: flex;
+                    gap: 8px;
+                }
+                
+                .auth-input {
+                    flex: 1;
+                    padding: 10px 12px;
+                    border: 1px solid #ddd;
+                    border-radius: 8px;
+                    font-size: 14px;
+                    outline: none;
+                    transition: all 0.2s;
+                }
+                
+                .auth-input:focus {
+                    border-color: #667eea;
+                    box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+                }
+                
+                .auth-input.error {
+                    border-color: #ef4444;
+                    background: #fef2f2;
+                }
+                
+                .auth-btn {
+                    padding: 10px 16px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border: none;
+                    border-radius: 8px;
+                    color: white;
+                    font-size: 14px;
+                    font-weight: 500;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                    white-space: nowrap;
+                }
+                
+                .auth-btn:hover {
+                    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.4);
+                }
+                
+                .auth-btn:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
+                
+                .auth-error {
+                    margin-top: 8px;
+                    padding: 8px 10px;
+                    background: #fef2f2;
+                    border: 1px solid #fecaca;
+                    border-radius: 6px;
+                    color: #dc2626;
+                    font-size: 12px;
+                    display: none;
+                }
+                
+                .auth-error.show {
+                    display: block;
+                }
+                
+                .auth-success {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 10px 12px;
+                    background: #ecfdf5;
+                    border: 1px solid #a7f3d0;
+                    border-radius: 8px;
+                    color: #059669;
+                    font-size: 13px;
+                }
             </style>
             
             <div class="overlay" id="overlay">
@@ -678,6 +767,19 @@
                                 <div class="page-title" id="pageTitle">${escapeHtml(title)}</div>
                                 <div class="page-url" id="pageUrl">${escapeHtml(url)}</div>
                             </div>
+                        </div>
+                        
+                        <div class="auth-section" id="authSection" style="display: none;">
+                            <div class="auth-title">
+                                <span>🔐</span>
+                                <span>需要验证管理密码</span>
+                            </div>
+                            <div class="auth-desc">首次使用需要输入导航站的管理密码进行验证</div>
+                            <div class="auth-input-group">
+                                <input type="password" class="auth-input" id="authPassword" placeholder="请输入管理密码" autocomplete="off">
+                                <button class="auth-btn" id="authBtn">验证</button>
+                            </div>
+                            <div class="auth-error" id="authError"></div>
                         </div>
                         
                         <div class="quick-add-section" id="quickAddSection" style="display: none;">
@@ -838,6 +940,30 @@
             quickAddToLast(url);
         });
         
+        // 密码验证相关
+        const authSection = dialogShadowRoot.getElementById('authSection');
+        const authPassword = dialogShadowRoot.getElementById('authPassword');
+        const authBtn = dialogShadowRoot.getElementById('authBtn');
+        const authError = dialogShadowRoot.getElementById('authError');
+        
+        // 验证按钮点击
+        authBtn.addEventListener('click', () => {
+            verifyAdminPassword(url, title);
+        });
+        
+        // 密码输入框回车
+        authPassword.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                verifyAdminPassword(url, title);
+            }
+        });
+        
+        // 密码输入时清除错误状态
+        authPassword.addEventListener('input', () => {
+            authPassword.classList.remove('error');
+            authError.classList.remove('show');
+        });
+        
         // 加载分类数据
         loadCategories(url, title);
     }
@@ -865,14 +991,26 @@
     let selectedSubMenuId = null;
     let lastMenuId = null;
     let lastSubMenuId = null;
+    let isAuthenticated = false;
     
     // 加载分类数据
     async function loadCategories(url, title) {
         try {
-            // 获取配置（上次选择的分类）
+            // 先检查是否已有 token
             const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
             lastMenuId = config.lastMenuId;
             lastSubMenuId = config.lastSubMenuId;
+            
+            // 检查是否有 token
+            const hasToken = config.hasToken;
+            
+            if (!hasToken) {
+                // 没有 token，显示密码输入界面
+                showAuthSection();
+                return;
+            }
+            
+            isAuthenticated = true;
             
             // 强制刷新获取最新分类
             const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
@@ -908,6 +1046,98 @@
         } catch (e) {
             console.error('加载分类失败:', e);
             showCategoryError('加载分类失败');
+        }
+    }
+    
+    // 显示密码验证区域
+    function showAuthSection() {
+        const authSection = dialogShadowRoot.getElementById('authSection');
+        const categorySection = dialogShadowRoot.querySelector('.category-section');
+        const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
+        const divider = dialogShadowRoot.getElementById('divider');
+        const moreOptions = dialogShadowRoot.querySelector('.more-options');
+        const submitBtn = dialogShadowRoot.getElementById('submitBtn');
+        const settingsLink = dialogShadowRoot.getElementById('settingsLink');
+        
+        // 显示密码输入区域
+        authSection.style.display = 'block';
+        
+        // 隐藏分类选择和其他操作
+        categorySection.style.display = 'none';
+        quickAddSection.style.display = 'none';
+        divider.style.display = 'none';
+        moreOptions.style.display = 'none';
+        submitBtn.disabled = true;
+        settingsLink.disabled = true;
+        settingsLink.classList.add('disabled');
+        
+        // 聚焦密码输入框
+        setTimeout(() => {
+            const authPassword = dialogShadowRoot.getElementById('authPassword');
+            authPassword.focus();
+        }, 100);
+    }
+    
+    // 验证管理密码
+    async function verifyAdminPassword(url, title) {
+        const authPassword = dialogShadowRoot.getElementById('authPassword');
+        const authBtn = dialogShadowRoot.getElementById('authBtn');
+        const authError = dialogShadowRoot.getElementById('authError');
+        
+        const password = authPassword.value.trim();
+        
+        if (!password) {
+            authPassword.classList.add('error');
+            authError.textContent = '请输入管理密码';
+            authError.classList.add('show');
+            authPassword.focus();
+            return;
+        }
+        
+        // 禁用按钮，显示加载状态
+        authBtn.disabled = true;
+        authBtn.innerHTML = '<span class="loading-spinner" style="width:14px;height:14px;border:2px solid rgba(255,255,255,0.3);border-top-color:white;border-radius:50%;animation:spin 0.8s linear infinite;display:inline-block;"></span>';
+        
+        try {
+            // 发送验证请求到 background
+            const response = await chrome.runtime.sendMessage({
+                action: 'verifyAdminPassword',
+                password: password
+            });
+            
+            if (response.success) {
+                // 验证成功
+                isAuthenticated = true;
+                
+                // 隐藏密码输入，显示分类选择
+                const authSection = dialogShadowRoot.getElementById('authSection');
+                const categorySection = dialogShadowRoot.querySelector('.category-section');
+                const moreOptions = dialogShadowRoot.querySelector('.more-options');
+                
+                authSection.style.display = 'none';
+                categorySection.style.display = 'block';
+                moreOptions.style.display = 'block';
+                
+                showToast('验证成功', 'success');
+                
+                // 重新加载分类
+                loadCategories(url, title);
+            } else {
+                // 验证失败
+                authPassword.classList.add('error');
+                authError.textContent = response.error || '密码错误，请重新输入';
+                authError.classList.add('show');
+                authPassword.value = '';
+                authPassword.focus();
+            }
+        } catch (e) {
+            console.error('验证密码失败:', e);
+            authError.textContent = '验证失败，请检查网络连接';
+            authError.classList.add('show');
+        } finally {
+            // 恢复按钮状态
+            authBtn.disabled = false;
+            authBtn.textContent = '验证';
         }
     }
     
@@ -1073,7 +1303,14 @@
                 showToast('添加成功', 'success');
                 setTimeout(closeQuickAddDialog, 1000);
             } else {
-                throw new Error(response?.error || '添加失败');
+                // 检查是否是认证失败
+                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401')) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('登录已过期，请重新验证', 'error');
+                } else {
+                    throw new Error(response?.error || '添加失败');
+                }
             }
         } catch (e) {
             showToast(e.message || '添加失败', 'error');
@@ -1110,7 +1347,14 @@
                 showToast('添加成功', 'success');
                 setTimeout(closeQuickAddDialog, 1000);
             } else {
-                throw new Error(response?.error || '添加失败');
+                // 检查是否是认证失败
+                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401')) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('登录已过期，请重新验证', 'error');
+                } else {
+                    throw new Error(response?.error || '添加失败');
+                }
             }
         } catch (e) {
             showToast(e.message || '添加失败', 'error');
@@ -1473,7 +1717,14 @@
                         btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke="white"/></svg>';
                     }, 2000);
                 } else {
-                    throw new Error(response?.error || '添加失败');
+                    // 检查是否需要认证
+                    if (response?.needAuth) {
+                        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14" stroke="white"/></svg>';
+                        // 打开弹窗进行认证
+                        openQuickAddDialog(window.location.href, document.title);
+                    } else {
+                        throw new Error(response?.error || '添加失败');
+                    }
                 }
             } catch (e) {
                 console.error('快速添加失败:', e);
@@ -1507,4 +1758,13 @@
     } else {
         initFloatButton();
     }
+    
+    // 监听来自 background.js 的消息（打开快捷添加弹窗）
+    chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.type === 'openQuickAddDialog') {
+            openQuickAddDialog(request.url, request.title);
+            sendResponse({ success: true });
+        }
+        return true;
+    });
 })();
