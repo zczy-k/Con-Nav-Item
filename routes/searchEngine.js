@@ -4,6 +4,7 @@ const db = require('../db');
 const authMiddleware = require('./authMiddleware');
 const axios = require('axios');
 const cheerio = require('cheerio');
+const { triggerDebouncedBackup } = require('../utils/autoBackup');
 
 // 从URL解析搜索引擎信息(不需要认证)
 router.post('/parse', async (req, res) => {
@@ -91,6 +92,7 @@ router.post('/', authMiddleware, (req, res) => {
       if (err) {
         return res.status(500).json({ error: err.message });
       }
+      triggerDebouncedBackup();
       res.json({ 
         id: this.lastID,
         name,
@@ -121,6 +123,7 @@ router.put('/:id', authMiddleware, (req, res) => {
       if (this.changes === 0) {
         return res.status(404).json({ error: '搜索引擎不存在' });
       }
+      triggerDebouncedBackup();
       res.json({ 
         id: parseInt(id),
         name,
@@ -143,6 +146,7 @@ router.delete('/:id', authMiddleware, (req, res) => {
     if (this.changes === 0) {
       return res.status(404).json({ error: '搜索引擎不存在' });
     }
+    triggerDebouncedBackup();
     res.json({ message: '删除成功' });
   });
 });
@@ -165,6 +169,7 @@ router.post('/reorder', authMiddleware, (req, res) => {
     if (err) {
       return res.status(500).json({ error: err.message });
     }
+    triggerDebouncedBackup();
     res.json({ message: '排序更新成功' });
   });
 });

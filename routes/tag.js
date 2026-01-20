@@ -2,7 +2,18 @@ const express = require('express');
 const db = require('../db');
 const auth = require('./authMiddleware');
 const { triggerDebouncedBackup } = require('../utils/autoBackup');
+const { broadcastVersionChange } = require('../utils/sseManager');
 const router = express.Router();
+
+// 辅助函数：递增版本号并广播
+async function notifyDataChange() {
+  try {
+    const newVersion = await db.incrementDataVersion();
+    broadcastVersionChange(newVersion);
+  } catch (e) {
+    console.error('通知数据变更失败:', e);
+  }
+}
 
 // 获取所有标签
 router.get('/', (req, res) => {
@@ -30,20 +41,21 @@ router.post('/', auth, (req, res) => {
     const nextOrder = (result && result.maxOrder !== null) ? result.maxOrder + 1 : 0;
     
     db.run(
-      'INSERT INTO tags (name, color, "order") VALUES (?, ?, ?)',
-      [trimmedName, tagColor, nextOrder],
-      function(err) {
-        if (err) {
-          if (err.message.includes('UNIQUE')) {
-            return res.status(400).json({ error: '标签名称已存在' });
+        'INSERT INTO tags (name, color, "order") VALUES (?, ?, ?)',
+        [trimmedName, tagColor, nextOrder],
+        async function(err) {
+          if (err) {
+            if (err.message.includes('UNIQUE')) {
+              return res.status(400).json({ error: '标签名称已存在' });
+            }
+            return res.status(500).json({ error: err.message });
           }
-          return res.status(500).json({ error: err.message });
+          
+          triggerDebouncedBackup();
+          await notifyDataChange();
+          res.json({ id: this.lastID, name: trimmedName, color: tagColor, order: nextOrder });
         }
-        
-        triggerDebouncedBackup();
-        res.json({ id: this.lastID, name: trimmedName, color: tagColor, order: nextOrder });
-      }
-    );
+      );
   });
 });
 
@@ -62,7 +74,7 @@ router.put('/:id', auth, (req, res) => {
   db.run(
     'UPDATE tags SET name=?, color=?, "order"=? WHERE id=?',
     [trimmedName, tagColor, order || 0, id],
-    function(err) {
+    async function(err) {
       if (err) {
         if (err.message.includes('UNIQUE')) {
           return res.status(400).json({ error: '标签名称已存在' });
@@ -75,6 +87,7 @@ router.put('/:id', auth, (req, res) => {
       }
       
       triggerDebouncedBackup();
+      await notifyDataChange();
       res.json({ success: true });
     }
   );
@@ -89,7 +102,7 @@ router.delete('/:id', auth, (req, res) => {
     if (err) return res.status(500).json({ error: err.message });
     
     // 删除标签
-    db.run('DELETE FROM tags WHERE id=?', [id], function(err) {
+    db.run('DELETE FROM tags WHERE id=?', [id], async function(err) {
       if (err) return res.status(500).json({ error: err.message });
       
       if (this.changes === 0) {
@@ -97,6 +110,7 @@ router.delete('/:id', auth, (req, res) => {
       }
       
       triggerDebouncedBackup();
+      await notifyDataChange();
       res.json({ success: true });
     });
   });
@@ -134,10 +148,11 @@ router.patch('/batch-order', auth, (req, res) => {
           completed++;
           
           if (completed === tags.length) {
-            db.run('COMMIT', (err) => {
+            db.run('COMMIT', async (err) => {
               if (err) return res.status(500).json({ error: err.message });
               
               triggerDebouncedBackup();
+              await notifyDataChange();
               res.json({ success: true, updated: completed });
             });
           }
