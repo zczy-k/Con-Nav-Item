@@ -3336,6 +3336,9 @@ async function saveMenuModal() {
       saveCardsCache();
     }
     
+    // 通知浏览器扩展刷新右键菜单
+    notifyExtensionRefreshMenus();
+    
     showMenuModal.value = false;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -3346,6 +3349,16 @@ async function saveMenuModal() {
     }
   } finally {
     menuModalLoading.value = false;
+  }
+}
+
+// 通知浏览器扩展刷新右键菜单分类
+function notifyExtensionRefreshMenus() {
+  try {
+    if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+      chrome.runtime.sendMessage({ action: 'refreshMenus' }).catch(() => {});
+    }
+  } catch (e) {
   }
 }
 
@@ -3362,6 +3375,9 @@ async function handleDeleteMenu(menu) {
     await deleteMenu(menu.id);
     const menusRes = await getMenus(true);
     menus.value = menusRes.data;
+    
+    // 通知浏览器扩展刷新右键菜单
+    notifyExtensionRefreshMenus();
     
     // 如果删除的是当前选中的菜单，切换到第一个
     if (activeMenu.value?.id === menu.id) {
@@ -3386,6 +3402,9 @@ async function handleDeleteSubMenu(subMenu, parentMenu) {
     await deleteSubMenu(subMenu.id);
     const menusRes = await getMenus(true);
     menus.value = menusRes.data;
+    
+    // 通知浏览器扩展刷新右键菜单
+    notifyExtensionRefreshMenus();
     
     // 如果删除的是当前选中的子菜单，切换到父菜单
     if (activeSubMenu.value?.id === subMenu.id) {
