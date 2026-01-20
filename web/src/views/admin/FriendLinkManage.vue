@@ -26,11 +26,18 @@
 <script setup>
 import { ref, onMounted } from 'vue';
 import { getFriends, addFriend as apiAddFriend, updateFriend as apiUpdateFriend, deleteFriend as apiDeleteFriend } from '../../api';
+import { useDataSync } from '../../composables/useDataSync';
 
 const friends = ref([]);
 const newTitle = ref('');
 const newUrl = ref('');
 const newLogo = ref('');
+
+useDataSync('FriendLinkManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadFriends();
+  }
+});
 
 onMounted(loadFriends);
 

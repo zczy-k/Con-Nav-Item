@@ -79,6 +79,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import axios from 'axios';
+import { useDataSync } from '../../composables/useDataSync';
 
 const BASE = '/api';
 const getToken = () => localStorage.getItem('token') || '';
@@ -91,6 +92,12 @@ const form = ref({ img: '', url: '', position: 'left' });
 
 const leftPromos = computed(() => allPromos.value.filter(item => item.position === 'left'));
 const rightPromos = computed(() => allPromos.value.filter(item => item.position === 'right'));
+
+useDataSync('PromoManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadPromos();
+  }
+});
 
 onMounted(() => {
   loadPromos();

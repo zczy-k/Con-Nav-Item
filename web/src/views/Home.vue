@@ -2030,7 +2030,8 @@ function connectSSE() {
   }
   
   try {
-    sseConnection = new EventSource('/api/sse/data-sync');
+    const clientId = getClientId();
+    sseConnection = new EventSource(`/api/sse/data-sync?clientId=${clientId}`);
     
     sseConnection.onmessage = (event) => {
       try {

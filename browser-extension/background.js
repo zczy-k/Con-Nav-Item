@@ -9,6 +9,26 @@ let isLoadingMenus = false; // 防止并发请求
 let menuRetryTimer = null; // 菜单获取重试定时器
 const MENU_RETRY_INTERVAL = 30 * 1000; // 30秒重试间隔
 
+// 强制刷新限频机制（每分钟最多15次）
+let forceRefreshCount = 0;
+let forceRefreshResetTime = 0;
+const FORCE_REFRESH_LIMIT = 15;
+const FORCE_REFRESH_WINDOW = 60 * 1000; // 1分钟
+
+function canForceRefresh() {
+    const now = Date.now();
+    if (now - forceRefreshResetTime > FORCE_REFRESH_WINDOW) {
+        forceRefreshCount = 0;
+        forceRefreshResetTime = now;
+    }
+    if (forceRefreshCount >= FORCE_REFRESH_LIMIT) {
+        console.log('[导航站扩展] 强制刷新已达上限，使用缓存');
+        return false;
+    }
+    forceRefreshCount++;
+    return true;
+}
+
 // 数据同步相关（混合策略：Alarms 定期轮询 + 用户交互时立即检查）
 let lastDataVersion = 0;
 const DATA_SYNC_ALARM = 'nav_data_sync_check';
@@ -127,39 +147,15 @@ function startMenuRetryIfNeeded() {
     }, MENU_RETRY_INTERVAL);
 }
 
-// 注册基础右键菜单
+// 注册基础右键菜单（简化为单入口，点击后打开快速添加弹窗）
 async function registerContextMenus() {
     try {
         await chrome.contextMenus.removeAll();
         
-        // 快速添加（使用上次分类）
+        // 只保留一个入口，点击后打开快速添加弹窗
         chrome.contextMenus.create({
-            id: 'nav_quick_add',
-            title: '⚡ 快速添加到导航页',
-            contexts: ['page', 'link']
-        });
-        
-        // 分类子菜单父项
-        chrome.contextMenus.create({
-            id: 'nav_category_parent',
-            title: '📂 添加到分类...',
-            contexts: ['page', 'link']
-        });
-        
-        // 加载分类子菜单
-        await loadAndCreateCategoryMenus();
-        
-        // 分隔线
-        chrome.contextMenus.create({
-            id: 'nav_separator',
-            type: 'separator',
-            contexts: ['page', 'link']
-        });
-        
-        // 选择分类添加（打开完整界面）
-        chrome.contextMenus.create({
-            id: 'nav_add_with_dialog',
-            title: '🚀 更多选项...',
+            id: 'nav_quick_dialog',
+            title: '🚀 导航站 - 新标签页',
             contexts: ['page', 'link']
         });
         
@@ -336,7 +332,7 @@ async function refreshCategoryMenus() {
     }
 }
 
-// 处理右键菜单点击
+// 处理右键菜单点击（打开快速添加弹窗）
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     try {
         let url = info.linkUrl || tab?.url || info.pageUrl;
@@ -355,23 +351,35 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             return;
         }
         
-        // 快速添加（使用上次分类）
-        if (info.menuItemId === 'nav_quick_add') {
-            await quickAddToNav(url, title, tabId);
-            return;
-        }
-        
-        // 打开完整界面
-        if (info.menuItemId === 'nav_add_with_dialog') {
-            const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
-                `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
-            chrome.tabs.create({ url: bookmarksUrl });
-            return;
-        }
-        
-        // 添加到指定分类
-        if (info.menuItemId.startsWith('nav_menu_') || info.menuItemId.startsWith('nav_submenu_')) {
-            await addToSpecificCategory(info.menuItemId, url, title, tabId);
+        // 打开快速添加弹窗
+        if (info.menuItemId === 'nav_quick_dialog') {
+            // 先尝试注入 content script（如果尚未注入）
+            try {
+                await chrome.scripting.executeScript({
+                    target: { tabId },
+                    files: ['content.js']
+                });
+            } catch (e) {
+                // 注入失败（可能已注入或页面不支持），忽略
+            }
+            
+            // 稍等一下确保 content script 已加载
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // 发送消息给 content script 打开弹窗
+            try {
+                await chrome.tabs.sendMessage(tabId, {
+                    type: 'openQuickAddDialog',
+                    url: url,
+                    title: title
+                });
+            } catch (e) {
+                // content script 可能未加载，打开备用页面
+                console.warn('无法打开弹窗，使用备用方式:', e.message);
+                const bookmarksUrl = chrome.runtime.getURL('bookmarks.html') + 
+                    `?addToNav=true&url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}`;
+                chrome.tabs.create({ url: bookmarksUrl });
+            }
             return;
         }
     } catch (e) {
@@ -889,7 +897,10 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
     
     if (request.action === 'addToCategory') {
-        addToSpecificCategory(`nav_menu_${request.menuId}`, request.url, request.title)
+        const menuItemId = request.subMenuId 
+            ? `nav_submenu_${request.menuId}_${request.subMenuId}`
+            : `nav_menu_${request.menuId}`;
+        addToSpecificCategory(menuItemId, request.url, request.title || document.title)
             .then(() => sendResponse({ success: true }))
             .catch(e => sendResponse({ success: false, error: e.message }));
         return true;
@@ -906,14 +917,17 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 
                 const navServerUrl = config.navUrl.replace(/\/$/, '');
                 
+                // 强制刷新时检查限频
+                const shouldForceRefresh = request.forceRefresh && canForceRefresh();
+                
                 // 如果缓存有效且不是强制刷新，使用缓存
-                if (!request.forceRefresh && cachedMenus.length > 0 && Date.now() - lastMenuFetchTime < MENU_CACHE_MS) {
-                    sendResponse({ success: true, menus: cachedMenus });
+                if (!shouldForceRefresh && cachedMenus.length > 0 && Date.now() - lastMenuFetchTime < MENU_CACHE_MS) {
+                    sendResponse({ success: true, menus: cachedMenus, fromCache: true });
                     return;
                 }
                 
                 // 强制刷新时清空缓存
-                if (request.forceRefresh) {
+                if (shouldForceRefresh) {
                     cachedMenus = [];
                     lastMenuFetchTime = 0;
                 }

@@ -18,7 +18,7 @@
         }
         
         .container {
-            max-width: 600px;
+            max-width: 500px;
             margin: 0 auto;
             background: white;
             border-radius: 12px;
@@ -42,13 +42,6 @@
             margin-bottom: 24px;
         }
         
-        label {
-            display: block;
-            color: #333;
-            font-weight: 500;
-            margin-bottom: 8px;
-        }
-        
         input {
             width: 100%;
             padding: 12px 14px;
@@ -61,6 +54,15 @@
         input:focus {
             outline: none;
             border-color: #667eea;
+        }
+        
+        .input-with-button {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .input-with-button input {
+            flex: 1;
         }
         
         .button-group {
@@ -95,6 +97,17 @@
         
         .btn-secondary:hover {
             background: #e5e7eb;
+        }
+        
+        .btn-test {
+            background: #f0f9ff;
+            color: #0369a1;
+            border: 1px solid #bae6fd;
+            white-space: nowrap;
+        }
+        
+        .btn-test:hover {
+            background: #e0f2fe;
         }
         
         .message {
@@ -146,6 +159,55 @@
             font-size: 13px;
             color: #667eea;
         }
+        
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .connection-status {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: auto;
+        }
+        
+        .connection-status.connected {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .connection-status.disconnected {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        
+        .connection-status.unknown {
+            background: #f3f4f6;
+            color: #6b7280;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #e5e7eb;
+            border-top-color: #667eea;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
     </style>
 </head>
 <body>
@@ -155,14 +217,22 @@
         
         <div class="message" id="message"></div>
         
+        <!-- 导航站地址设置 -->
+        <div class="section-title">
+            导航站地址
+            <span class="connection-status unknown" id="connectionStatus">未测试</span>
+        </div>
+        
         <div class="form-group">
-            <label for="navUrl">导航站地址</label>
-            <input 
-                type="url" 
-                id="navUrl" 
-                placeholder="https://your-domain.com"
-                autocomplete="off"
-            />
+            <div class="input-with-button">
+                <input 
+                    type="url" 
+                    id="navUrl" 
+                    placeholder="https://your-domain.com"
+                    autocomplete="off"
+                />
+                <button class="btn-test" id="testBtn">测试连接</button>
+            </div>
             <div class="current-url" id="currentUrl" style="display: none;">
                 当前地址：<span id="currentUrlText"></span>
             </div>
@@ -176,6 +246,7 @@
         <div class="info-box">
             <h3>💡 使用提示</h3>
             <p>• 输入你的导航站完整地址（包含 http:// 或 https://）</p>
+            <p>• 点击"测试连接"验证地址是否有效</p>
             <p>• 设置后，每次打开新标签页都会自动跳转到该地址</p>
             <p>• 你可以随时在这里修改地址</p>
         </div>

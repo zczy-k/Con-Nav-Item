@@ -151,6 +151,8 @@ app.get('/api/data-version', async (req, res) => {
 
 // SSE端点 - 实时推送数据版本变更
 app.get('/api/sse/data-sync', async (req, res) => {
+    const clientId = req.query.clientId || null;
+    
     // 设置SSE响应头
     res.set({
       'Content-Type': 'text/event-stream',
@@ -160,13 +162,16 @@ app.get('/api/sse/data-sync', async (req, res) => {
     });
     res.flushHeaders(); // 立即发送响应头
     
+    // 保存 clientId 到响应对象，用于广播时识别
+    res.clientId = clientId;
+    
     // 发送初始版本号
     try {
       const version = await db.getDataVersion();
-      res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'connected', version, clientId })}\n\n`);
       if (res.flush) res.flush();
     } catch (e) {
-      res.write(`data: ${JSON.stringify({ type: 'connected', version: 1 })}\n\n`);
+      res.write(`data: ${JSON.stringify({ type: 'connected', version: 1, clientId })}\n\n`);
       if (res.flush) res.flush();
     }
     

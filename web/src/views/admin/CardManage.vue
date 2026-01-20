@@ -209,6 +209,7 @@ import {
   getTags
 } from '../../api';
 import { isDuplicateCard } from '../../utils/urlNormalizer';
+import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
 const cards = ref([]);
@@ -252,6 +253,13 @@ watch(selectedMenuId, () => {
 });
 
 watch(selectedSubMenuId, loadCards);
+
+useDataSync('CardManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadMenus();
+    loadCards();
+  }
+});
 
 function onMenuChange() {
   selectedSubMenuId.value = '';

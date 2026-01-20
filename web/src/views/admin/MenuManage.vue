@@ -157,6 +157,7 @@ import {
   updateSubMenu as apiUpdateSubMenu,
   deleteSubMenu as apiDeleteSubMenu
 } from '../../api';
+import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
 const loading = ref(false);
@@ -178,6 +179,12 @@ const subMenuForm = ref({ name: '', order: 0 });
 const showEditSubModal = ref(false);
 const editingSubMenu = ref(null);
 const editSubForm = ref({ name: '', order: 0 });
+
+useDataSync('MenuManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadMenus(false);
+  }
+});
 
 onMounted(() => {
   loadMenus();

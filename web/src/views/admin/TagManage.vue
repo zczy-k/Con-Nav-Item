@@ -74,10 +74,17 @@ import {
   deleteTag as apiDeleteTag,
   getTagCardCount
 } from '../../api';
+import { useDataSync } from '../../composables/useDataSync';
 
 const tags = ref([]);
 const newTagName = ref('');
 const newTagColor = ref('#2566d8');
+
+useDataSync('TagManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadTags();
+  }
+});
 
 onMounted(loadTags);
 
