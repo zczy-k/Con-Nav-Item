@@ -151,38 +151,52 @@ app.get('/api/data-version', async (req, res) => {
 
 // SSE端点 - 实时推送数据版本变更
 app.get('/api/sse/data-sync', async (req, res) => {
-  // 设置SSE响应头
-  res.set({
-    'Content-Type': 'text/event-stream',
-    'Cache-Control': 'no-cache',
-    'Connection': 'keep-alive',
-    'X-Accel-Buffering': 'no' // 禁用nginx缓冲
+    // 设置SSE响应头
+    res.set({
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'X-Accel-Buffering': 'no' // 禁用nginx缓冲
+    });
+    res.flushHeaders(); // 立即发送响应头
+    
+    // 发送初始版本号
+    try {
+      const version = await db.getDataVersion();
+      res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`);
+      if (res.flush) res.flush();
+    } catch (e) {
+      res.write(`data: ${JSON.stringify({ type: 'connected', version: 1 })}\n\n`);
+      if (res.flush) res.flush();
+    }
+    
+    // 添加到客户端列表
+    addClient(res);
+    
+    // 保持连接（心跳）
+    const heartbeat = setInterval(() => {
+      res.write(': heartbeat\n\n');
+      if (res.flush) res.flush();
+    }, 30000);
+    
+    // 清理
+    req.on('close', () => {
+      clearInterval(heartbeat);
+    });
   });
-  res.flushHeaders(); // 立即发送响应头
+
+// 版本查询API（供扩展轮询使用，非SSE）
+app.get('/api/sse/version', async (req, res) => {
+  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   
-  // 发送初始版本号
   try {
     const version = await db.getDataVersion();
-    res.write(`data: ${JSON.stringify({ type: 'connected', version })}\n\n`);
-    if (res.flush) res.flush();
+    res.json({ version });
   } catch (e) {
-    res.write(`data: ${JSON.stringify({ type: 'connected', version: 1 })}\n\n`);
-    if (res.flush) res.flush();
+    res.json({ version: 1 });
   }
-  
-  // 添加到客户端列表
-  addClient(res);
-  
-  // 保持连接（心跳）
-  const heartbeat = setInterval(() => {
-    res.write(': heartbeat\n\n');
-    if (res.flush) res.flush();
-  }, 30000);
-  
-  // 清理
-  req.on('close', () => {
-    clearInterval(heartbeat);
-  });
 });
 
 // 启动定时备份任务

@@ -9,18 +9,18 @@ let isLoadingMenus = false; // 防止并发请求
 let menuRetryTimer = null; // 菜单获取重试定时器
 const MENU_RETRY_INTERVAL = 30 * 1000; // 30秒重试间隔
 
-// SSE 同步相关
-let sseConnection = null;
-let sseReconnectTimer = null;
-let lastSseVersion = 0;
+// 数据同步相关（混合策略：Alarms 定期轮询 + 用户交互时立即检查）
+let lastDataVersion = 0;
+const DATA_SYNC_ALARM = 'nav_data_sync_check';
+const DATA_SYNC_INTERVAL_MINUTES = 1; // 1分钟定期检查（作为兜底）
 
 // 扩展安装/更新时注册右键菜单
 chrome.runtime.onInstalled.addListener(async () => {
     await registerContextMenus();
     // 启动菜单获取重试机制
     startMenuRetryIfNeeded();
-    // 初始化 SSE 连接
-    initSseConnection();
+    // 初始化数据同步轮询
+    initDataSyncPolling();
 });
 
 // 扩展启动时注册右键菜单
@@ -28,63 +28,77 @@ chrome.runtime.onStartup.addListener(async () => {
     await registerContextMenus();
     // 启动菜单获取重试机制
     startMenuRetryIfNeeded();
-    // 初始化 SSE 连接
-    initSseConnection();
+    // 初始化数据同步轮询
+    initDataSyncPolling();
 });
 
-// 初始化 SSE 连接实现实时同步
-async function initSseConnection() {
-    if (sseConnection) {
-        sseConnection.close();
-        sseConnection = null;
+// 初始化数据同步轮询（使用 chrome.alarms，即使 Service Worker 被挂起也能工作）
+async function initDataSyncPolling() {
+    try {
+        // 清除旧的 alarm
+        await chrome.alarms.clear(DATA_SYNC_ALARM);
+        
+        // 创建新的定期 alarm（作为兜底机制）
+        chrome.alarms.create(DATA_SYNC_ALARM, {
+            delayInMinutes: 0.1, // 6秒后首次检查
+            periodInMinutes: DATA_SYNC_INTERVAL_MINUTES // 每1分钟检查一次
+        });
+        
+        console.log('[导航站扩展] 已启动数据同步轮询（每1分钟检查一次）');
+    } catch (e) {
+        console.error('[导航站扩展] 初始化数据同步失败:', e);
     }
+}
 
+// 当用户展示右键菜单时，立即检查版本更新（关键：用户交互时触发）
+chrome.contextMenus.onShown?.addListener(async (info, tab) => {
+    await checkDataVersionAndSync();
+});
+
+// 监听 alarm 事件
+chrome.alarms.onAlarm.addListener(async (alarm) => {
+    if (alarm.name === DATA_SYNC_ALARM) {
+        await checkDataVersionAndSync();
+    }
+});
+
+// 检查数据版本并同步
+async function checkDataVersionAndSync(forceRefresh = false) {
     try {
         const config = await chrome.storage.sync.get(['navUrl']);
-        if (!config.navUrl) return;
+        if (!config.navUrl) return false;
 
         const navServerUrl = config.navUrl.replace(/\/$/, '');
-        const sseUrl = `${navServerUrl}/api/sse/data-sync`;
-
-        console.log('[导航站扩展] 正在建立 SSE 连接:', sseUrl);
-        sseConnection = new EventSource(sseUrl);
-
-        sseConnection.onmessage = (event) => {
-            try {
-                const data = JSON.parse(event.data);
-                console.log('[导航站扩展] 收到 SSE 消息:', data);
-
-                if (data.type === 'connected' || data.type === 'version_change') {
-                    const newVersion = data.version;
-                    
-                    // 如果版本号发生变化，且不是刚刚连接时的初始版本同步
-                    if (newVersion !== lastSseVersion) {
-                        console.log(`[导航站扩展] 数据版本变更: ${lastSseVersion} -> ${newVersion}，正在刷新菜单...`);
-                        lastSseVersion = newVersion;
-                        
-                        // 触发菜单刷新
-                        refreshCategoryMenus();
-                    }
-                }
-            } catch (e) {
-                // 忽略解析错误（可能是心跳）
-            }
-        };
-
-        sseConnection.onerror = () => {
-            console.warn('[导航站扩展] SSE 连接断开，准备重连...');
-            if (sseConnection) {
-                sseConnection.close();
-                sseConnection = null;
-            }
-            
-            // 5秒后尝试重连
-            if (sseReconnectTimer) clearTimeout(sseReconnectTimer);
-            sseReconnectTimer = setTimeout(initSseConnection, 5000);
-        };
-
+        
+        // 获取当前版本号
+        const response = await fetch(`${navServerUrl}/api/sse/version?_t=${Date.now()}`, {
+            cache: 'no-store'
+        });
+        
+        if (!response.ok) return false;
+        
+        const data = await response.json();
+        const newVersion = data.version;
+        
+        // 首次获取版本号时只记录，不刷新
+        if (lastDataVersion === 0) {
+            lastDataVersion = newVersion;
+            console.log('[导航站扩展] 初始数据版本:', newVersion);
+            return false;
+        }
+        
+        // 版本号变化，触发刷新
+        if (newVersion !== lastDataVersion || forceRefresh) {
+            console.log(`[导航站扩展] 数据版本变更: ${lastDataVersion} -> ${newVersion}，正在刷新菜单...`);
+            lastDataVersion = newVersion;
+            await refreshCategoryMenus();
+            return true;
+        }
+        return false;
     } catch (e) {
-        console.error('[导航站扩展] 初始化 SSE 失败:', e);
+        // 网络错误时静默失败，等待下次轮询
+        console.debug('[导航站扩展] 检查版本失败:', e.message);
+        return false;
     }
 }
 
@@ -1147,9 +1161,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
     // 监听导航站地址变化，自动刷新右键菜单分类
     if (area === 'sync' && changes.navUrl) {
         console.log('[导航站扩展] 检测到导航站地址变化，正在刷新右键菜单...');
+        // 重置版本号，强制下次检查时刷新
+        lastDataVersion = 0;
         refreshCategoryMenus();
-        // 重新初始化 SSE
-        initSseConnection();
+        // 重新初始化数据同步轮询
+        initDataSyncPolling();
     }
 });
 
