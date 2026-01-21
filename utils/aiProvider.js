@@ -171,24 +171,36 @@ function extractContentFromResponse(data) {
     throw new Error(`API 返回错误: ${apiError}`);
   }
 
+  // 1. 标准 OpenAI 格式
   const choice = data.choices?.[0];
-  const candidate = data.candidates?.[0];
-  
   if (choice?.message?.content) return choice.message.content;
   if (choice?.message?.reasoning_content) return choice.message.reasoning_content;
   if (choice?.text) return choice.text;
   if (choice?.delta?.content) return choice.delta.content;
-  if (candidate?.content?.parts?.[0]?.text) return candidate.content.parts[0].text;
-  if (data.content) return data.content;
-  if (data.result) return data.result;
-  if (typeof data === 'string') return data;
 
-  const possibleFields = ['response', 'output', 'text', 'message'];
-  for (const field of possibleFields) {
-    if (data[field] && typeof data[field] === 'string') {
-      return data[field];
-    }
+  // 2. Google Gemini 格式
+  const candidate = data.candidates?.[0];
+  if (candidate?.content?.parts?.[0]?.text) return candidate.content.parts[0].text;
+  
+  // 3. 通用顶层字段
+  if (data.content && typeof data.content === 'string') return data.content;
+  if (data.result && typeof data.result === 'string') return data.result;
+  if (data.response && typeof data.response === 'string') return data.response;
+  if (data.output && typeof data.output === 'string') return data.output;
+  if (data.text && typeof data.text === 'string') return data.text;
+
+  // 4. 处理嵌套对象
+  if (data.message) {
+    if (typeof data.message === 'string') return data.message;
+    if (data.message.content && typeof data.message.content === 'string') return data.message.content;
   }
+  
+  if (data.result && typeof data.result === 'object') {
+    if (data.result.content && typeof data.result.content === 'string') return data.result.content;
+    if (data.result.response && typeof data.result.response === 'string') return data.result.response;
+  }
+
+  if (typeof data === 'string') return data;
 
   if (choice?.message?.refusal) {
     throw new Error(`AI 拒绝回答: ${choice.message.refusal}`);
@@ -329,16 +341,18 @@ async function callOpenAICompatible(config, messages) {
 
       const contentType = response.headers.get('content-type') || '';
       let content = '';
+      let rawDataForError = '无数据';
 
       if (contentType.includes('text/event-stream') || contentType.includes('stream')) {
         content = await parseStreamResponse(response);
       } else {
         const data = await response.json();
+        rawDataForError = JSON.stringify(data).substring(0, 100);
         content = extractContentFromResponse(data);
       }
 
       if (content === undefined || content === null || content === '') {
-        throw new Error(`API 返回内容为空，请检查模型名称或 API 状态`);
+        throw new Error(`API 返回内容为空，请检查模型名称或 API 状态。返回预览: ${rawDataForError}`);
       }
 
       return content;
