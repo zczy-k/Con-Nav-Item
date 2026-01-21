@@ -1647,18 +1647,19 @@ router.post('/test', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: validation.message });
     }
     
-    // 3. 执行测试请求 (不使用 system 角色，某些 API 不支持)
-      const messages = [
-        { role: 'user', content: 'Connection test. Please respond with only the word "OK".' }
-      ];
+    // 3. 执行测试请求
+    const messages = [
+      { role: 'system', content: 'You are a helpful assistant. Response with "OK" only.' }, 
+      { role: 'user', content: 'Connection test. Respond with OK.' }
+    ];
     
     const startTime = Date.now();
     const aiResponse = await callAI(config, messages);
     const responseTime = Date.now() - startTime;
 
-      if (!aiResponse && aiResponse !== '') {
-        throw new Error('AI 未返回任何内容，请检查 API Key 和模型配置是否正确');
-      }
+    if (!aiResponse) {
+      throw new Error('AI 未返回任何内容');
+    }
 
     // 测试成功，持久化状态
     await db.saveAIConfig({ lastTestedOk: 'true' });
