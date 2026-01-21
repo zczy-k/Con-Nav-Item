@@ -564,8 +564,8 @@
     </footer>
 
     <!-- 权限验证弹窗 -->
-    <div v-if="showPasswordModal" class="modal-overlay auth-modal-overlay" @click="closePasswordModal">
-      <div class="modal-content" @click.stop>
+    <div v-if="showPasswordModal" class="modal-overlay auth-modal-overlay" @click="closePasswordModal" @keydown.esc="closePasswordModal">
+      <div class="modal-content auth-modal-content" @click.stop>
         <div class="modal-header">
           <h3>验证密码</h3>
           <button @click="closePasswordModal" class="close-btn">
@@ -575,25 +575,56 @@
           </button>
         </div>
         <div class="modal-body">
-          <p style="margin-bottom: 15px;">请输入管理员密码以继续：</p>
-          <input 
-            v-model="authPassword" 
-            type="password" 
-            placeholder="请输入管理员密码"
-            class="batch-input"
-            @keyup.enter="verifyAuthPassword"
-            style="width: 100%;"
-          />
-          <div class="remember-password-wrapper">
-            <label>
-              <input type="checkbox" v-model="rememberAuthPassword" />
-              <span>记住密码（30天）</span>
-            </label>
+          <p style="margin-bottom: 15px; color: #666;">请输入管理员密码以继续操作</p>
+          <div class="password-input-wrapper">
+            <input 
+              ref="authPasswordInput"
+              v-model="authPassword" 
+              :type="showAuthPasswordText ? 'text' : 'password'" 
+              placeholder="请输入管理员密码"
+              class="batch-input password-input"
+              :class="{ 'shake': authShake }"
+              @keyup.enter="verifyAuthPassword"
+            />
+            <button 
+              type="button" 
+              class="password-toggle-btn" 
+              @click="showAuthPasswordText = !showAuthPasswordText"
+              :title="showAuthPasswordText ? '隐藏密码' : '显示密码'"
+            >
+              <svg v-if="showAuthPasswordText" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path>
+                <line x1="1" y1="1" x2="23" y2="23"></line>
+              </svg>
+              <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
+              </svg>
+            </button>
           </div>
-          <p v-if="authError" class="batch-error">{{ authError }}</p>
+          <div class="remember-password-wrapper enhanced">
+            <label class="remember-checkbox">
+              <input type="checkbox" v-model="rememberAuthPassword" @change="onRememberChange" />
+              <span class="checkbox-label">记住验证</span>
+            </label>
+            <select 
+              v-if="rememberAuthPassword" 
+              v-model="rememberDuration" 
+              class="remember-duration-select"
+            >
+              <option value="session">仅本次会话</option>
+              <option value="1day">1天</option>
+              <option value="7days">7天</option>
+              <option value="30days">30天</option>
+            </select>
+          </div>
+          <transition name="error-fade">
+            <p v-if="authError" class="batch-error auth-error">{{ authError }}</p>
+          </transition>
           <div class="batch-actions" style="margin-top: 20px;">
             <button @click="closePasswordModal" class="btn btn-cancel">取消</button>
-            <button @click="verifyAuthPassword" class="btn btn-primary" :disabled="authLoading">
+            <button @click="verifyAuthPassword" class="btn btn-primary" :disabled="authLoading || !authPassword">
+              <span v-if="authLoading" class="btn-loading"></span>
               {{ authLoading ? '验证中...' : '确认' }}
             </button>
           </div>
@@ -942,7 +973,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, defineAsyncComponent, onUnmounted } from 'vue';
+import { ref, onMounted, computed, defineAsyncComponent, onUnmounted, nextTick } from 'vue';
 import { getMenus, getCards, getAllCards, getPromos, getFriends, verifyPassword, verifyToken, batchParseUrls, batchAddCards, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags, getDataVersion, addMenu, updateMenu, deleteMenu, addSubMenu, updateSubMenu, deleteSubMenu, getClientId } from '../api';
 import axios from 'axios';
 
@@ -1079,8 +1110,20 @@ const showPasswordModal = ref(false);
 const authPassword = ref('');
 const authLoading = ref(false);
 const authError = ref('');
+const authShake = ref(false);
 const rememberAuthPassword = ref(false);
+const rememberDuration = ref('7days');
+const showAuthPasswordText = ref(false);
+const authPasswordInput = ref(null);
 const pendingAction = ref(null); // 待执行的操作回调
+
+// 记住时长配置
+const REMEMBER_DURATIONS = {
+  'session': 0,
+  '1day': 24 * 60 * 60 * 1000,
+  '7days': 7 * 24 * 60 * 60 * 1000,
+  '30days': 30 * 24 * 60 * 60 * 1000
+};
 
 // AI 生成相关状态
 const aiGenerating = ref(false);
@@ -1933,7 +1976,25 @@ onMounted(async () => {
   
   document.addEventListener('click', closeEngineDropdown);
   document.addEventListener('click', closeSortMenu);
+  document.addEventListener('keydown', handleGlobalKeydown);
 });
+
+// 全局键盘事件处理（ESC关闭弹窗）
+function handleGlobalKeydown(e) {
+  if (e.key === 'Escape') {
+    if (showPasswordModal.value) {
+      closePasswordModal();
+    } else if (showBatchAddModal.value) {
+      closeBatchAdd();
+    } else if (showEditCardModal.value) {
+      closeEditCardModal();
+    } else if (showMenuModal.value) {
+      showMenuModal.value = false;
+    } else if (showAddEngineModal.value) {
+      closeAddEngineModal();
+    }
+  }
+}
 
 function closeSortMenu() {
   showGlobalSortMenu.value = false;
@@ -2083,6 +2144,7 @@ connectSSE();
 onUnmounted(() => {
   document.removeEventListener('click', closeEngineDropdown);
   document.removeEventListener('visibilitychange', handleVisibilityChange);
+  document.removeEventListener('keydown', handleGlobalKeydown);
   
   // 清理SSE连接
   if (sseConnection) {
@@ -3092,19 +3154,49 @@ function showAuthModal(action) {
   showPasswordModal.value = true;
   authPassword.value = '';
   authError.value = '';
+  authShake.value = false;
+  showAuthPasswordText.value = false;
+  
+  // 恢复上次保存的记住设置
+  const savedDuration = localStorage.getItem('nav_remember_duration');
+  if (savedDuration && REMEMBER_DURATIONS.hasOwnProperty(savedDuration)) {
+    rememberDuration.value = savedDuration;
+    rememberAuthPassword.value = savedDuration !== 'session';
+  }
   
   const savedData = localStorage.getItem('nav_password_token');
   if (savedData) {
     try {
-      const { password, expiry } = JSON.parse(savedData);
+      const { password, expiry, duration } = JSON.parse(savedData);
       if (Date.now() < expiry) {
         authPassword.value = password;
         rememberAuthPassword.value = true;
+        if (duration) {
+          rememberDuration.value = duration;
+        }
       }
     } catch (e) {
       // ignore
     }
   }
+  
+  // 自动聚焦密码输入框
+  nextTick(() => {
+    authPasswordInput.value?.focus();
+  });
+}
+
+// 记住选项变化时保存设置
+function onRememberChange() {
+  if (!rememberAuthPassword.value) {
+    rememberDuration.value = 'session';
+  } else {
+    // 默认7天
+    if (rememberDuration.value === 'session') {
+      rememberDuration.value = '7days';
+    }
+  }
+  localStorage.setItem('nav_remember_duration', rememberDuration.value);
 }
 
 // 需要验证权限后执行操作（异步验证token有效性）
@@ -3131,6 +3223,8 @@ function closePasswordModal() {
   showPasswordModal.value = false;
   authPassword.value = '';
   authError.value = '';
+  authShake.value = false;
+  showAuthPasswordText.value = false;
   pendingAction.value = null;
 }
 
@@ -3148,30 +3242,43 @@ async function verifyAuthPassword() {
     const res = await verifyPassword(authPassword.value);
     localStorage.setItem('token', res.data.token);
     
-    if (rememberAuthPassword.value) {
-      const expiry = Date.now() + 30 * 24 * 60 * 60 * 1000;
+    // 根据选择的记住时长保存
+    if (rememberAuthPassword.value && rememberDuration.value !== 'session') {
+      const duration = REMEMBER_DURATIONS[rememberDuration.value] || REMEMBER_DURATIONS['7days'];
+      const expiry = Date.now() + duration;
       localStorage.setItem('nav_password_token', JSON.stringify({
         password: authPassword.value,
         token: res.data.token,
-        expiry
+        expiry,
+        duration: rememberDuration.value
       }));
+      localStorage.setItem('nav_remember_duration', rememberDuration.value);
     } else {
       localStorage.removeItem('nav_password_token');
+      // 如果选择仅本次会话，使用 sessionStorage
+      if (rememberDuration.value === 'session') {
+        sessionStorage.setItem('nav_session_auth', 'true');
+      }
     }
     
     showPasswordModal.value = false;
     authLoading.value = false;
+    showAuthPasswordText.value = false;
     
     if (pendingAction.value) {
       const action = pendingAction.value;
       pendingAction.value = null;
       action();
     }
-  } catch (error) {
-      authError.value = '密码错误，请重新输入';
-      authPassword.value = '';
-      authLoading.value = false;
-    }
+    } catch (error) {
+        authError.value = '密码错误，请重新输入';
+        authLoading.value = false;
+        // 触发抖动动画
+        authShake.value = true;
+        setTimeout(() => {
+          authShake.value = false;
+        }, 400);
+      }
 }
 
 function handleContextEdit(card) {
@@ -8087,6 +8194,153 @@ async function saveCardEdit() {
   .sort-option {
     padding: 6px 8px;
     font-size: 12px;
+  }
+}
+
+/* ========== 密码验证弹窗增强样式 ========== */
+.auth-modal-content {
+  max-width: 380px;
+  width: 90%;
+}
+
+.password-input-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.password-input {
+  width: 100%;
+  padding-right: 45px !important;
+}
+
+.password-toggle-btn {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #999;
+  transition: color 0.2s;
+}
+
+.password-toggle-btn:hover {
+  color: #1890ff;
+}
+
+.remember-password-wrapper.enhanced {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 15px;
+  flex-wrap: wrap;
+}
+
+.remember-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.remember-checkbox input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: #1890ff;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #555;
+}
+
+.remember-duration-select {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #555;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.remember-duration-select:focus {
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.remember-duration-select:hover {
+  border-color: #40a9ff;
+}
+
+.auth-error {
+  animation: shake 0.4s ease-in-out;
+}
+
+.batch-input.shake {
+  animation: shake 0.4s ease-in-out;
+  border-color: #ff4d4f !important;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-8px); }
+  40% { transform: translateX(8px); }
+  60% { transform: translateX(-6px); }
+  80% { transform: translateX(6px); }
+}
+
+/* 错误提示淡入淡出动画 */
+.error-fade-enter-active,
+.error-fade-leave-active {
+  transition: all 0.3s ease;
+}
+
+.error-fade-enter-from,
+.error-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-5px);
+}
+
+/* 按钮加载动画 */
+.btn-loading {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.btn.btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+@media (max-width: 480px) {
+  .remember-password-wrapper.enhanced {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .remember-duration-select {
+    width: 100%;
   }
 }
 </style>

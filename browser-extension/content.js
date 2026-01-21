@@ -636,6 +636,114 @@
                     font-size: 13px;
                 }
                 
+                .add-category-btn {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    gap: 6px;
+                    padding: 10px 12px;
+                    margin: 8px;
+                    background: #f8f9fa;
+                    border: 1px dashed #d0d0d0;
+                    border-radius: 8px;
+                    color: #666;
+                    font-size: 13px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .add-category-btn:hover {
+                    background: #f0f2ff;
+                    border-color: #667eea;
+                    color: #667eea;
+                }
+                
+                .add-category-btn .icon {
+                    font-size: 14px;
+                }
+                
+                .add-sub-btn {
+                    width: 22px;
+                    height: 22px;
+                    border: none;
+                    background: transparent;
+                    color: #999;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    border-radius: 4px;
+                    font-size: 14px;
+                    flex-shrink: 0;
+                    margin-left: 4px;
+                    transition: all 0.2s;
+                }
+                
+                .add-sub-btn:hover {
+                    background: #667eea20;
+                    color: #667eea;
+                }
+                
+                .inline-input-wrapper {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 8px 12px;
+                    background: #f8f9fa;
+                    border-bottom: 1px solid #e8e8e8;
+                }
+                
+                .inline-input-wrapper.sub {
+                    padding-left: 36px;
+                    background: #fafafa;
+                }
+                
+                .inline-input {
+                    flex: 1;
+                    padding: 6px 10px;
+                    border: 1px solid #d0d0d0;
+                    border-radius: 6px;
+                    font-size: 13px;
+                    outline: none;
+                    transition: border-color 0.2s;
+                }
+                
+                .inline-input:focus {
+                    border-color: #667eea;
+                }
+                
+                .inline-btn {
+                    padding: 5px 10px;
+                    border: none;
+                    border-radius: 5px;
+                    font-size: 12px;
+                    cursor: pointer;
+                    transition: all 0.2s;
+                }
+                
+                .inline-btn.confirm {
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    color: white;
+                }
+                
+                .inline-btn.confirm:hover {
+                    box-shadow: 0 2px 6px rgba(102, 126, 234, 0.4);
+                }
+                
+                .inline-btn.confirm:disabled {
+                    opacity: 0.5;
+                    cursor: not-allowed;
+                }
+                
+                .inline-btn.cancel {
+                    background: #f0f0f0;
+                    color: #666;
+                }
+                
+                .inline-btn.cancel:hover {
+                    background: #e0e0e0;
+                }
+                
                 .loading-state {
                     padding: 30px;
                     text-align: center;
@@ -976,6 +1084,11 @@
             dialogShadowRoot = null;
         }
         document.removeEventListener('keydown', handleEscape);
+        // 重置状态
+        isAddingCategory = false;
+        isAddingSubCategory = null;
+        selectedMenuId = null;
+        selectedSubMenuId = null;
     }
     
     // ESC 处理
@@ -992,6 +1105,8 @@
     let lastMenuId = null;
     let lastSubMenuId = null;
     let isAuthenticated = false;
+    let isAddingCategory = false;
+    let isAddingSubCategory = null;
     
     // 加载分类数据
     async function loadCategories(url, title) {
@@ -1148,13 +1263,37 @@
     function renderCategories(menus, searchTerm = '') {
         const categoryList = dialogShadowRoot.getElementById('categoryList');
         
-        if (!menus || menus.length === 0) {
-            categoryList.innerHTML = '<div class="no-category-hint">暂无分类，请先在导航站创建分类</div>';
-            return;
-        }
-        
         let html = '';
         const term = searchTerm.toLowerCase();
+        
+        // 新建分类的输入框（放在列表最前面）
+        if (isAddingCategory && !term) {
+            html += `
+                <div class="inline-input-wrapper" id="newCategoryWrapper">
+                    <input type="text" class="inline-input" id="newCategoryInput" placeholder="输入分类名称..." maxlength="20" autofocus>
+                    <button class="inline-btn confirm" id="confirmNewCategory">确定</button>
+                    <button class="inline-btn cancel" id="cancelNewCategory">取消</button>
+                </div>
+            `;
+        }
+        
+        if (!menus || menus.length === 0) {
+            if (!isAddingCategory) {
+                html += '<div class="no-category-hint">暂无分类</div>';
+            }
+            // 新建分类按钮
+            if (!term) {
+                html += `
+                    <div class="add-category-btn" id="addCategoryBtn">
+                        <span class="icon">➕</span>
+                        <span>新建分类</span>
+                    </div>
+                `;
+            }
+            categoryList.innerHTML = html;
+            bindCategoryEvents();
+            return;
+        }
         
         menus.forEach(menu => {
             const menuMatch = !term || menu.name.toLowerCase().includes(term);
@@ -1177,14 +1316,28 @@
                         <span class="icon">📁</span>
                         <span class="name">${escapeHtml(menu.name)}</span>
                         ${hasChildren ? `<span class="count">${childCount}</span>` : ''}
+                        <button class="add-sub-btn" data-parent-id="${menu.id}" title="添加子分类">➕</button>
                         ${hasChildren ? `<span class="category-toggle ${shouldExpand ? 'expanded' : ''}">▶</span>` : ''}
                     </div>
                 `;
                 
-                if (hasChildren) {
-                    html += `<div class="sub-categories ${shouldExpand ? 'show' : ''}" data-parent="${menu.id}">`;
+                // 子分类区域
+                const showSubContainer = hasChildren || isAddingSubCategory === menu.id;
+                if (showSubContainer) {
+                    html += `<div class="sub-categories ${shouldExpand || isAddingSubCategory === menu.id ? 'show' : ''}" data-parent="${menu.id}">`;
                     
-                    const subsToShow = term ? subMatches : menu.subMenus;
+                    // 新建子分类的输入框
+                    if (isAddingSubCategory === menu.id && !term) {
+                        html += `
+                            <div class="inline-input-wrapper sub" id="newSubCategoryWrapper">
+                                <input type="text" class="inline-input" id="newSubCategoryInput" placeholder="输入子分类名称..." maxlength="20" autofocus>
+                                <button class="inline-btn confirm" id="confirmNewSubCategory" data-parent-id="${menu.id}">确定</button>
+                                <button class="inline-btn cancel" id="cancelNewSubCategory">取消</button>
+                            </div>
+                        `;
+                    }
+                    
+                    const subsToShow = term ? subMatches : (menu.subMenus || []);
                     subsToShow.forEach(sub => {
                         const isSubSelected = selectedMenuId === menu.id && selectedSubMenuId === sub.id;
                         html += `
@@ -1202,11 +1355,37 @@
             }
         });
         
-        categoryList.innerHTML = html || '<div class="no-category-hint">没有找到匹配的分类</div>';
+        // 没有匹配项时的提示
+        if (!html || (html.indexOf('category-group') === -1 && !isAddingCategory)) {
+            html += '<div class="no-category-hint">没有找到匹配的分类</div>';
+        }
+        
+        // 新建分类按钮（放在列表底部，搜索时不显示）
+        if (!term && !isAddingCategory) {
+            html += `
+                <div class="add-category-btn" id="addCategoryBtn">
+                    <span class="icon">➕</span>
+                    <span>新建分类</span>
+                </div>
+            `;
+        }
+        
+        categoryList.innerHTML = html;
+        bindCategoryEvents();
+    }
+    
+    // 绑定分类相关事件
+    function bindCategoryEvents() {
+        const categoryList = dialogShadowRoot.getElementById('categoryList');
         
         // 绑定点击事件
         categoryList.querySelectorAll('.category-item').forEach(item => {
             item.addEventListener('click', (e) => {
+                // 如果点击的是添加子分类按钮，不触发选中
+                if (e.target.classList.contains('add-sub-btn')) {
+                    return;
+                }
+                
                 const menuId = parseInt(item.dataset.menuId);
                 const subMenuId = item.dataset.submenuId ? parseInt(item.dataset.submenuId) : null;
                 const hasChildren = item.dataset.hasChildren === 'true';
@@ -1237,6 +1416,195 @@
                 selectCategory(menuId, subMenuId);
             });
         });
+        
+        // 新建分类按钮
+        const addCategoryBtn = categoryList.querySelector('#addCategoryBtn');
+        if (addCategoryBtn) {
+            addCategoryBtn.addEventListener('click', () => {
+                isAddingCategory = true;
+                isAddingSubCategory = null;
+                renderCategories(allMenus);
+                // 聚焦输入框
+                setTimeout(() => {
+                    const input = dialogShadowRoot.getElementById('newCategoryInput');
+                    if (input) input.focus();
+                }, 50);
+            });
+        }
+        
+        // 新建分类确认/取消
+        const confirmNewCategory = categoryList.querySelector('#confirmNewCategory');
+        const cancelNewCategory = categoryList.querySelector('#cancelNewCategory');
+        const newCategoryInput = categoryList.querySelector('#newCategoryInput');
+        
+        if (confirmNewCategory) {
+            confirmNewCategory.addEventListener('click', () => createNewCategory());
+        }
+        if (cancelNewCategory) {
+            cancelNewCategory.addEventListener('click', () => {
+                isAddingCategory = false;
+                renderCategories(allMenus);
+            });
+        }
+        if (newCategoryInput) {
+            newCategoryInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') createNewCategory();
+                if (e.key === 'Escape') {
+                    isAddingCategory = false;
+                    renderCategories(allMenus);
+                }
+            });
+        }
+        
+        // 添加子分类按钮
+        categoryList.querySelectorAll('.add-sub-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const parentId = parseInt(btn.dataset.parentId);
+                isAddingSubCategory = parentId;
+                isAddingCategory = false;
+                expandedMenus.add(parentId); // 自动展开父分类
+                renderCategories(allMenus);
+                // 聚焦输入框
+                setTimeout(() => {
+                    const input = dialogShadowRoot.getElementById('newSubCategoryInput');
+                    if (input) input.focus();
+                }, 50);
+            });
+        });
+        
+        // 新建子分类确认/取消
+        const confirmNewSubCategory = categoryList.querySelector('#confirmNewSubCategory');
+        const cancelNewSubCategory = categoryList.querySelector('#cancelNewSubCategory');
+        const newSubCategoryInput = categoryList.querySelector('#newSubCategoryInput');
+        
+        if (confirmNewSubCategory) {
+            confirmNewSubCategory.addEventListener('click', () => {
+                const parentId = parseInt(confirmNewSubCategory.dataset.parentId);
+                createNewSubCategory(parentId);
+            });
+        }
+        if (cancelNewSubCategory) {
+            cancelNewSubCategory.addEventListener('click', () => {
+                isAddingSubCategory = null;
+                renderCategories(allMenus);
+            });
+        }
+        if (newSubCategoryInput) {
+            newSubCategoryInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    const parentId = isAddingSubCategory;
+                    if (parentId) createNewSubCategory(parentId);
+                }
+                if (e.key === 'Escape') {
+                    isAddingSubCategory = null;
+                    renderCategories(allMenus);
+                }
+            });
+        }
+    }
+    
+    // 创建新分类
+    async function createNewCategory() {
+        const input = dialogShadowRoot.getElementById('newCategoryInput');
+        const confirmBtn = dialogShadowRoot.getElementById('confirmNewCategory');
+        const name = input?.value?.trim();
+        
+        if (!name) {
+            input?.focus();
+            return;
+        }
+        
+        // 检查是否重名
+        if (allMenus.some(m => m.name === name)) {
+            showToast('分类名称已存在', 'error');
+            input?.focus();
+            return;
+        }
+        
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '...';
+        
+        try {
+            const result = await chrome.runtime.sendMessage({
+                action: 'createCategory',
+                name: name
+            });
+            
+            if (result.success) {
+                showToast('分类创建成功', 'success');
+                isAddingCategory = false;
+                // 刷新分类列表
+                const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+                if (response.success) {
+                    allMenus = response.menus || [];
+                }
+                renderCategories(allMenus);
+                // 自动选中新建的分类
+                if (result.menuId) {
+                    selectCategory(result.menuId, null);
+                }
+            } else {
+                throw new Error(result.error || '创建失败');
+            }
+        } catch (e) {
+            showToast(e.message || '创建分类失败', 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '确定';
+        }
+    }
+    
+    // 创建新子分类
+    async function createNewSubCategory(parentId) {
+        const input = dialogShadowRoot.getElementById('newSubCategoryInput');
+        const confirmBtn = dialogShadowRoot.getElementById('confirmNewSubCategory');
+        const name = input?.value?.trim();
+        
+        if (!name) {
+            input?.focus();
+            return;
+        }
+        
+        // 检查是否重名
+        const parentMenu = allMenus.find(m => m.id === parentId);
+        if (parentMenu?.subMenus?.some(s => s.name === name)) {
+            showToast('子分类名称已存在', 'error');
+            input?.focus();
+            return;
+        }
+        
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = '...';
+        
+        try {
+            const result = await chrome.runtime.sendMessage({
+                action: 'createSubCategory',
+                parentId: parentId,
+                name: name
+            });
+            
+            if (result.success) {
+                showToast('子分类创建成功', 'success');
+                isAddingSubCategory = null;
+                // 刷新分类列表
+                const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+                if (response.success) {
+                    allMenus = response.menus || [];
+                }
+                expandedMenus.add(parentId); // 保持父分类展开
+                renderCategories(allMenus);
+                // 自动选中新建的子分类
+                if (result.subMenuId) {
+                    selectCategory(parentId, result.subMenuId);
+                }
+            } else {
+                throw new Error(result.error || '创建失败');
+            }
+        } catch (e) {
+            showToast(e.message || '创建子分类失败', 'error');
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '确定';
+        }
     }
     
     // 选中分类

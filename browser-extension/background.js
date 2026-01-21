@@ -1027,6 +1027,114 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         })();
         return true;
     }
+    
+    // 创建新分类
+    if (request.action === 'createCategory') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+                
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站地址' });
+                    return;
+                }
+                
+                if (!token) {
+                    sendResponse({ success: false, needAuth: true, error: '请先验证密码' });
+                    return;
+                }
+                
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                
+                const response = await fetch(`${navServerUrl}/api/menus`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: request.name })
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        await chrome.storage.local.remove(['navAuthToken']);
+                        sendResponse({ success: false, needAuth: true, error: '登录已过期' });
+                        return;
+                    }
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || '创建失败');
+                }
+                
+                const result = await response.json();
+                
+                // 清空缓存，强制刷新
+                cachedMenus = [];
+                lastMenuFetchTime = 0;
+                await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
+                
+                sendResponse({ success: true, menuId: result.id });
+            } catch (e) {
+                console.error('创建分类失败:', e);
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true;
+    }
+    
+    // 创建新子分类
+    if (request.action === 'createSubCategory') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+                
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站地址' });
+                    return;
+                }
+                
+                if (!token) {
+                    sendResponse({ success: false, needAuth: true, error: '请先验证密码' });
+                    return;
+                }
+                
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                
+                const response = await fetch(`${navServerUrl}/api/menus/${request.parentId}/submenus`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ name: request.name })
+                });
+                
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        await chrome.storage.local.remove(['navAuthToken']);
+                        sendResponse({ success: false, needAuth: true, error: '登录已过期' });
+                        return;
+                    }
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || '创建失败');
+                }
+                
+                const result = await response.json();
+                
+                // 清空缓存，强制刷新
+                cachedMenus = [];
+                lastMenuFetchTime = 0;
+                await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
+                
+                sendResponse({ success: true, subMenuId: result.id });
+            } catch (e) {
+                console.error('创建子分类失败:', e);
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true;
+    }
 });
 
 
