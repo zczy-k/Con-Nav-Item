@@ -142,7 +142,7 @@ export const aiGetStatus = () => instance.get(`/ai/status`);
 export const aiGetConfig = () => instance.get(`/ai/config`);
 export const aiUpdateConfig = (data) => instance.post(`/ai/config`, data);
 export const aiClearConfig = () => instance.delete(`/ai/config`);
-export const aiTestConnection = () => instance.post(`/ai/test`, {});
+export const aiTestConnection = (config = {}) => instance.post(`/ai/test`, config);
 export const aiGetStats = () => instance.get(`/ai/stats`);
 export const aiFilterCards = (filters) => instance.post(`/ai/filter-cards`, filters);
 export const aiPreview = (data) => instance.post(`/ai/preview`, data);

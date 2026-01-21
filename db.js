@@ -623,11 +623,24 @@ async function saveAIConfig(config) {
 
 // 清除 AI 配置
 async function clearAIConfig() {
-  const keys = ['ai_api_key', 'ai_base_url', 'ai_model', 'ai_last_tested_ok'];
+  const keys = [
+    'ai_provider', 
+    'ai_api_key', 
+    'ai_base_url', 
+    'ai_model', 
+    'ai_request_delay', 
+    'ai_auto_generate', 
+    'ai_last_tested_ok'
+  ];
   for (const key of keys) {
+    let defaultValue = '';
+    if (key === 'ai_auto_generate') defaultValue = 'false';
+    if (key === 'ai_provider') defaultValue = 'deepseek';
+    if (key === 'ai_request_delay') defaultValue = '1500';
+    
     await dbRun(
       'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-      [key, '']
+      [key, defaultValue]
     );
   }
 }

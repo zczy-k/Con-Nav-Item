@@ -57,28 +57,55 @@
       </div>
       <div class="config-form">
         <div class="form-item" v-if="currentProvider.needsApiKey">
-          <label>
-            <span>API Key</span>
-            <span class="label-status" :class="{ ok: config.hasApiKey }">
-              {{ config.hasApiKey ? '✓ 已配置' : '未配置' }}
-            </span>
-          </label>
-          <div class="input-group">
-            <input 
-              :type="showApiKey ? 'text' : 'password'" 
-              v-model="config.apiKey" 
-              :placeholder="config.hasApiKey ? '已配置（留空保持不变）' : '请输入 API Key'"
-              class="input"
-            />
-            <button type="button" class="input-btn" @click="showApiKey = !showApiKey">
-              {{ showApiKey ? '🙈' : '👁️' }}
-            </button>
+            <label>
+              <span>API Key</span>
+              <span class="label-status" :class="{ ok: config.hasApiKey }">
+                {{ config.hasApiKey ? '✓ 已配置' : '未配置' }}
+              </span>
+            </label>
+            <div class="input-group">
+              <input 
+                :type="showApiKey ? 'text' : 'password'" 
+                v-model="config.apiKey" 
+                :placeholder="config.hasApiKey ? '已配置（留空保持不变）' : '请输入 API Key'"
+                class="input"
+                :class="{ 'input-error': !apiKeyValidation.valid }"
+                @input="validateApiKey(config.apiKey)"
+              />
+              <button type="button" class="input-btn" @click="showApiKey = !showApiKey">
+                {{ showApiKey ? '🙈' : '👁️' }}
+              </button>
+            </div>
+            <div class="input-hint" v-if="currentProvider.keyHint && !config.apiKey">
+              {{ currentProvider.keyHint }}
+            </div>
+            <div class="input-error-msg" v-if="!apiKeyValidation.valid">
+              {{ apiKeyValidation.message }}
+            </div>
           </div>
-        </div>
 
         <div class="form-item" v-if="currentProvider.needsBaseUrl">
-          <label>Base URL</label>
-          <input type="text" v-model="config.baseUrl" :placeholder="currentProvider.defaultBaseUrl" class="input" />
+          <label>
+            <span>Base URL</span>
+            <span class="label-hint" v-if="currentProvider.local">本地服务</span>
+          </label>
+          <input 
+            type="text" 
+            v-model="config.baseUrl" 
+            :placeholder="currentProvider.defaultBaseUrl || 'https://api.example.com'" 
+            class="input"
+            :class="{ 'input-error': !baseUrlValidation.valid }"
+            @input="validateBaseUrl(config.baseUrl)"
+          />
+          <div class="input-hint" v-if="currentProvider.local && baseUrlValidation.valid">
+            确保 Ollama 服务已启动，默认端口 11434
+          </div>
+          <div class="input-hint" v-else-if="!currentProvider.local && baseUrlValidation.valid && !config.baseUrl">
+            填写 API 服务地址，无需包含 /v1 路径
+          </div>
+          <div class="input-error-msg" v-if="!baseUrlValidation.valid">
+            {{ baseUrlValidation.message }}
+          </div>
         </div>
 
         <div class="form-item">
@@ -96,6 +123,9 @@
               class="input"
             />
           </div>
+          <div class="model-description" v-if="selectedModelDescription">
+            {{ selectedModelDescription }}
+          </div>
         </div>
 
         <div class="form-item switch-item">
@@ -109,21 +139,39 @@
           </label>
         </div>
 
-        <div class="form-actions">
-          <button class="btn" @click="testConnection" :disabled="testing || !canTest">
-            {{ testing ? '⏳ 测试中...' : '🔗 测试连接' }}
-          </button>
-          <button class="btn primary" @click="saveConfig" :disabled="saving">
-            {{ saving ? '⏳ 保存中...' : '💾 保存配置' }}
-          </button>
-          <button 
-            v-if="config.hasApiKey" 
-            class="btn danger" 
-            @click="showClearConfirm = true" 
-            :disabled="clearing"
-          >
-            {{ clearing ? '⏳ 清除中...' : '🗑️ 清除配置' }}
-          </button>
+          <div class="form-actions">
+            <button class="btn" @click="testConnection" :disabled="testing || !canTest">
+              {{ testing ? '⏳ 测试中...' : '🔗 测试连接' }}
+            </button>
+            <button class="btn primary" @click="saveConfig" :disabled="saving || (!apiKeyValidation.valid && config.apiKey)">
+              {{ saving ? '⏳ 保存中...' : '💾 保存配置' }}
+            </button>
+            <button 
+              v-if="config.hasApiKey || config.baseUrl || connectionOk" 
+              class="btn danger" 
+              @click="showClearConfirm = true" 
+              :disabled="clearing"
+            >
+              {{ clearing ? '⏳ 清除中...' : '🗑️ 清除配置' }}
+            </button>
+          </div>
+
+        
+        <!-- 测试错误详情 -->
+        <div class="test-error-panel" v-if="testError && !connectionOk">
+          <div class="error-header">
+            <span class="error-icon">⚠️</span>
+            <span class="error-title">{{ testError.title }}</span>
+          </div>
+          <div class="error-detail" v-if="testError.detail">
+            {{ testError.detail }}
+          </div>
+          <div class="error-suggestions" v-if="testError.suggestions.length">
+            <div class="suggestion-title">排查建议：</div>
+            <ul>
+              <li v-for="(s, i) in testError.suggestions" :key="i">{{ s }}</li>
+            </ul>
+          </div>
         </div>
       </div>
     </div>
@@ -284,7 +332,13 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: false,
     defaultModel: 'deepseek-chat',
-    models: ['deepseek-chat', 'deepseek-reasoner']
+    models: ['deepseek-chat', 'deepseek-reasoner'],
+    keyPrefix: 'sk-',
+    keyHint: '以 sk- 开头，约 32 位字符',
+    modelDescriptions: {
+      'deepseek-chat': '通用对话，性价比高',
+      'deepseek-reasoner': '推理增强，适合复杂任务'
+    }
   },
   openai: {
     name: 'OpenAI',
@@ -293,7 +347,14 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: false,
     defaultModel: 'gpt-4o-mini',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo']
+    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
+    keyPrefix: 'sk-',
+    keyHint: '以 sk- 开头，约 51 位字符',
+    modelDescriptions: {
+      'gpt-4o-mini': '轻量快速，适合简单任务',
+      'gpt-4o': '最强模型，效果最佳',
+      'gpt-3.5-turbo': '经典模型，速度快成本低'
+    }
   },
   gemini: {
     name: 'Google Gemini',
@@ -302,7 +363,14 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: false,
     defaultModel: 'gemini-1.5-flash',
-    models: ['gemini-1.5-flash', 'gemini-1.5-pro']
+    models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
+    keyPrefix: 'AIza',
+    keyHint: '以 AIza 开头，约 39 位字符',
+    modelDescriptions: {
+      'gemini-1.5-flash': '快速响应，成本最低',
+      'gemini-1.5-pro': '高质量输出，适合复杂任务',
+      'gemini-2.0-flash': '最新模型，速度与质量兼顾'
+    }
   },
   anthropic: {
     name: 'Anthropic',
@@ -311,7 +379,13 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: false,
     defaultModel: 'claude-3-haiku-20240307',
-    models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307']
+    models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307'],
+    keyPrefix: 'sk-ant-',
+    keyHint: '以 sk-ant- 开头',
+    modelDescriptions: {
+      'claude-3-5-sonnet-20240620': '最强模型，理解能力出色',
+      'claude-3-haiku-20240307': '轻量快速，性价比高'
+    }
   },
   zhipu: {
     name: '智谱 AI',
@@ -320,7 +394,13 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: false,
     defaultModel: 'glm-4-flash',
-    models: ['glm-4-flash', 'glm-4']
+    models: ['glm-4-flash', 'glm-4', 'glm-4-plus'],
+    keyHint: '在智谱开放平台获取',
+    modelDescriptions: {
+      'glm-4-flash': '快速响应，免费额度多',
+      'glm-4': '均衡模型，效果稳定',
+      'glm-4-plus': '增强版，复杂任务更优'
+    }
   },
   ollama: {
     name: 'Ollama',
@@ -331,7 +411,13 @@ const PROVIDERS = {
     needsBaseUrl: true,
     defaultBaseUrl: 'http://localhost:11434',
     defaultModel: 'llama3',
-    models: ['llama3', 'qwen2', 'mistral']
+    models: ['llama3', 'qwen2', 'mistral', 'llama3.2'],
+    modelDescriptions: {
+      'llama3': 'Meta 开源大模型',
+      'qwen2': '阿里通义千问开源版',
+      'mistral': '高效开源模型',
+      'llama3.2': '最新版本，支持多模态'
+    }
   },
   custom: {
     name: '自定义',
@@ -339,7 +425,8 @@ const PROVIDERS = {
     needsApiKey: true,
     needsBaseUrl: true,
     defaultModel: '',
-    models: []
+    models: [],
+    keyHint: '根据服务商要求填写'
   }
 };
 
@@ -347,34 +434,43 @@ export default {
   name: 'AISettings',
   components: { AIBatchWizard },
 
-  data() {
-    return {
-      providers: PROVIDERS,
-      config: { provider: 'deepseek', apiKey: '', baseUrl: '', model: 'deepseek-chat', autoGenerate: false, hasApiKey: false },
-      modelSelect: 'deepseek-chat',
-      showApiKey: false,
-      testing: false,
-      saving: false,
-      clearing: false,
-      showClearConfirm: false,
-      refreshing: false,
-      starting: false,
-      stopping: false,
-      connectionTested: false,
-      connectionOk: false,
-      stats: null,
-      task: { running: false, type: '', mode: '', current: 0, total: 0, currentCard: '', startTime: 0, errors: [], successCount: 0, failCount: 0 },
-      eventSource: null,
-      toast: { show: false, msg: '', type: 'info' },
-      showWizard: false
-    };
-  },
+    data() {
+      return {
+        providers: PROVIDERS,
+        config: { provider: 'deepseek', apiKey: '', baseUrl: '', model: 'deepseek-chat', autoGenerate: false, hasApiKey: false },
+        modelSelect: 'deepseek-chat',
+        showApiKey: false,
+        testing: false,
+        saving: false,
+        clearing: false,
+        showClearConfirm: false,
+        refreshing: false,
+        starting: false,
+        stopping: false,
+        connectionTested: false,
+        connectionOk: false,
+        stats: null,
+        task: { running: false, type: '', mode: '', current: 0, total: 0, currentCard: '', startTime: 0, errors: [], successCount: 0, failCount: 0 },
+        eventSource: null,
+        toast: { show: false, msg: '', type: 'info' },
+        showWizard: false,
+        testError: null,
+        apiKeyValidation: { valid: true, message: '' },
+        baseUrlValidation: { valid: true, message: '' }
+      };
+    },
   computed: {
     currentProvider() { return PROVIDERS[this.config.provider] || PROVIDERS.deepseek; },
     canTest() {
       if (this.currentProvider.needsApiKey && !this.config.apiKey && !this.config.hasApiKey) return false;
       if (this.currentProvider.needsBaseUrl && !this.config.baseUrl) return false;
+      if (!this.apiKeyValidation.valid && this.config.apiKey) return false;
+      if (!this.baseUrlValidation.valid && this.config.baseUrl) return false;
       return true;
+    },
+    selectedModelDescription() {
+      const descriptions = this.currentProvider.modelDescriptions || {};
+      return descriptions[this.config.model] || '';
     },
     connectionStatus() {
       if (!this.config.hasApiKey && !this.config.apiKey) return 'none';
@@ -439,14 +535,61 @@ export default {
         }
       },
     selectProvider(key) {
-      this.config.provider = key;
-      this.config.model = this.currentProvider.defaultModel;
-      this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
-      this.config.baseUrl = this.currentProvider.defaultBaseUrl || '';
-      this.config.apiKey = '';
-      this.config.hasApiKey = false;
-      this.connectionTested = false;
-    },
+        this.config.provider = key;
+        this.config.model = this.currentProvider.defaultModel;
+        this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
+        this.config.baseUrl = this.currentProvider.defaultBaseUrl || '';
+        this.config.apiKey = '';
+        this.config.hasApiKey = false;
+        this.connectionTested = false;
+        this.testError = null;
+        this.apiKeyValidation = { valid: true, message: '' };
+        this.baseUrlValidation = { valid: true, message: '' };
+      },
+      validateApiKey(value) {
+        if (!value) {
+          this.apiKeyValidation = { valid: true, message: '' };
+          return;
+        }
+        const provider = this.currentProvider;
+        if (provider.keyPrefix && !value.startsWith(provider.keyPrefix)) {
+          this.apiKeyValidation = { valid: false, message: `格式不正确，应以 ${provider.keyPrefix} 开头` };
+          return;
+        }
+        if (value.length < 20) {
+          this.apiKeyValidation = { valid: false, message: 'API Key 太短，请检查是否完整复制' };
+          return;
+        }
+        if (/\s/.test(value)) {
+          this.apiKeyValidation = { valid: false, message: '包含空格，请检查是否有多余字符' };
+          return;
+        }
+        this.apiKeyValidation = { valid: true, message: '' };
+      },
+      validateBaseUrl(value) {
+        if (!value) {
+          this.baseUrlValidation = { valid: true, message: '' };
+          return;
+        }
+        if (!/^https?:\/\//i.test(value)) {
+          this.baseUrlValidation = { valid: false, message: '请以 http:// 或 https:// 开头' };
+          return;
+        }
+        if (/\s/.test(value)) {
+          this.baseUrlValidation = { valid: false, message: '包含空格，请检查是否有多余字符' };
+          return;
+        }
+        if (value.endsWith('/v1') || value.endsWith('/v1/')) {
+          this.baseUrlValidation = { valid: false, message: '无需包含 /v1 路径，系统会自动添加' };
+          return;
+        }
+        try {
+          new URL(value);
+          this.baseUrlValidation = { valid: true, message: '' };
+        } catch {
+          this.baseUrlValidation = { valid: false, message: 'URL 格式不正确' };
+        }
+      },
     onModelChange() {
       if (this.modelSelect) {
         this.config.model = this.modelSelect;
@@ -499,40 +642,122 @@ export default {
         this.saving = false;
       },
       async testConnection() {
-        this.testing = true;
-        try {
-          const { data } = await aiTestConnection();
-          this.connectionTested = true;
-          this.connectionOk = data.success;
-          this.showToast(data.success ? '连接成功' : data.message, data.success ? 'success' : 'error');
-        } catch (e) {
-          this.connectionTested = true;
-          this.connectionOk = false;
-          this.showToast('连接失败', 'error');
-        }
-        this.testing = false;
-      },
-      async clearConfig() {
-        this.clearing = true;
-        try {
-          const { data } = await aiClearConfig();
-          if (data.success) {
-            this.showToast('配置已清除', 'success');
-            this.config.hasApiKey = false;
-            this.config.apiKey = '';
-            this.config.baseUrl = '';
-            this.config.model = this.currentProvider.defaultModel;
-            this.connectionTested = false;
+          this.testing = true;
+          this.testError = null;
+          try {
+            const testConfig = {
+              provider: this.config.provider,
+              model: this.config.model,
+              baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl || ''
+            };
+            if (this.config.apiKey) {
+              testConfig.apiKey = this.config.apiKey;
+            }
+            const { data } = await aiTestConnection(testConfig);
+            this.connectionTested = true;
+            this.connectionOk = data.success;
+            if (data.success) {
+              this.showToast(`连接成功 (${data.responseTime})`, 'success');
+            } else {
+              this.testError = this.parseTestError(data.message);
+              this.showToast(this.testError.title, 'error');
+            }
+          } catch (e) {
+            this.connectionTested = true;
             this.connectionOk = false;
-            this.showClearConfirm = false;
-          } else {
-            this.showToast(data.message || '清除失败', 'error');
+            const errMsg = e.response?.data?.message || e.message || '连接失败';
+            this.testError = this.parseTestError(errMsg);
+            this.showToast(this.testError.title, 'error');
           }
-        } catch (e) {
-          this.showToast(e.response?.data?.message || '清除失败', 'error');
-        }
-        this.clearing = false;
-      },
+          this.testing = false;
+        },
+        parseTestError(message) {
+          const result = { title: '连接失败', detail: message, suggestions: [] };
+          const msg = message.toLowerCase();
+          
+          if (msg.includes('401') || msg.includes('invalid') || msg.includes('api key') || msg.includes('authentication') || msg.includes('unauthorized')) {
+            result.title = 'API Key 无效';
+            result.suggestions = [
+              '检查 API Key 是否正确复制（注意首尾空格）',
+              '确认 API Key 是否已过期或被禁用',
+              '检查账户余额是否充足'
+            ];
+          } else if (msg.includes('403') || msg.includes('forbidden') || msg.includes('permission')) {
+            result.title = '权限不足';
+            result.suggestions = [
+              '检查 API Key 是否有对应模型的访问权限',
+              '部分模型需要单独申请开通',
+              '检查账户是否已完成实名认证'
+            ];
+          } else if (msg.includes('404') || msg.includes('not found') || msg.includes('model')) {
+            result.title = '模型不存在';
+            result.suggestions = [
+              '检查模型名称是否正确',
+              '该模型可能已下线或需要申请访问',
+              '尝试切换到其他模型'
+            ];
+          } else if (msg.includes('429') || msg.includes('rate limit') || msg.includes('too many')) {
+            result.title = '请求过于频繁';
+            result.suggestions = [
+              '稍后再试',
+              '检查 API 调用配额是否已用完',
+              '考虑升级套餐或降低调用频率'
+            ];
+          } else if (msg.includes('timeout') || msg.includes('超时')) {
+            result.title = '连接超时';
+            result.suggestions = [
+              '检查网络连接是否正常',
+              '如使用代理，确认代理配置正确',
+              'API 服务可能暂时不可用，稍后再试'
+            ];
+          } else if (msg.includes('network') || msg.includes('econnrefused') || msg.includes('dns') || msg.includes('fetch')) {
+            result.title = '网络错误';
+            result.suggestions = [
+              '检查网络连接是否正常',
+              '如使用 Ollama，确认服务已启动',
+              '检查 Base URL 是否正确'
+            ];
+          } else if (msg.includes('base url') || msg.includes('url')) {
+            result.title = 'Base URL 配置错误';
+            result.suggestions = [
+              '检查 URL 格式是否正确（包含 http:// 或 https://）',
+              '确认 URL 末尾无多余斜杠',
+              '验证服务地址是否可访问'
+            ];
+          }
+          
+          return result;
+        },
+        async clearConfig() {
+          this.clearing = true;
+          try {
+            const { data } = await aiClearConfig();
+            if (data.success) {
+              this.showToast('配置已清除', 'success');
+              // 重置所有配置状态
+              this.config = {
+                provider: 'deepseek',
+                apiKey: '',
+                baseUrl: '',
+                model: PROVIDERS.deepseek.defaultModel,
+                autoGenerate: false,
+                hasApiKey: false
+              };
+              this.modelSelect = PROVIDERS.deepseek.defaultModel;
+              this.connectionTested = false;
+              this.connectionOk = false;
+              this.testError = null;
+              this.showClearConfirm = false;
+              this.refreshStats();
+            } else {
+              this.showToast(data.message || '清除失败', 'error');
+            }
+          } catch (e) {
+            this.showToast(e.response?.data?.message || '清除失败', 'error');
+          }
+          this.clearing = false;
+        },
+
       async refreshStats() {
         this.refreshing = true;
         try {
@@ -793,12 +1018,17 @@ export default {
 .form-item label { display: flex; justify-content: space-between; font-size: 14px; font-weight: 500; }
 .label-status { font-size: 12px; color: #6b7280; }
 .label-status.ok { color: #10b981; }
+.label-hint { font-size: 11px; color: #3b82f6; background: #eff6ff; padding: 2px 6px; border-radius: 4px; }
 .input-group { display: flex; gap: 6px; }
 .model-select { display: flex; flex-direction: column; gap: 6px; }
 .model-select select { flex-shrink: 0; }
 .input { flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; }
 .input:focus { outline: none; border-color: #3b82f6; }
+.input.input-error { border-color: #ef4444; background: #fef2f2; }
 .input-btn { padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; background: #f9fafb; cursor: pointer; }
+.input-hint { font-size: 12px; color: #6b7280; margin-top: 4px; }
+.input-error-msg { font-size: 12px; color: #ef4444; margin-top: 4px; }
+.model-description { font-size: 12px; color: #6b7280; margin-top: 4px; padding: 6px 10px; background: #f3f4f6; border-radius: 6px; }
 .switch-item { flex-direction: row; justify-content: space-between; align-items: center; padding: 12px; background: #f9fafb; border-radius: 10px; }
 .switch-item span { display: flex; flex-direction: column; gap: 2px; }
 .switch-item strong { font-size: 14px; }
@@ -809,7 +1039,18 @@ export default {
 .slider:before { content: ''; position: absolute; height: 18px; width: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
 .switch input:checked + .slider { background: #3b82f6; }
 .switch input:checked + .slider:before { transform: translateX(20px); }
-.form-actions { display: flex; gap: 10px; margin-top: 6px; }
+.form-actions { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+
+/* Test Error Panel */
+.test-error-panel { margin-top: 16px; padding: 16px; background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; }
+.test-error-panel .error-header { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.test-error-panel .error-icon { font-size: 18px; }
+.test-error-panel .error-title { font-weight: 600; color: #dc2626; font-size: 14px; }
+.test-error-panel .error-detail { font-size: 13px; color: #7f1d1d; margin-bottom: 12px; padding: 8px 10px; background: #fee2e2; border-radius: 6px; word-break: break-all; }
+.test-error-panel .error-suggestions { font-size: 13px; }
+.test-error-panel .suggestion-title { font-weight: 500; color: #374151; margin-bottom: 6px; }
+.test-error-panel ul { margin: 0; padding-left: 20px; color: #4b5563; }
+.test-error-panel li { margin-bottom: 4px; }
 
 /* Buttons */
 .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 10px 18px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px; font-weight: 500; background: #fff; cursor: pointer; transition: all 0.15s; }
@@ -898,9 +1139,16 @@ export default {
 :root.dark .provider-card { border-color: #374151; background: #1f2937; }
 :root.dark .provider-card.active { background: #1e3a5f; }
 :root.dark .input { background: #374151; border-color: #4b5563; color: #fff; }
+:root.dark .input.input-error { background: #451a1a; border-color: #dc2626; }
+:root.dark .input-hint { color: #9ca3af; }
+:root.dark .model-description { background: #374151; color: #9ca3af; }
 :root.dark .stat, :root.dark .action-card, :root.dark .switch-item { background: #374151; }
 :root.dark .connection-status { background: #374151; }
 :root.dark .task-panel { background: linear-gradient(135deg, #1e3a5f, #2d1f5f); }
+:root.dark .test-error-panel { background: #451a1a; border-color: #7f1d1d; }
+:root.dark .test-error-panel .error-detail { background: #5c1d1d; color: #fca5a5; }
+:root.dark .test-error-panel .suggestion-title { color: #e5e7eb; }
+:root.dark .test-error-panel ul { color: #d1d5db; }
 
 /* Modal */
 .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1001; }
