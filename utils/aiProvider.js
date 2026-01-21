@@ -163,6 +163,87 @@ async function callAI(config, messages) {
 }
 
 /**
+ * 从 JSON 响应中提取内容（兼容多种格式）
+ */
+function extractContentFromResponse(data) {
+  if (data.error) {
+    const apiError = data.error.message || data.error.code || JSON.stringify(data.error);
+    throw new Error(`API 返回错误: ${apiError}`);
+  }
+
+  const choice = data.choices?.[0];
+  const candidate = data.candidates?.[0];
+  
+  if (choice?.message?.content) return choice.message.content;
+  if (choice?.message?.reasoning_content) return choice.message.reasoning_content;
+  if (choice?.text) return choice.text;
+  if (choice?.delta?.content) return choice.delta.content;
+  if (candidate?.content?.parts?.[0]?.text) return candidate.content.parts[0].text;
+  if (data.content) return data.content;
+  if (data.result) return data.result;
+  if (typeof data === 'string') return data;
+
+  const possibleFields = ['response', 'output', 'text', 'message'];
+  for (const field of possibleFields) {
+    if (data[field] && typeof data[field] === 'string') {
+      return data[field];
+    }
+  }
+
+  if (choice?.message?.refusal) {
+    throw new Error(`AI 拒绝回答: ${choice.message.refusal}`);
+  }
+  if (candidate?.finishReason === 'SAFETY') {
+    throw new Error('AI 拒绝回答: 触发安全过滤');
+  }
+
+  return '';
+}
+
+/**
+ * 解析 SSE 流式响应
+ */
+async function parseStreamResponse(response) {
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let content = '';
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed === 'data: [DONE]') continue;
+        
+        if (trimmed.startsWith('data: ')) {
+          try {
+            const json = JSON.parse(trimmed.slice(6));
+            const delta = json.choices?.[0]?.delta?.content || 
+                         json.choices?.[0]?.text ||
+                         json.delta?.text ||
+                         '';
+            content += delta;
+          } catch {
+            // 忽略无法解析的行
+          }
+        }
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  return content;
+}
+
+/**
  * OpenAI 兼容接口（适用于大多数服务）
  */
 async function callOpenAICompatible(config, messages) {
@@ -199,89 +280,68 @@ async function callOpenAICompatible(config, messages) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 60000); // 增加到 60s，针对慢速模型
 
-  try {
-    const body = {
-      model: actualModel,
-      messages: messages,
-      temperature: 0.7,
-      max_tokens: 1000 // 增加输出长度限制
-    };
+    try {
+      const body = {
+        model: actualModel,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1000
+      };
 
-    // 针对某些模型（如 o1, deepseek-reasoner）禁用不支持的参数
-    if (actualModel.startsWith('o1') || actualModel.includes('thinking') || actualModel.includes('reasoner')) {
-      delete body.temperature;
-    }
-
-    const headers = {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json'
-    };
-
-    // 支持不同的认证方式
-    if (apiKey) {
-      // 绝大多数使用 Bearer
-      headers['Authorization'] = `Bearer ${apiKey}`;
-      // 某些提供商（如 Azure, Perplexity, 或特定代理）可能需要这个
-      headers['Api-Key'] = apiKey;
-      headers['X-API-Key'] = apiKey;
-    }
-
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(body),
-      signal: controller.signal
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errText = await response.text();
-      let errorMessage = `API 请求失败 (${response.status})`;
-      try {
-        const errJson = JSON.parse(errText);
-        // 兼容各种错误格式
-        const apiError = errJson.error?.message || errJson.error?.code || errJson.message || errText;
-        errorMessage += `: ${apiError}`;
-      } catch {
-        errorMessage += `: ${errText.substring(0, 200)}`;
+      if (actualModel.startsWith('o1') || actualModel.includes('thinking') || actualModel.includes('reasoner')) {
+        delete body.temperature;
       }
-      const error = new Error(errorMessage);
-      error.status = response.status;
-      throw error;
-    }
 
-    const data = await response.json();
-    
-    // 兼容多种返回格式 (OpenAI 标准 vs 某些代理转发)
-    let content = '';
-    const choice = data.choices?.[0];
-    
-    if (choice?.message?.content) {
-      content = choice.message.content;
-    } else if (choice?.message?.reasoning_content) {
-      // DeepSeek R1 风格的思维内容，如果没有 content 则回退到它
-      content = choice.message.reasoning_content;
-    } else if (choice?.text) {
-      content = choice.text;
-    } else if (data.content) {
-      content = data.content;
-    } else if (data.result) {
-      // 百度文心一言非兼容模式
-      content = data.result;
-    } else if (typeof data === 'string') {
-      content = data;
-    }
+      const headers = {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json, text/event-stream'
+      };
 
-    if (content === undefined || content === null || content === '') {
-      // 检查是否有拒绝原因 (Refusal)
-      if (choice?.message?.refusal) {
-        throw new Error(`AI 拒绝回答: ${choice.message.refusal}`);
+      if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers['Api-Key'] = apiKey;
+        headers['X-API-Key'] = apiKey;
       }
-      throw new Error('API 返回内容为空，请检查模型名称或 API 状态');
-    }
 
-    return content;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(body),
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errText = await response.text();
+        let errorMessage = `API 请求失败 (${response.status})`;
+        try {
+          const errJson = JSON.parse(errText);
+          const apiError = errJson.error?.message || errJson.error?.code || errJson.message || errText;
+          errorMessage += `: ${apiError}`;
+        } catch {
+          errorMessage += `: ${errText.substring(0, 200)}`;
+        }
+        const error = new Error(errorMessage);
+        error.status = response.status;
+        throw error;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+      let content = '';
+
+      if (contentType.includes('text/event-stream') || contentType.includes('stream')) {
+        content = await parseStreamResponse(response);
+      } else {
+        const data = await response.json();
+        content = extractContentFromResponse(data);
+      }
+
+      if (content === undefined || content === null || content === '') {
+        throw new Error(`API 返回内容为空，请检查模型名称或 API 状态`);
+      }
+
+      return content;
   } catch (error) {
     clearTimeout(timeoutId);
     if (error.name === 'AbortError') {
