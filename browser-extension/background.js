@@ -984,6 +984,55 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         return true;
     }
     
+    // 主动验证 Token 是否有效（密码修改后 Token 会失效）
+    if (request.action === 'verifyToken') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+                
+                if (!config.navUrl) {
+                    sendResponse({ valid: false, reason: 'no_config' });
+                    return;
+                }
+                
+                if (!token) {
+                    sendResponse({ valid: false, reason: 'no_token' });
+                    return;
+                }
+                
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                
+                // 调用服务器验证 Token
+                const response = await fetch(`${navServerUrl}/api/extension/verify`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Cache-Control': 'no-cache'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.valid) {
+                    sendResponse({ valid: true });
+                } else {
+                    // Token 无效，清除本地存储的 Token
+                    await chrome.storage.local.remove(['navAuthToken']);
+                    sendResponse({ 
+                        valid: false, 
+                        reason: data.reason || 'invalid',
+                        message: data.message || 'Token已失效'
+                    });
+                }
+            } catch (e) {
+                console.error('验证Token失败:', e);
+                // 网络错误时不清除 Token，可能只是暂时无法连接
+                sendResponse({ valid: false, reason: 'network_error', message: '网络错误' });
+            }
+        })();
+        return true;
+    }
+    
     if (request.action === 'verifyAdminPassword') {
         (async () => {
             try {
@@ -995,7 +1044,8 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 
                 const navServerUrl = config.navUrl.replace(/\/$/, '');
                 
-                const response = await fetch(`${navServerUrl}/api/verify-password`, {
+                // 使用扩展专用登录接口，获取带 type: 'extension' 的长期Token
+                const response = await fetch(`${navServerUrl}/api/extension/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ password: request.password })
@@ -1005,20 +1055,20 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 
                 if (!response.ok) {
                     if (response.status === 401) {
-                        sendResponse({ success: false, error: data.error || '密码错误' });
+                        sendResponse({ success: false, error: data.message || '密码错误' });
                     } else if (response.status === 429) {
-                        sendResponse({ success: false, error: data.error || '登录尝试次数过多，请稍后再试' });
+                        sendResponse({ success: false, error: data.message || '登录尝试次数过多，请稍后再试' });
                     } else {
-                        sendResponse({ success: false, error: data.error || '验证失败，请稍后重试' });
+                        sendResponse({ success: false, error: data.message || '验证失败，请稍后重试' });
                     }
                     return;
                 }
                 
-                if (data.token) {
+                if (data.success && data.token) {
                     await chrome.storage.local.set({ navAuthToken: data.token });
                     sendResponse({ success: true });
                 } else {
-                    sendResponse({ success: false, error: '验证失败' });
+                    sendResponse({ success: false, error: data.message || '验证失败' });
                 }
             } catch (e) {
                 console.error('验证密码失败:', e);

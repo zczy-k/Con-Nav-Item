@@ -844,18 +844,63 @@
                     display: block;
                 }
                 
-                .auth-success {
-                    display: flex;
-                    align-items: center;
-                    gap: 8px;
-                    padding: 10px 12px;
-                    background: #ecfdf5;
-                    border: 1px solid #a7f3d0;
-                    border-radius: 8px;
-                    color: #059669;
-                    font-size: 13px;
-                }
-            </style>
+                  .auth-success {
+                      display: flex;
+                      align-items: center;
+                      gap: 8px;
+                      padding: 10px 12px;
+                      background: #ecfdf5;
+                      border: 1px solid #a7f3d0;
+                      border-radius: 8px;
+                      color: #059669;
+                      font-size: 13px;
+                  }
+
+                  /* 确认步骤样式 */
+                  .confirm-section {
+                      padding: 10px 0;
+                      display: none;
+                      animation: fadeIn 0.3s ease;
+                  }
+                  .confirm-title {
+                      font-size: 14px;
+                      color: #666;
+                      margin-bottom: 12px;
+                      font-weight: 500;
+                  }
+                  .confirm-info-box {
+                      background: #f8f9fa;
+                      border-radius: 12px;
+                      padding: 16px;
+                      border: 1px solid #eef0f2;
+                  }
+                  .confirm-row {
+                      display: flex;
+                      margin-bottom: 12px;
+                  }
+                  .confirm-row:last-child {
+                      margin-bottom: 0;
+                  }
+                  .confirm-label {
+                      width: 60px;
+                      color: #999;
+                      font-size: 13px;
+                      flex-shrink: 0;
+                  }
+                  .confirm-value {
+                      color: #333;
+                      font-size: 13px;
+                      word-break: break-all;
+                      font-weight: 500;
+                      flex: 1;
+                  }
+                  .confirm-category-path {
+                      color: #667eea;
+                      display: flex;
+                      align-items: center;
+                      gap: 4px;
+                  }
+              </style>
             
             <div class="overlay" id="overlay">
                 <div class="dialog">
@@ -913,7 +958,25 @@
                             </div>
                         </div>
                         
-                        <div class="more-options">
+                          <div class="confirm-section" id="confirmSection">
+                              <div class="confirm-title">请确认添加信息：</div>
+                              <div class="confirm-info-box">
+                                  <div class="confirm-row">
+                                      <span class="confirm-label">标题：</span>
+                                      <span class="confirm-value" id="confirmTitleText"></span>
+                                  </div>
+                                  <div class="confirm-row">
+                                      <span class="confirm-label">分类：</span>
+                                      <span class="confirm-value confirm-category-path" id="confirmCategoryText"></span>
+                                  </div>
+                                  <div class="confirm-row">
+                                      <span class="confirm-label">链接：</span>
+                                      <span class="confirm-value" id="confirmUrlText"></span>
+                                  </div>
+                              </div>
+                          </div>
+                          
+                          <div class="more-options">
                             <button class="toggle-btn" id="toggleOptions">
                                 <span>⚙️</span>
                                 <span>更多选项</span>
@@ -937,10 +1000,11 @@
                             <span>⚙️</span>
                             <span>设为默认分类</span>
                         </button>
-                        <div class="footer-actions">
-                            <button class="btn btn-secondary" id="cancelBtn">取消</button>
-                            <button class="btn btn-primary" id="submitBtn" disabled>添加</button>
-                        </div>
+                          <div class="footer-actions">
+                              <button class="btn btn-secondary" id="backBtn" style="display: none;">返回</button>
+                              <button class="btn btn-secondary" id="cancelBtn">取消</button>
+                              <button class="btn btn-primary" id="submitBtn" disabled>下一步</button>
+                          </div>
                     </div>
                 </div>
             </div>
@@ -951,9 +1015,11 @@
         // 绑定事件
         const overlay = dialogShadowRoot.getElementById('overlay');
         const closeBtn = dialogShadowRoot.getElementById('closeBtn');
-        const cancelBtn = dialogShadowRoot.getElementById('cancelBtn');
-        const submitBtn = dialogShadowRoot.getElementById('submitBtn');
-        const quickAddBtn = dialogShadowRoot.getElementById('quickAddBtn');
+          const cancelBtn = dialogShadowRoot.getElementById('cancelBtn');
+          const backBtn = dialogShadowRoot.getElementById('backBtn');
+          const submitBtn = dialogShadowRoot.getElementById('submitBtn');
+          const quickAddBtn = dialogShadowRoot.getElementById('quickAddBtn');
+
         const searchInput = dialogShadowRoot.getElementById('searchInput');
         const toggleOptions = dialogShadowRoot.getElementById('toggleOptions');
         const optionsPanel = dialogShadowRoot.getElementById('optionsPanel');
@@ -1038,15 +1104,78 @@
             filterCategories(searchInput.value);
         });
         
-        // 提交按钮
-        submitBtn.addEventListener('click', () => {
-            submitAdd(url);
-        });
-        
-        // 快速添加按钮
-        quickAddBtn.addEventListener('click', () => {
-            quickAddToLast(url);
-        });
+          // 提交按钮
+          submitBtn.addEventListener('click', () => {
+              if (currentStep === 'selection') {
+                  toggleStep('confirmation');
+              } else {
+                  submitAdd(url);
+              }
+          });
+          
+          // 返回按钮
+          backBtn.addEventListener('click', () => {
+              toggleStep('selection');
+          });
+          
+          // 快速添加按钮
+          quickAddBtn.addEventListener('click', () => {
+              // 快速添加也进入确认步骤
+              const menuId = parseInt(lastMenuId);
+              const subMenuId = lastSubMenuId ? parseInt(lastSubMenuId) : null;
+              selectCategory(menuId, subMenuId);
+              toggleStep('confirmation');
+          });
+          
+          // 切换步骤
+          function toggleStep(step) {
+              currentStep = step;
+              const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
+              const divider = dialogShadowRoot.getElementById('divider');
+              const categorySection = dialogShadowRoot.querySelector('.category-section');
+              const moreOptions = dialogShadowRoot.querySelector('.more-options');
+              const confirmSection = dialogShadowRoot.getElementById('confirmSection');
+              const pagePreview = dialogShadowRoot.querySelector('.page-preview');
+              
+              if (step === 'confirmation') {
+                  // 进入确认步骤
+                  quickAddSection.style.display = 'none';
+                  divider.style.display = 'none';
+                  categorySection.style.display = 'none';
+                  moreOptions.style.display = 'none';
+                  pagePreview.style.display = 'none';
+                  confirmSection.style.display = 'block';
+                  backBtn.style.display = 'block';
+                  submitBtn.textContent = '确认添加';
+                  
+                  // 更新确认信息
+                  const customTitle = dialogShadowRoot.getElementById('customTitle').value;
+                  const menu = allMenus.find(m => m.id === selectedMenuId);
+                  let categoryPath = menu ? menu.name : '';
+                  if (selectedSubMenuId && menu && menu.subMenus) {
+                      const subMenu = menu.subMenus.find(s => s.id === selectedSubMenuId);
+                      if (subMenu) categoryPath += ' / ' + subMenu.name;
+                  }
+                  
+                  dialogShadowRoot.getElementById('confirmTitleText').textContent = customTitle;
+                  dialogShadowRoot.getElementById('confirmCategoryText').textContent = categoryPath;
+                  dialogShadowRoot.getElementById('confirmUrlText').textContent = url;
+              } else {
+                  // 返回选择步骤
+                  // 如果有上次选择，显示快速添加
+                  if (lastMenuId) {
+                      quickAddSection.style.display = 'block';
+                      divider.style.display = 'flex';
+                  }
+                  categorySection.style.display = 'block';
+                  moreOptions.style.display = 'block';
+                  pagePreview.style.display = 'flex';
+                  confirmSection.style.display = 'none';
+                  backBtn.style.display = 'none';
+                  submitBtn.textContent = '下一步';
+              }
+          }
+
         
         // 密码验证相关
         const authSection = dialogShadowRoot.getElementById('authSection');
@@ -1084,12 +1213,13 @@
             dialogShadowRoot = null;
         }
         document.removeEventListener('keydown', handleEscape);
-        // 重置状态
-        isAddingCategory = false;
-        isAddingSubCategory = null;
-        selectedMenuId = null;
-        selectedSubMenuId = null;
-    }
+          // 重置状态
+          isAddingCategory = false;
+          isAddingSubCategory = null;
+          selectedMenuId = null;
+          selectedSubMenuId = null;
+          currentStep = 'selection';
+      }
     
     // ESC 处理
     function handleEscape(e) {
@@ -1104,9 +1234,11 @@
     let selectedSubMenuId = null;
     let lastMenuId = null;
     let lastSubMenuId = null;
-    let isAuthenticated = false;
-    let isAddingCategory = false;
-    let isAddingSubCategory = null;
+      let isAuthenticated = false;
+      let isAddingCategory = false;
+      let isAddingSubCategory = null;
+      let currentStep = 'selection'; // 'selection' or 'confirmation'
+
     
     // 加载分类数据
     async function loadCategories(url, title) {
@@ -1123,6 +1255,29 @@
                 // 没有 token，显示密码输入界面
                 showAuthSection();
                 return;
+            }
+            
+            // 主动验证 Token 是否有效（密码可能已被修改）
+            const tokenVerifyResult = await chrome.runtime.sendMessage({ action: 'verifyToken' });
+            if (!tokenVerifyResult.valid) {
+                // Token 无效（密码已更改或Token过期）
+                isAuthenticated = false;
+                if (tokenVerifyResult.reason === 'password_changed') {
+                    showAuthSection();
+                    showToast('管理密码已更改，请重新验证', 'error');
+                } else if (tokenVerifyResult.reason !== 'network_error') {
+                    // 非网络错误，需要重新验证
+                    showAuthSection();
+                    if (tokenVerifyResult.message) {
+                        showToast(tokenVerifyResult.message, 'error');
+                    }
+                }
+                // 网络错误时继续尝试（可能只是暂时无法验证）
+                if (tokenVerifyResult.reason === 'network_error') {
+                    console.warn('Token验证网络错误，继续尝试加载');
+                } else {
+                    return;
+                }
             }
             
             isAuthenticated = true;
@@ -1561,6 +1716,13 @@
                     selectCategory(result.menuId, null);
                 }
             } else {
+                // 检查是否需要认证
+                if (result.needAuth) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('请先验证密码', 'error');
+                    return;
+                }
                 throw new Error(result.error || '创建失败');
             }
         } catch (e) {
@@ -1614,6 +1776,13 @@
                     selectCategory(parentId, result.subMenuId);
                 }
             } else {
+                // 检查是否需要认证
+                if (result.needAuth) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('请先验证密码', 'error');
+                    return;
+                }
                 throw new Error(result.error || '创建失败');
             }
         } catch (e) {
@@ -1688,10 +1857,11 @@
                 setTimeout(closeQuickAddDialog, 1000);
             } else {
                 // 检查是否是认证失败
-                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401')) {
+                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401') || response?.error?.includes('密码已更改')) {
                     isAuthenticated = false;
                     showAuthSection();
-                    showToast('登录已过期，请重新验证', 'error');
+                    const message = response?.error?.includes('密码已更改') ? '管理密码已更改，请重新验证' : '登录已过期，请重新验证';
+                    showToast(message, 'error');
                 } else {
                     throw new Error(response?.error || '添加失败');
                 }
@@ -1732,10 +1902,11 @@
                 setTimeout(closeQuickAddDialog, 1000);
             } else {
                 // 检查是否是认证失败
-                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401')) {
+                if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401') || response?.error?.includes('密码已更改')) {
                     isAuthenticated = false;
                     showAuthSection();
-                    showToast('登录已过期，请重新验证', 'error');
+                    const message = response?.error?.includes('密码已更改') ? '管理密码已更改，请重新验证' : '登录已过期，请重新验证';
+                    showToast(message, 'error');
                 } else {
                     throw new Error(response?.error || '添加失败');
                 }
