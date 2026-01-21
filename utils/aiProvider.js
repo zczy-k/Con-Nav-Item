@@ -352,11 +352,14 @@ async function callOpenAICompatible(config, messages) {
 
       if (content === undefined || content === null || content === '') {
         const debugInfo = responseData ? {
+          requestUrl: url,
+          requestModel: actualModel,
           hasChoices: !!responseData.choices,
           choicesLength: responseData.choices?.length,
           firstChoice: responseData.choices?.[0] ? JSON.stringify(responseData.choices[0]).substring(0, 300) : null,
-          messageKeys: responseData.choices?.[0]?.message ? Object.keys(responseData.choices[0].message) : null
-        } : { isStream: true };
+          messageKeys: responseData.choices?.[0]?.message ? Object.keys(responseData.choices[0].message) : null,
+          reasoning: responseData.choices?.[0]?.message?.reasoning_content?.substring(0, 100) || null
+        } : { isStream: true, requestUrl: url, requestModel: actualModel };
         throw new Error(`API 返回内容为空。调试: ${JSON.stringify(debugInfo)}`);
       }
 
