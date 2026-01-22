@@ -1509,7 +1509,8 @@ router.get('/status', async (req, res) => {
 // 获取 AI 配置
 router.get('/config', authMiddleware, async (req, res) => {
   try {
-    const config = await db.getAIConfig();
+    const { provider } = req.query;
+    const config = await db.getAIConfig(provider);
     res.json({
       success: true,
         config: {

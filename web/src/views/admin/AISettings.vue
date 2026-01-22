@@ -612,18 +612,50 @@ export default {
           }
         }
       },
-    selectProvider(key) {
-        this.config.provider = key;
-        this.config.model = this.currentProvider.defaultModel;
-        this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
-        this.config.baseUrl = this.currentProvider.defaultBaseUrl || '';
-        this.config.apiKey = '';
-        this.config.hasApiKey = false;
-        this.connectionTested = false;
+    async selectProvider(key) {
+      if (this.config.provider === key && this.config.hasApiKey) return;
+      
+      const oldProvider = this.config.provider;
+      this.config.provider = key;
+      this.testing = true; // 显示加载状态
+      
+      try {
+        const { data } = await aiGetConfig(key);
+        if (data.success && data.config) {
+          const c = data.config;
+          // 注意：hasApiKey 为 true 时表示数据库已有 key，apiKey 字段留空用于掩码显示
+          this.config.hasApiKey = c.hasApiKey;
+          this.config.apiKey = ''; 
+          this.config.baseUrl = c.baseUrl || this.currentProvider.defaultBaseUrl || '';
+          this.config.model = c.model || this.currentProvider.defaultModel || '';
+          this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
+          
+          // 连接状态同步
+          this.connectionOk = c.lastTestedOk;
+          this.connectionTested = c.lastTestedOk;
+        } else {
+          // 如果没有保存过该提供商的配置，重置为默认值
+          this.resetProviderConfig(key);
+        }
+      } catch (e) {
+        console.error('切换提供商失败:', e);
+        this.resetProviderConfig(key);
+      } finally {
+        this.testing = false;
         this.testError = null;
         this.apiKeyValidation = { valid: true, message: '' };
         this.baseUrlValidation = { valid: true, message: '' };
-      },
+      }
+    },
+    resetProviderConfig(key) {
+      this.config.hasApiKey = false;
+      this.config.apiKey = '';
+      this.config.baseUrl = this.providers[key].defaultBaseUrl || '';
+      this.config.model = this.providers[key].defaultModel || '';
+      this.modelSelect = this.providers[key].models?.includes(this.config.model) ? this.config.model : '';
+      this.connectionTested = false;
+      this.connectionOk = false;
+    },
       validateApiKey(value) {
         if (!value) {
           this.apiKeyValidation = { valid: true, message: '' };

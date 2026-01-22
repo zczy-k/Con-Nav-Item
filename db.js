@@ -548,15 +548,15 @@ async function getDataVersion() {
 // ==================== AI 相关方法 ====================
 
 // 获取 AI 配置
-async function getAIConfig() {
+async function getAIConfig(provider = null) {
   try {
-    const keys = ['ai_provider', 'ai_api_key', 'ai_base_url', 'ai_model', 'ai_request_delay', 'ai_auto_generate', 'ai_last_tested_ok'];
-    const rows = await dbAll(
-      `SELECT key, value FROM settings WHERE key IN (${keys.map(() => '?').join(',')})`,
-      keys
+    // 1. 先获取当前活跃的提供商和全局设置
+    const globalKeys = ['ai_provider', 'ai_request_delay', 'ai_auto_generate'];
+    const globalRows = await dbAll(
+      `SELECT key, value FROM settings WHERE key IN (${globalKeys.map(() => '?').join(',')})`,
+      globalKeys
     );
     
-    // 默认配置
     const config = {
       provider: 'deepseek',
       apiKey: '',
@@ -567,20 +567,37 @@ async function getAIConfig() {
       lastTestedOk: 'false'
     };
 
-    const keyMap = {
+    const globalKeyMap = {
       'ai_provider': 'provider',
-      'ai_api_key': 'apiKey',
-      'ai_base_url': 'baseUrl',
-      'ai_model': 'model',
       'ai_request_delay': 'requestDelay',
-      'ai_auto_generate': 'autoGenerate',
-      'ai_last_tested_ok': 'lastTestedOk'
+      'ai_auto_generate': 'autoGenerate'
     };
 
-    for (const row of rows) {
-      const configKey = keyMap[row.key];
+    for (const row of globalRows) {
+      const configKey = globalKeyMap[row.key];
       if (configKey) {
         config[configKey] = row.value || '';
+      }
+    }
+
+    // 2. 确定要获取哪个提供商的配置
+    const targetProvider = provider || config.provider;
+    
+    // 3. 从独立存储中获取该提供商的配置
+    const providerKey = `ai_config_${targetProvider}`;
+    const providerRow = await dbGet('SELECT value FROM settings WHERE key = ?', [providerKey]);
+    
+    if (providerRow && providerRow.value) {
+      try {
+        const providerData = JSON.parse(providerRow.value);
+        config.apiKey = providerData.apiKey || '';
+        config.baseUrl = providerData.baseUrl || '';
+        config.model = providerData.model || '';
+        config.lastTestedOk = providerData.lastTestedOk || 'false';
+        // 如果是显式请求某个 provider，更新返回对象的 provider 字段
+        if (provider) config.provider = provider;
+      } catch (e) {
+        console.error(`解析提供商 ${targetProvider} 配置失败:`, e);
       }
     }
     
@@ -600,18 +617,14 @@ async function getAIConfig() {
 
 // 保存 AI 配置
 async function saveAIConfig(config) {
-  const mappings = {
+  // 1. 处理全局设置
+  const globalMappings = {
     provider: 'ai_provider',
-    apiKey: 'ai_api_key',
-    baseUrl: 'ai_base_url',
-    model: 'ai_model',
     requestDelay: 'ai_request_delay',
-    autoGenerate: 'ai_auto_generate',
-    lastTestedOk: 'ai_last_tested_ok'
+    autoGenerate: 'ai_auto_generate'
   };
   
-  for (const [key, dbKey] of Object.entries(mappings)) {
-    // 仅当值为 undefined 或 null 时跳过更新 (防止抹掉 API Key)
+  for (const [key, dbKey] of Object.entries(globalMappings)) {
     if (config[key] !== undefined && config[key] !== null) {
       await dbRun(
         'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
@@ -619,18 +632,54 @@ async function saveAIConfig(config) {
       );
     }
   }
+
+  // 2. 处理提供商特定设置
+  // 确定目标提供商：优先使用传入的 provider，否则获取当前活跃的
+  let targetProvider = config.provider;
+  if (!targetProvider) {
+    const currentConfig = await dbGet('SELECT value FROM settings WHERE key = ?', ['ai_provider']);
+    targetProvider = currentConfig ? currentConfig.value : 'deepseek';
+  }
+
+  if (targetProvider) {
+    const providerKey = `ai_config_${targetProvider}`;
+    const existingRow = await dbGet('SELECT value FROM settings WHERE key = ?', [providerKey]);
+    let providerData = {};
+    
+    if (existingRow && existingRow.value) {
+      try {
+        providerData = JSON.parse(existingRow.value);
+      } catch (e) {
+        providerData = {};
+      }
+    }
+
+    // 更新字段（仅当传入了新值时）
+    if (config.apiKey !== undefined && config.apiKey !== null) providerData.apiKey = config.apiKey;
+    if (config.baseUrl !== undefined && config.baseUrl !== null) providerData.baseUrl = config.baseUrl;
+    if (config.model !== undefined && config.model !== null) providerData.model = config.model;
+    if (config.lastTestedOk !== undefined && config.lastTestedOk !== null) providerData.lastTestedOk = config.lastTestedOk?.toString();
+
+      await dbRun(
+        'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+        [providerKey, JSON.stringify(providerData)]
+      );
+    }
+  }
 }
 
 // 清除 AI 配置
 async function clearAIConfig() {
+  // 获取所有 ai_config_ 开头的键并删除
+  const rows = await dbAll("SELECT key FROM settings WHERE key LIKE 'ai_config_%'");
+  for (const row of rows) {
+    await dbRun('DELETE FROM settings WHERE key = ?', [row.key]);
+  }
+
   const keys = [
     'ai_provider', 
-    'ai_api_key', 
-    'ai_base_url', 
-    'ai_model', 
     'ai_request_delay', 
-    'ai_auto_generate', 
-    'ai_last_tested_ok'
+    'ai_auto_generate'
   ];
   for (const key of keys) {
     let defaultValue = '';
@@ -642,6 +691,12 @@ async function clearAIConfig() {
       'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
       [key, defaultValue]
     );
+  }
+
+  // 同时清理旧的单模式 Key
+  const oldKeys = ['ai_api_key', 'ai_base_url', 'ai_model', 'ai_last_tested_ok'];
+  for (const key of oldKeys) {
+    await dbRun('DELETE FROM settings WHERE key = ?', [key]);
   }
 }
 

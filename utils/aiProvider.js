@@ -133,14 +133,13 @@ const AI_PROVIDERS = {
  * 调用 AI 服务
  */
 async function callAI(config, messages) {
-  const { provider, apiKey, baseUrl, model } = config;
+  const { provider } = config;
   const providerConfig = AI_PROVIDERS[provider];
   
   if (!providerConfig) {
     throw new Error(`不支持的 AI 提供商: ${provider}`);
   }
 
-  // 根据不同提供商调用对应的 API
   switch (provider) {
     case 'gemini':
       return callGemini(config, messages);
@@ -149,86 +148,86 @@ async function callAI(config, messages) {
     case 'ollama':
       return callOllama(config, messages);
     default:
-      // OpenAI 兼容接口（大多数国内服务都兼容）
       return callOpenAICompatible(config, messages);
   }
 }
 
-  /**
-   * OpenAI 兼容接口（适用于大多数服务）
-   */
-  async function callOpenAICompatible(config, messages) {
-    const { provider, apiKey, baseUrl, model } = config;
-    const providerConfig = AI_PROVIDERS[provider];
-    
-    let actualBaseUrl = (baseUrl || providerConfig.baseUrl || '').replace(/\/+$/, '');
-    const actualModel = model || providerConfig.defaultModel;
-    
-    if (!actualBaseUrl) {
-      throw new Error('请配置 Base URL');
-    }
-    
-    if (!actualModel) {
-      throw new Error('请配置模型名称');
-    }
-    
-    // 智能处理路径：如果已经包含 /chat/completions，则不重复添加
-    let url = actualBaseUrl;
-    if (!url.includes('/chat/completions')) {
-      // 如果不包含 /v1 且不是某些特殊的 base，则补全 /v1
-      // 注意：有些 provider 的 baseUrl 已经包含了 /v1 或 /v3 等版本号
-      if (!/\/v\d+(\/|$)/.test(url) && !url.includes('compatible-mode')) {
-        url += '/v1';
-      }
-      url += '/chat/completions';
-    }
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          model: actualModel,
-          messages: messages,
-          temperature: 0.7,
-          max_tokens: 500
-        }),
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        const errText = await response.text();
-        let errorMessage = `API 请求失败 (${response.status})`;
-        try {
-          const errJson = JSON.parse(errText);
-          errorMessage += `: ${errJson.error?.message || errJson.message || errText}`;
-        } catch {
-          errorMessage += `: ${errText}`;
-        }
-        const error = new Error(errorMessage);
-        error.status = response.status;
-        throw error;
-      }
-
-      const data = await response.json();
-      return data.choices?.[0]?.message?.content || '';
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('请求超时 (30s)，请检查网络或提供商状态');
-      }
-      throw error;
-    }
+/**
+ * OpenAI 兼容接口
+ */
+async function callOpenAICompatible(config, messages) {
+  const { provider, apiKey, baseUrl, model } = config;
+  const providerConfig = AI_PROVIDERS[provider];
+  
+  let rawBaseUrl = (baseUrl || providerConfig.baseUrl || '').trim();
+  if (rawBaseUrl && !rawBaseUrl.startsWith('http')) {
+    rawBaseUrl = 'https://' + rawBaseUrl;
   }
 
+  const actualModel = model || providerConfig.defaultModel;
+  if (!rawBaseUrl) throw new Error('请配置 Base URL');
+  if (!actualModel) throw new Error('请配置模型名称');
+  
+  let url;
+  try {
+    const normalizedBase = rawBaseUrl.replace(/\/+$/, '');
+    if (normalizedBase.includes('/chat/completions')) {
+      url = normalizedBase;
+    } else {
+      const hasVersion = /\/v\d+/.test(normalizedBase);
+      const isSpecialPath = normalizedBase.includes('compatible-mode') || normalizedBase.includes('api/paas/v4');
+      let pathSuffix = (!hasVersion && !isSpecialPath) ? '/v1' : '';
+      url = `${normalizedBase}${pathSuffix}/chat/completions`;
+    }
+  } catch (e) {
+    throw new Error(`无效的 Base URL: ${e.message}`);
+  }
+  
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: actualModel,
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 500
+      }),
+      signal: controller.signal
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
+      const errText = await response.text();
+      let errorMessage = `API 请求失败 (${response.status})`;
+      try {
+        const errJson = JSON.parse(errText);
+        errorMessage += `: ${errJson.error?.message || errJson.message || errText}`;
+      } catch {
+        errorMessage += `: ${errText}`;
+      }
+      const error = new Error(errorMessage);
+      error.status = response.status;
+      throw error;
+    }
+
+    const data = await response.json();
+    return data.choices?.[0]?.message?.content || '';
+  } catch (error) {
+    clearTimeout(timeoutId);
+    if (error.name === 'AbortError') {
+      throw new Error('请求超时 (30s)，请检查网络或提供商状态');
+    }
+    throw error;
+  }
+}
 
 /**
  * Google Gemini API
@@ -236,10 +235,8 @@ async function callAI(config, messages) {
 async function callGemini(config, messages) {
   const { apiKey, model } = config;
   const actualModel = model || AI_PROVIDERS.gemini.defaultModel;
-  
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${actualModel}:generateContent?key=${apiKey}`;
   
-  // 转换消息格式
   const contents = messages
     .filter(m => m.role !== 'system')
     .map(m => ({
@@ -301,10 +298,8 @@ async function callGemini(config, messages) {
 async function callAnthropic(config, messages) {
   const { apiKey, model } = config;
   const actualModel = model || AI_PROVIDERS.anthropic.defaultModel;
-  
   const url = 'https://api.anthropic.com/v1/messages';
   
-  // 提取 system 消息
   const systemMsg = messages.find(m => m.role === 'system');
   const otherMessages = messages.filter(m => m.role !== 'system');
   
@@ -406,70 +401,107 @@ async function callOllama(config, messages) {
   }
 }
 
-  /**
-   * 智能探测 Base URL 的正确补全方式
-   * @returns {Promise<{success: boolean, baseUrl?: string, responseTime?: string, error?: string}>}
-   */
-  async function probeBaseUrl(config) {
-    const { provider, baseUrl } = config;
-    const providerConfig = AI_PROVIDERS[provider];
-    const originalBaseUrl = (baseUrl || providerConfig.baseUrl || '').replace(/\/+$/, '');
-    
-    if (!originalBaseUrl) {
-      throw new Error('Base URL 不能为空');
-    }
-
-    // 构建待测试的几种变体
-    // 优先级：原始地址 -> 加上版本号 -> 加上 API 后缀
-    const variants = [
-      originalBaseUrl,
-    ];
-
-    // 如果不包含版本号，尝试加上 common 版本号
-    if (!/\/v\d+(\/|$)/.test(originalBaseUrl)) {
-      variants.push(`${originalBaseUrl}/v1`);
-      variants.push(`${originalBaseUrl}/v3`);
-    }
-
-    // 如果以 /v1 结尾，也尝试去掉它（以防万一）
-    if (originalBaseUrl.endsWith('/v1')) {
-      variants.push(originalBaseUrl.substring(0, originalBaseUrl.length - 3));
-    }
-
-    // 去重
-    const uniqueVariants = [...new Set(variants)].filter(v => !!v);
-
-    const messages = [
-      { role: 'system', content: 'You are a helpful assistant. Reply with "OK" only.' }, 
-      { role: 'user', content: 'test' }
-    ];
-
-    // 尝试测试
-    const testVariant = async (url) => {
-      const startTime = Date.now();
-      try {
-        // 使用 callAI 测试，它内部会处理具体的路径拼接
-        const result = await callAI({ ...config, baseUrl: url }, messages);
-        if (result) {
-          return { success: true, baseUrl: url, responseTime: `${Date.now() - startTime}ms` };
-        }
-      } catch (e) {
-        return { success: false, error: e.message };
-      }
-      return { success: false };
-    };
-
-    // 串行测试，找到第一个成功的
-    let lastError = null;
-    for (const url of uniqueVariants) {
-      const res = await testVariant(url);
-      if (res.success) return res;
-      lastError = res.error;
-    }
-
-    return { success: false, error: lastError || '所有补全方式均无法连接' };
+/**
+ * 智能探测 Base URL 的正确补全方式
+ */
+async function probeBaseUrl(config) {
+  const { provider, baseUrl, apiKey } = config;
+  const providerConfig = AI_PROVIDERS[provider];
+  let rawInput = (baseUrl || providerConfig.baseUrl || '').trim();
+  
+  if (!rawInput) throw new Error('Base URL 不能为空');
+  if (!rawInput.startsWith('http')) {
+    rawInput = 'https://' + rawInput;
   }
 
+  const base = rawInput.replace(/\/+$/, '');
+  const variants = [base];
+
+  // 启发式添加变体
+  if (!/\/v\d+/.test(base)) {
+    if (base.includes('volces.com')) {
+      variants.push(`${base}/v3`, `${base}/v1`);
+    } else {
+      variants.push(`${base}/v1`, `${base}/v3`);
+    }
+  }
+  if (base.endsWith('/v1')) {
+    variants.push(base.substring(0, base.length - 3));
+  }
+
+  const uniqueVariants = [...new Set(variants)].filter(v => !!v);
+
+  const testVariant = async (url) => {
+    const startTime = Date.now();
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    try {
+      // 1. 轻量级验证：/models
+      const modelsUrl = `${url.replace(/\/+$/, '')}/models`;
+      const response = await fetch(modelsUrl, {
+        method: 'GET',
+        headers: { 'Authorization': `Bearer ${apiKey}` },
+        signal: controller.signal
+      });
+
+      if ([200, 401, 403].includes(response.status)) {
+        return { 
+          success: true, 
+          baseUrl: url, 
+          responseTime: `${Date.now() - startTime}ms`,
+          status: response.status 
+        };
+      }
+
+      // 2. 兜底验证：/chat/completions
+      const chatUrl = `${url.replace(/\/+$/, '')}/chat/completions`;
+      const chatResponse = await fetch(chatUrl, {
+        method: 'POST',
+        headers: { 
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          model: config.model || providerConfig.defaultModel || 'gpt-3.5-turbo',
+          messages: [{ role: 'user', content: 'hi' }],
+          max_tokens: 1
+        }),
+        signal: controller.signal
+      });
+
+      if ([200, 401, 403].includes(chatResponse.status)) {
+        return { 
+          success: true, 
+          baseUrl: url, 
+          responseTime: `${Date.now() - startTime}ms`,
+          status: chatResponse.status
+        };
+      }
+      throw new Error(`Status ${chatResponse.status}`);
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  };
+
+  try {
+    const results = await Promise.allSettled(uniqueVariants.map(v => testVariant(v)));
+    const successful = results
+      .filter(r => r.status === 'fulfilled')
+      .map(r => r.value)
+      .sort((a, b) => a.responseTime - b.responseTime);
+
+    if (successful.length > 0) {
+      const perfect = successful.find(s => s.status === 200);
+      return perfect || successful[0];
+    }
+
+    const errors = results.filter(r => r.status === 'rejected').map(r => r.reason.message);
+    return { success: false, error: errors[0] || '无法连接，请检查网络或路径' };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+}
 
 module.exports = {
   AI_PROVIDERS,

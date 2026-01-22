@@ -139,7 +139,10 @@ export const getDataVersion = () => instance.get(`/data-version`);
 
 // AI 批量生成 API
 export const aiGetStatus = () => instance.get(`/ai/status`);
-export const aiGetConfig = () => instance.get(`/ai/config`);
+export const aiGetConfig = (provider = null) => {
+  const params = provider ? { provider } : {};
+  return instance.get(`/ai/config`, { params });
+};
 export const aiUpdateConfig = (data) => instance.post(`/ai/config`, data);
 export const aiClearConfig = () => instance.delete(`/ai/config`);
 export const aiTestConnection = (config = {}) => instance.post(`/ai/test`, config);
