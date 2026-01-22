@@ -354,7 +354,67 @@ async function callOllama(config, messages) {
   }
 }
 
+/**
+ * 智能探测 Base URL 的正确补全方式
+ * @returns {Promise<{success: boolean, baseUrl?: string, responseTime?: string, error?: string}>}
+ */
+async function probeBaseUrl(config) {
+  const { provider, baseUrl } = config;
+  const providerConfig = AI_PROVIDERS[provider];
+  const originalBaseUrl = (baseUrl || providerConfig.baseUrl || '').replace(/\/+$/, '');
+  
+  if (!originalBaseUrl) {
+    throw new Error('Base URL 不能为空');
+  }
+
+  // 构建待测试的几种变体
+  const variants = [
+    originalBaseUrl, // 原始
+  ];
+
+  // 如果以 /v1 结尾，尝试去掉它（因为系统会自动加 /v1）
+  if (originalBaseUrl.endsWith('/v1')) {
+    variants.push(originalBaseUrl.substring(0, originalBaseUrl.length - 3));
+  } else {
+    // 尝试加上 /v1 (虽然系统会自动加，但有些网关可能需要特殊的路径处理，这里作为备份测试)
+    // 实际上更常见的是用户填了 /api，系统加 /v1 变成 /api/v1
+  }
+
+  // 这里的策略是：
+  // 1. 系统默认会给 baseUrl 加上 /v1/chat/completions
+  // 2. 如果失败，我们尝试不同的 baseUrl 基础路径
+
+  const messages = [
+    { role: 'system', content: 'OK' }, 
+    { role: 'user', content: 'test' }
+  ];
+
+  // 尝试测试
+  const testVariant = async (url) => {
+    const startTime = Date.now();
+    try {
+      const result = await callAI({ ...config, baseUrl: url }, messages);
+      if (result) {
+        return { success: true, baseUrl: url, responseTime: `${Date.now() - startTime}ms` };
+      }
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+    return { success: false };
+  };
+
+  // 串行测试，找到第一个成功的
+  for (const url of variants) {
+    const res = await testVariant(url);
+    if (res.success) return res;
+  }
+
+  // 如果都失败了，返回最后一个错误
+  return { success: false, error: '所有补全方式均无法连接' };
+}
+
 module.exports = {
   AI_PROVIDERS,
-  callAI
+  callAI,
+  probeBaseUrl
 };

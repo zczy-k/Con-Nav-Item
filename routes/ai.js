@@ -7,7 +7,7 @@ const express = require('express');
 const router = express.Router();
 const authMiddleware = require('./authMiddleware');
 const db = require('../db');
-const { AI_PROVIDERS, callAI } = require('../utils/aiProvider');
+const { AI_PROVIDERS, callAI, probeBaseUrl } = require('../utils/aiProvider');
 const { encrypt, decrypt } = require('../utils/crypto');
 const EventEmitter = require('events');
 
@@ -1554,7 +1554,7 @@ router.get('/config/verify', authMiddleware, async (req, res) => {
 // 保存 AI 配置
 router.post('/config', authMiddleware, async (req, res) => {
   try {
-    const { provider, apiKey, baseUrl, model, requestDelay, autoGenerate } = req.body;
+    const { provider, apiKey, baseUrl, model, requestDelay, autoGenerate, lastTestedOk } = req.body;
     
     if (!provider || !AI_PROVIDERS[provider]) {
       return res.status(400).json({ success: false, message: '无效的 AI 提供商' });
@@ -1586,7 +1586,7 @@ router.post('/config', authMiddleware, async (req, res) => {
       model: model || '',
       requestDelay: Math.max(500, Math.min(10000, requestDelay || 1500)),
       autoGenerate: autoGenerate ? 'true' : 'false',
-      lastTestedOk: 'false'
+      lastTestedOk: lastTestedOk ? 'true' : 'false'
     });
     
     res.json({ success: true, message: '配置保存成功' });
@@ -1647,28 +1647,28 @@ router.post('/test', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, message: validation.message });
     }
     
-    // 3. 执行测试请求
-    const messages = [
-      { role: 'system', content: 'You are a helpful assistant. Response with "OK" only.' }, 
-      { role: 'user', content: 'Connection test. Respond with OK.' }
-    ];
+    // 3. 执行智能测试请求
+    const originalBaseUrl = config.baseUrl;
+    const probeResult = await probeBaseUrl(config);
     
-    const startTime = Date.now();
-    const aiResponse = await callAI(config, messages);
-    const responseTime = Date.now() - startTime;
+    if (probeResult.success) {
+      // 测试成功，持久化状态
+      await db.saveAIConfig({ lastTestedOk: 'true' });
+      
+      const resData = { 
+        success: true, 
+        responseTime: probeResult.responseTime
+      };
 
-    if (!aiResponse) {
-      throw new Error('AI 未返回任何内容');
+      // 如果探测出的 working baseUrl 与用户提供的不一致，返回建议
+      if (probeResult.baseUrl && probeResult.baseUrl !== originalBaseUrl.replace(/\/+$/, '')) {
+        resData.suggestedBaseUrl = probeResult.baseUrl;
+      }
+
+      res.json(resData);
+    } else {
+      throw new Error(probeResult.error || '所有补全方式均无法连接');
     }
-
-    // 测试成功，持久化状态
-    await db.saveAIConfig({ lastTestedOk: 'true' });
-
-    res.json({ 
-      success: true, 
-      responseTime: `${responseTime}ms`,
-      preview: aiResponse.substring(0, 100) + (aiResponse.length > 100 ? '...' : '')
-    });
   } catch (error) {
     console.error('AI Test Connection Error:', error);
     // 测试失败，持久化状态

@@ -143,11 +143,8 @@
         </div>
 
           <div class="form-actions">
-            <button class="btn" @click="testConnection" :disabled="testing || !canTest">
-              {{ testing ? '⏳ 测试中...' : '🔗 测试连接' }}
-            </button>
-            <button class="btn primary" @click="saveConfig" :disabled="saving || (!apiKeyValidation.valid && config.apiKey)">
-              {{ saving ? '⏳ 保存中...' : '💾 保存配置' }}
+            <button class="btn primary" @click="saveConfig" :disabled="saving || testing || (!apiKeyValidation.valid && config.apiKey)">
+              {{ (saving || testing) ? '⏳ 正在测试并保存...' : '💾 保存并测试连接' }}
             </button>
             <button 
               v-if="config.hasApiKey || config.baseUrl || connectionOk" 
@@ -621,33 +618,15 @@ export default {
             }
           } catch {}
         },
-      async saveConfig() {
-        this.saving = true;
-        try {
-          const { data } = await aiUpdateConfig({
-            provider: this.config.provider,
-            apiKey: this.config.apiKey || undefined,
-            baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl,
-            model: this.config.model,
-            autoGenerate: this.config.autoGenerate
-          });
-          if (data.success) {
-            this.showToast('配置已保存', 'success');
-            this.config.hasApiKey = true;
-            this.config.apiKey = '';
-            this.testConnection();
-          } else {
-            this.showToast(data.message, 'error');
-          }
-        } catch (e) {
-          this.showToast(e.response?.data?.message || '保存失败', 'error');
-        }
-        this.saving = false;
-      },
-      async testConnection() {
+        async saveConfig() {
+          if (this.saving || this.testing) return;
+          
+          this.saving = true;
           this.testing = true;
           this.testError = null;
+          
           try {
+            // 1. 测试连接 (包含自动探测)
             const testConfig = {
               provider: this.config.provider,
               model: this.config.model,
@@ -656,23 +635,67 @@ export default {
             if (this.config.apiKey) {
               testConfig.apiKey = this.config.apiKey;
             }
-            const { data } = await aiTestConnection(testConfig);
+            
+            let testPassed = false;
+            let suggestedBaseUrl = null;
+            let responseTime = '';
+            
+            try {
+              const { data: testData } = await aiTestConnection(testConfig);
+              testPassed = testData.success;
+              if (testData.success) {
+                responseTime = testData.responseTime;
+                if (testData.suggestedBaseUrl) {
+                  suggestedBaseUrl = testData.suggestedBaseUrl;
+                  this.config.baseUrl = suggestedBaseUrl; // 自动应用补全后的 URL
+                }
+              } else {
+                this.testError = this.parseTestError(testData.message);
+              }
+            } catch (e) {
+              testPassed = false;
+              this.testError = this.parseTestError(e.response?.data?.message || e.message || '连接失败');
+            }
+            
             this.connectionTested = true;
-            this.connectionOk = data.success;
-            if (data.success) {
-              this.showToast(`连接成功 (${data.responseTime})`, 'success');
+            this.connectionOk = testPassed;
+            
+            // 2. 保存配置 (将测试结果同步保存)
+            const { data: saveData } = await aiUpdateConfig({
+              provider: this.config.provider,
+              apiKey: this.config.apiKey || undefined,
+              baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl,
+              model: this.config.model,
+              autoGenerate: this.config.autoGenerate,
+              lastTestedOk: testPassed
+            });
+            
+            if (saveData.success) {
+              this.config.hasApiKey = true;
+              this.config.apiKey = '';
+              
+              if (testPassed) {
+                if (suggestedBaseUrl) {
+                  this.showToast(`配置已保存，已智能补全并连接成功 (${responseTime})`, 'success');
+                } else {
+                  this.showToast(`配置已保存并连接成功 (${responseTime})`, 'success');
+                }
+              } else {
+                this.showToast('配置已保存，但连接测试失败', 'warning');
+              }
             } else {
-              this.testError = this.parseTestError(data.message);
-              this.showToast(this.testError.title, 'error');
+              this.showToast(saveData.message, 'error');
             }
           } catch (e) {
-            this.connectionTested = true;
-            this.connectionOk = false;
-            const errMsg = e.response?.data?.message || e.message || '连接失败';
-            this.testError = this.parseTestError(errMsg);
-            this.showToast(this.testError.title, 'error');
+            this.showToast(e.response?.data?.message || '操作失败', 'error');
+          } finally {
+            this.saving = false;
+            this.testing = false;
           }
-          this.testing = false;
+        },
+        // 保留 testConnection 作为内部辅助方法或供其他组件调用（如果需要）
+        async testConnection() {
+          await this.saveConfig();
         },
         parseTestError(message) {
           const result = { title: '连接失败', detail: message, suggestions: [] };
