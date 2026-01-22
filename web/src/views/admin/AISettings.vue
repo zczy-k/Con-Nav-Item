@@ -336,55 +336,22 @@ const PROVIDERS = {
     keyPrefix: 'sk-',
     keyHint: '以 sk- 开头，约 32 位字符',
     modelDescriptions: {
-      'deepseek-chat': '通用对话，性价比高',
+      'deepseek-chat': '通用对话，性价比极高',
       'deepseek-reasoner': '推理增强，适合复杂任务'
     }
   },
-  openai: {
-    name: 'OpenAI',
-    icon: '🤖',
-    docsUrl: 'https://platform.openai.com/',
+  siliconflow: {
+    name: '硅基流动',
+    icon: '🚀',
+    docsUrl: 'https://siliconflow.cn/',
     needsApiKey: true,
     needsBaseUrl: false,
-    defaultModel: 'gpt-4o-mini',
-    models: ['gpt-4o-mini', 'gpt-4o', 'gpt-3.5-turbo'],
-    keyPrefix: 'sk-',
-    keyHint: '以 sk- 开头，约 51 位字符',
+    defaultModel: 'deepseek-ai/DeepSeek-V3',
+    models: ['deepseek-ai/DeepSeek-V3', 'deepseek-ai/DeepSeek-R1', 'THUDM/glm-4-9b-chat', 'Qwen/Qwen2.5-7B-Instruct'],
+    keyHint: '在硅基流动平台获取',
     modelDescriptions: {
-      'gpt-4o-mini': '轻量快速，适合简单任务',
-      'gpt-4o': '最强模型，效果最佳',
-      'gpt-3.5-turbo': '经典模型，速度快成本低'
-    }
-  },
-  gemini: {
-    name: 'Google Gemini',
-    icon: '♊',
-    docsUrl: 'https://aistudio.google.com/',
-    needsApiKey: true,
-    needsBaseUrl: false,
-    defaultModel: 'gemini-1.5-flash',
-    models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash'],
-    keyPrefix: 'AIza',
-    keyHint: '以 AIza 开头，约 39 位字符',
-    modelDescriptions: {
-      'gemini-1.5-flash': '快速响应，成本最低',
-      'gemini-1.5-pro': '高质量输出，适合复杂任务',
-      'gemini-2.0-flash': '最新模型，速度与质量兼顾'
-    }
-  },
-  anthropic: {
-    name: 'Anthropic',
-    icon: '🎨',
-    docsUrl: 'https://console.anthropic.com/',
-    needsApiKey: true,
-    needsBaseUrl: false,
-    defaultModel: 'claude-3-haiku-20240307',
-    models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307'],
-    keyPrefix: 'sk-ant-',
-    keyHint: '以 sk-ant- 开头',
-    modelDescriptions: {
-      'claude-3-5-sonnet-20240620': '最强模型，理解能力出色',
-      'claude-3-haiku-20240307': '轻量快速，性价比高'
+      'deepseek-ai/DeepSeek-V3': 'DeepSeek V3 官方模型',
+      'deepseek-ai/DeepSeek-R1': 'DeepSeek R1 推理模型'
     }
   },
   zhipu: {
@@ -402,6 +369,118 @@ const PROVIDERS = {
       'glm-4-plus': '增强版，复杂任务更优'
     }
   },
+  qwen: {
+    name: '通义千问',
+    icon: '☁️',
+    docsUrl: 'https://dashscope.console.aliyun.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'qwen-plus',
+    models: ['qwen-plus', 'qwen-turbo', 'qwen-max'],
+    keyHint: '在阿里云 DashScope 获取',
+    modelDescriptions: {
+      'qwen-plus': '主力模型，能力均衡',
+      'qwen-turbo': '极速模型，适合简单任务',
+      'qwen-max': '最强模型，理解力最深'
+    }
+  },
+  volcengine: {
+    name: '火山引擎',
+    icon: '🌋',
+    docsUrl: 'https://www.volcengine.com/product/ark',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: '',
+    models: [],
+    keyHint: '在火山引擎控制台获取 API Key',
+    modelDescriptions: {
+      '': '请输入具体的模型推理端点 ID'
+    }
+  },
+  moonshot: {
+    name: 'Moonshot',
+    icon: '🌙',
+    docsUrl: 'https://platform.moonshot.cn/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'moonshot-v1-8k',
+    models: ['moonshot-v1-8k', 'moonshot-v1-32k', 'moonshot-v1-128k'],
+    keyHint: '在 Moonshot 平台获取',
+    modelDescriptions: {
+      'moonshot-v1-8k': '8k 上下文窗口',
+      'moonshot-v1-32k': '32k 上下文窗口'
+    }
+  },
+  yi: {
+    name: '零一万物',
+    icon: '0️⃣',
+    docsUrl: 'https://platform.lingyiwanwu.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'yi-lightning',
+    models: ['yi-lightning', 'yi-large', 'yi-medium'],
+    keyHint: '在零一万物平台获取',
+    modelDescriptions: {
+      'yi-lightning': '极速响应',
+      'yi-large': '高性能旗舰'
+    }
+  },
+  openai: {
+    name: 'OpenAI',
+    icon: '🤖',
+    docsUrl: 'https://platform.openai.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'gpt-4o-mini',
+    models: ['gpt-4o-mini', 'gpt-4o', 'o1-mini'],
+    keyPrefix: 'sk-',
+    keyHint: '以 sk- 开头',
+    modelDescriptions: {
+      'gpt-4o-mini': '轻量快速，性价比高',
+      'gpt-4o': '最强多模态模型',
+      'o1-mini': '推理增强模型'
+    }
+  },
+  anthropic: {
+    name: 'Claude',
+    icon: '🎨',
+    docsUrl: 'https://console.anthropic.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'claude-3-5-sonnet-20240620',
+    models: ['claude-3-5-sonnet-20240620', 'claude-3-haiku-20240307'],
+    keyPrefix: 'sk-ant-',
+    keyHint: '以 sk-ant- 开头',
+    modelDescriptions: {
+      'claude-3-5-sonnet-20240620': '目前最强理解模型之一',
+      'claude-3-haiku-20240307': '极致速度与性价比'
+    }
+  },
+  gemini: {
+    name: 'Gemini',
+    icon: '♊',
+    docsUrl: 'https://aistudio.google.com/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'gemini-1.5-flash',
+    models: ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp'],
+    keyPrefix: 'AIza',
+    keyHint: '以 AIza 开头',
+    modelDescriptions: {
+      'gemini-1.5-flash': 'Google 极速模型',
+      'gemini-1.5-pro': '具备百万上下文窗口'
+    }
+  },
+  openrouter: {
+    name: 'OpenRouter',
+    icon: '🌐',
+    docsUrl: 'https://openrouter.ai/',
+    needsApiKey: true,
+    needsBaseUrl: false,
+    defaultModel: 'google/gemini-flash-1.5',
+    models: ['google/gemini-flash-1.5', 'anthropic/claude-3.5-sonnet', 'openai/gpt-4o-mini'],
+    keyHint: '在 OpenRouter 获取，支持聚合所有模型'
+  },
   ollama: {
     name: 'Ollama',
     icon: '🦙',
@@ -410,13 +489,12 @@ const PROVIDERS = {
     needsApiKey: false,
     needsBaseUrl: true,
     defaultBaseUrl: 'http://localhost:11434',
-    defaultModel: 'llama3',
-    models: ['llama3', 'qwen2', 'mistral', 'llama3.2'],
+    defaultModel: 'llama3.2',
+    models: ['llama3.2', 'qwen2.5', 'mistral', 'deepseek-r1'],
     modelDescriptions: {
-      'llama3': 'Meta 开源大模型',
-      'qwen2': '阿里通义千问开源版',
-      'mistral': '高效开源模型',
-      'llama3.2': '最新版本，支持多模态'
+      'llama3.2': 'Meta 最新开源模型',
+      'qwen2.5': '阿里最强开源系列',
+      'deepseek-r1': 'DeepSeek 推理开源版'
     }
   },
   custom: {
@@ -426,7 +504,7 @@ const PROVIDERS = {
     needsBaseUrl: true,
     defaultModel: '',
     models: [],
-    keyHint: '根据服务商要求填写'
+    keyHint: '任意符合 OpenAI 规范的接口'
   }
 };
 
