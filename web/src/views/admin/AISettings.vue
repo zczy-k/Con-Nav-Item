@@ -2,7 +2,13 @@
   <div class="ai-settings">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h2>🤖 AI 智能生成</h2>
+      <div class="header-left">
+        <h2>🤖 AI 智能生成</h2>
+        <div class="active-badge" v-if="activeProviderKey">
+          <span class="label">当前使用:</span>
+          <span class="value">{{ providers[activeProviderKey]?.name }}</span>
+        </div>
+      </div>
       <div class="connection-status" :class="connectionStatus">
         <span class="status-dot"></span>
         <span>{{ statusText }}</span>
@@ -29,28 +35,31 @@
         <h3>选择 AI 提供商</h3>
         <span class="section-hint">推荐使用 DeepSeek，性价比高</span>
       </div>
-      <div class="provider-grid">
-        <div 
-          v-for="(provider, key) in providers" 
-          :key="key"
-          class="provider-card"
-          :class="{ active: config.provider === key }"
-          @click="selectProvider(key)"
-        >
-          <div class="provider-icon">{{ provider.icon }}</div>
-          <div class="provider-info">
-            <span class="provider-name">{{ provider.name }}</span>
-            <span class="provider-tag" v-if="provider.recommended">推荐</span>
-            <span class="provider-tag local" v-if="provider.local">本地</span>
-          </div>
-        </div>
+      <div class="provider-select-wrapper">
+          <select 
+            :value="config.provider" 
+            class="input provider-dropdown" 
+            @change="e => selectProvider(e.target.value)"
+          >
+            <option v-for="p in sortedProviders" :key="p.key" :value="p.key">
+              {{ p.icon }} {{ p.name }} {{ p.isActive ? '(当前使用)' : '' }} {{ p.recommended ? '(推荐)' : '' }} {{ p.local ? '(本地)' : '' }}
+            </option>
+          </select>
       </div>
     </div>
 
     <!-- API 配置 -->
     <div class="section">
       <div class="section-header">
-        <h3>API 配置</h3>
+        <div class="section-title-group">
+          <h3>API 配置</h3>
+          <span class="active-tag" v-if="config.provider === activeProviderKey">
+            已激活
+          </span>
+          <span class="editing-tag" v-else>
+            配置中
+          </span>
+        </div>
         <a v-if="currentProvider.docsUrl" :href="currentProvider.docsUrl" target="_blank" class="docs-link">
           📖 获取 API Key
         </a>
@@ -144,7 +153,9 @@
 
           <div class="form-actions">
             <button class="btn primary" @click="saveConfig" :disabled="saving || testing || (!apiKeyValidation.valid && config.apiKey)">
-              {{ (saving || testing) ? '⏳ 正在测试并保存...' : '💾 保存并测试连接' }}
+              <template v-if="saving || testing">⏳ 正在测试并保存...</template>
+              <template v-else-if="config.provider !== activeProviderKey">🚀 激活并测试连接</template>
+              <template v-else>💾 保存并测试连接</template>
             </button>
             <button 
               v-if="config.hasApiKey || config.baseUrl || connectionOk" 
@@ -516,6 +527,7 @@ export default {
       return {
         providers: PROVIDERS,
         config: { provider: 'deepseek', apiKey: '', baseUrl: '', model: 'deepseek-chat', autoGenerate: false, hasApiKey: false },
+        activeProviderKey: '', // 全局生效的提供商
         modelSelect: 'deepseek-chat',
         showApiKey: false,
         testing: false,
@@ -539,6 +551,23 @@ export default {
     },
   computed: {
     currentProvider() { return PROVIDERS[this.config.provider] || PROVIDERS.deepseek; },
+      sortedProviders() {
+        const list = Object.entries(this.providers).map(([key, p]) => ({ 
+          key, 
+          ...p,
+          isActive: key === this.activeProviderKey
+        }));
+        // 当前活跃的排在第一位，其次是当前选中的，然后是推荐的
+        return list.sort((a, b) => {
+          if (a.isActive && !b.isActive) return -1;
+          if (!a.isActive && b.isActive) return 1;
+          if (a.key === this.config.provider) return -1;
+          if (b.key === this.config.provider) return 1;
+          if (a.recommended && !b.recommended) return -1;
+          if (!a.recommended && b.recommended) return 1;
+          return 0;
+        });
+      },
     canTest() {
       if (this.currentProvider.needsApiKey && !this.config.apiKey && !this.config.hasApiKey) return false;
       if (this.currentProvider.needsBaseUrl && !this.config.baseUrl) return false;
@@ -572,22 +601,15 @@ export default {
       }
       return '正在生成内容';
     },
-    taskEta() {
-      if (!this.task.startTime || this.task.current < 2) return '';
-      const elapsed = Date.now() - this.task.startTime;
-      const avg = elapsed / this.task.current;
-      const remain = (this.task.total - this.task.current) * avg;
-      return remain < 60000 ? `${Math.round(remain / 1000)}秒` : `${Math.round(remain / 60000)}分钟`;
+      taskEta() {
+        if (!this.task.startTime || this.task.current < 2) return '';
+        const elapsed = Date.now() - this.task.startTime;
+        const avg = elapsed / this.task.current;
+        const remain = (this.task.total - this.task.current) * avg;
+        return remain < 60000 ? `${Math.round(remain / 1000)}秒` : `${Math.round(remain / 60000)}分钟`;
+      }
     },
-    actionItems() {
-      return [
-        { type: 'name', label: '名称', icon: '📝', emptyCount: this.stats?.emptyName || 0 },
-        { type: 'description', label: '描述', icon: '📄', emptyCount: this.stats?.emptyDesc || 0 },
-        { type: 'tags', label: '标签', icon: '🏷️', emptyCount: this.stats?.emptyTags || 0 }
-      ];
-    }
-  },
-    async mounted() {
+      async mounted() {
       // 并行加载配置和统计，加快页面渲染
       await Promise.all([
         this.loadConfig(),
@@ -612,12 +634,12 @@ export default {
           }
         }
       },
-    async selectProvider(key) {
-      if (this.config.provider === key && this.config.hasApiKey) return;
-      
-      const oldProvider = this.config.provider;
-      this.config.provider = key;
-      this.testing = true; // 显示加载状态
+      async selectProvider(key) {
+        if (this.config.provider === key && this.config.hasApiKey) return;
+        
+        this.config.provider = key;
+        this.testing = true; // 显示加载状态
+
       
       try {
         const { data } = await aiGetConfig(key);
@@ -705,109 +727,107 @@ export default {
         this.config.model = this.modelSelect;
       }
     },
-        async loadConfig() {
-          try {
-            const { data } = await aiGetConfig();
-            if (data.success) {
-              const c = data.config;
-              this.config.provider = c.provider || 'deepseek';
-              this.config.hasApiKey = c.hasApiKey;
-              this.config.baseUrl = c.baseUrl || '';
-              this.config.model = c.model || this.currentProvider.defaultModel;
-              this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
-              this.config.autoGenerate = c.autoGenerate || false;
-              
-              // 初始化连接状态
-              if (c.lastTestedOk) {
-                this.connectionTested = true;
-                this.connectionOk = true;
-              } else if (c.hasApiKey) {
-                this.connectionTested = false;
-                this.connectionOk = false;
+          async loadConfig() {
+            try {
+              const { data } = await aiGetConfig();
+              if (data.success) {
+                const c = data.config;
+                this.activeProviderKey = c.provider || 'deepseek';
+                this.config.provider = this.activeProviderKey;
+                this.config.hasApiKey = c.hasApiKey;
+                this.config.baseUrl = c.baseUrl || '';
+                this.config.model = c.model || this.currentProvider.defaultModel;
+                this.modelSelect = this.currentProvider.models?.includes(this.config.model) ? this.config.model : '';
+                this.config.autoGenerate = c.autoGenerate || false;
+                
+                // 初始化连接状态
+                if (c.lastTestedOk) {
+                  this.connectionTested = true;
+                  this.connectionOk = true;
+                } else if (c.hasApiKey) {
+                  this.connectionTested = false;
+                  this.connectionOk = false;
+                }
               }
-            }
-          } catch {}
-        },
-        async saveConfig() {
-          if (this.saving || this.testing) return;
-          
-          this.saving = true;
-          this.testing = true;
-          this.testError = null;
-          
-          try {
-            // 1. 测试连接 (包含自动探测)
-            const testConfig = {
-              provider: this.config.provider,
-              model: this.config.model,
-              baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl || ''
-            };
-            if (this.config.apiKey) {
-              testConfig.apiKey = this.config.apiKey;
-            }
+            } catch {}
+          },
+          async saveConfig() {
+            if (this.saving || this.testing) return;
             
-            let testPassed = false;
-            let suggestedBaseUrl = null;
-            let responseTime = '';
+            this.saving = true;
+            this.testing = true;
+            this.testError = null;
+            const isSwitching = this.config.provider !== this.activeProviderKey;
             
             try {
-              const { data: testData } = await aiTestConnection(testConfig);
-              testPassed = testData.success;
-              if (testData.success) {
-                responseTime = testData.responseTime;
-                if (testData.suggestedBaseUrl) {
-                  suggestedBaseUrl = testData.suggestedBaseUrl;
-                  this.config.baseUrl = suggestedBaseUrl; // 自动应用补全后的 URL
+              // 1. 测试连接 (包含自动探测)
+              const testConfig = {
+                provider: this.config.provider,
+                model: this.config.model,
+                baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl || ''
+              };
+              if (this.config.apiKey) {
+                testConfig.apiKey = this.config.apiKey;
+              }
+              
+              let testPassed = false;
+              let suggestedBaseUrl = null;
+              let responseTime = '';
+              
+              try {
+                const { data: testData } = await aiTestConnection(testConfig);
+                testPassed = testData.success;
+                if (testData.success) {
+                  responseTime = testData.responseTime;
+                  if (testData.suggestedBaseUrl) {
+                    suggestedBaseUrl = testData.suggestedBaseUrl;
+                    this.config.baseUrl = suggestedBaseUrl; // 自动应用补全后的 URL
+                  }
+                } else {
+                  this.testError = this.parseTestError(testData.message);
+                }
+              } catch (e) {
+                testPassed = false;
+                this.testError = this.parseTestError(e.response?.data?.message || e.message || '连接失败');
+              }
+              
+              this.connectionTested = true;
+              this.connectionOk = testPassed;
+              
+              // 2. 保存配置 (将测试结果同步保存)
+              const { data: saveData } = await aiUpdateConfig({
+                provider: this.config.provider,
+                apiKey: this.config.apiKey || undefined,
+                baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl,
+                model: this.config.model,
+                autoGenerate: this.config.autoGenerate,
+                lastTestedOk: testPassed
+              });
+              
+              if (saveData.success) {
+                this.config.hasApiKey = true;
+                this.config.apiKey = '';
+                this.activeProviderKey = this.config.provider; // 更新当前活跃的提供商
+                
+                if (testPassed) {
+                  const msg = isSwitching 
+                    ? `已切换至 ${this.currentProvider.name} 并连接成功 (${responseTime})`
+                    : `配置已保存并连接成功 (${responseTime})`;
+                  this.showToast(msg, 'success');
+                } else {
+                  this.showToast('配置已保存，但连接测试失败', 'warning');
                 }
               } else {
-                this.testError = this.parseTestError(testData.message);
+                this.showToast(saveData.message, 'error');
               }
             } catch (e) {
-              testPassed = false;
-              this.testError = this.parseTestError(e.response?.data?.message || e.message || '连接失败');
-            }
-            
-            this.connectionTested = true;
-            this.connectionOk = testPassed;
-            
-            // 2. 保存配置 (将测试结果同步保存)
-            const { data: saveData } = await aiUpdateConfig({
-              provider: this.config.provider,
-              apiKey: this.config.apiKey || undefined,
-              baseUrl: this.config.baseUrl || this.currentProvider.defaultBaseUrl,
-              model: this.config.model,
-              autoGenerate: this.config.autoGenerate,
-              lastTestedOk: testPassed
-            });
-            
-            if (saveData.success) {
-              this.config.hasApiKey = true;
-              this.config.apiKey = '';
-              
-              if (testPassed) {
-                if (suggestedBaseUrl) {
-                  this.showToast(`配置已保存，已智能补全并连接成功 (${responseTime})`, 'success');
-                } else {
-                  this.showToast(`配置已保存并连接成功 (${responseTime})`, 'success');
-                }
-              } else {
-                this.showToast('配置已保存，但连接测试失败', 'warning');
-              }
-            } else {
-              this.showToast(saveData.message, 'error');
-            }
-          } catch (e) {
-            this.showToast(e.response?.data?.message || '操作失败', 'error');
-          } finally {
-            this.saving = false;
-            this.testing = false;
-          }
-        },
-        // 保留 testConnection 作为内部辅助方法或供其他组件调用（如果需要）
-        async testConnection() {
-          await this.saveConfig();
-        },
-        parseTestError(message) {
+              this.showToast(e.response?.data?.message || '操作失败', 'error');
+      } finally {
+        this.saving = false;
+        this.testing = false;
+      }
+    },
+    parseTestError(message) {
           const result = { title: '连接失败', detail: message, suggestions: [] };
           const msg = message.toLowerCase();
           
@@ -1115,7 +1135,11 @@ export default {
 
 /* Header */
 .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+.header-left { display: flex; align-items: baseline; gap: 12px; }
 .page-header h2 { margin: 0; font-size: 1.4rem; }
+.active-badge { display: flex; align-items: center; gap: 4px; padding: 2px 8px; background: #ecfdf5; border: 1px solid #10b981; border-radius: 6px; font-size: 12px; color: #059669; }
+.active-badge .label { opacity: 0.8; }
+.active-badge .value { font-weight: 600; }
 .connection-status { display: flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 16px; font-size: 13px; background: #f3f4f6; }
 .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; }
 .connection-status.ok .status-dot { background: #10b981; }
@@ -1133,20 +1157,16 @@ export default {
 /* Section */
 .section { background: #fff; border-radius: 12px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
 .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.section-title-group { display: flex; align-items: center; gap: 8px; }
 .section-header h3 { margin: 0; font-size: 1rem; }
+.active-tag { font-size: 11px; padding: 1px 6px; background: #10b981; color: #fff; border-radius: 4px; font-weight: 500; }
+.editing-tag { font-size: 11px; padding: 1px 6px; background: #f3f4f6; color: #6b7280; border-radius: 4px; font-weight: 500; border: 1px solid #e5e7eb; }
 .section-hint { font-size: 12px; color: #6b7280; }
 .docs-link { font-size: 13px; color: #3b82f6; text-decoration: none; }
 
-/* Provider Grid */
-.provider-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px; }
-.provider-card { display: flex; flex-direction: column; align-items: center; padding: 12px 6px; border: 2px solid #e5e7eb; border-radius: 10px; cursor: pointer; transition: all 0.15s; }
-.provider-card:hover { border-color: #3b82f6; }
-.provider-card.active { border-color: #3b82f6; background: #eff6ff; }
-.provider-icon { font-size: 1.4rem; margin-bottom: 4px; }
-.provider-info { display: flex; flex-direction: column; align-items: center; gap: 2px; }
-.provider-name { font-size: 11px; font-weight: 500; text-align: center; }
-.provider-tag { font-size: 9px; padding: 1px 5px; border-radius: 6px; background: #3b82f6; color: #fff; }
-.provider-tag.local { background: #10b981; }
+/* Provider Select */
+.provider-select-wrapper { margin-bottom: 8px; }
+.provider-dropdown { width: 100%; padding: 12px; font-size: 15px; border-radius: 10px; cursor: pointer; }
 
 /* Form */
 .config-form { display: flex; flex-direction: column; gap: 14px; }
@@ -1265,21 +1285,17 @@ export default {
 
 /* Responsive */
 @media (max-width: 600px) {
-  .provider-grid { grid-template-columns: repeat(4, 1fr); }
-  .action-grid { grid-template-columns: 1fr; }
   .form-actions { flex-direction: column; }
   .stats { justify-content: center; }
 }
 
 /* Dark Mode */
 :root.dark .section { background: #1f2937; }
-:root.dark .provider-card { border-color: #374151; background: #1f2937; }
-:root.dark .provider-card.active { background: #1e3a5f; }
 :root.dark .input { background: #374151; border-color: #4b5563; color: #fff; }
 :root.dark .input.input-error { background: #451a1a; border-color: #dc2626; }
 :root.dark .input-hint { color: #9ca3af; }
 :root.dark .model-description { background: #374151; color: #9ca3af; }
-:root.dark .stat, :root.dark .action-card, :root.dark .switch-item { background: #374151; }
+:root.dark .stat, :root.dark .switch-item { background: #374151; }
 :root.dark .connection-status { background: #374151; }
 :root.dark .task-panel { background: linear-gradient(135deg, #1e3a5f, #2d1f5f); }
 :root.dark .test-error-panel { background: #451a1a; border-color: #7f1d1d; }
