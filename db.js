@@ -599,6 +599,23 @@ async function getAIConfig(provider = null) {
       } catch (e) {
         console.error(`解析提供商 ${targetProvider} 配置失败:`, e);
       }
+    } else if (!provider) {
+      // 兼容逻辑：如果是获取当前配置且没有独立存储，尝试从旧字段读取
+      const oldKeys = ['ai_api_key', 'ai_base_url', 'ai_model', 'ai_last_tested_ok'];
+      const oldRows = await dbAll(
+        `SELECT key, value FROM settings WHERE key IN (${oldKeys.map(() => '?').join(',')})`,
+        oldKeys
+      );
+      const oldKeyMap = {
+        'ai_api_key': 'apiKey',
+        'ai_base_url': 'baseUrl',
+        'ai_model': 'model',
+        'ai_last_tested_ok': 'lastTestedOk'
+      };
+      for (const row of oldRows) {
+        const configKey = oldKeyMap[row.key];
+        if (configKey) config[configKey] = row.value || '';
+      }
     }
     
     return config;
@@ -660,10 +677,25 @@ async function saveAIConfig(config) {
     if (config.model !== undefined && config.model !== null) providerData.model = config.model;
     if (config.lastTestedOk !== undefined && config.lastTestedOk !== null) providerData.lastTestedOk = config.lastTestedOk?.toString();
 
-      await dbRun(
-        'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
-        [providerKey, JSON.stringify(providerData)]
-      );
+    await dbRun(
+      'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+      [providerKey, JSON.stringify(providerData)]
+    );
+    
+    // 兼容性更新：同时也更新旧的单字段（可选，为了让旧版代码或未迁移的部分继续工作）
+    const oldMappings = {
+      apiKey: 'ai_api_key',
+      baseUrl: 'ai_base_url',
+      model: 'ai_model',
+      lastTestedOk: 'ai_last_tested_ok'
+    };
+    for (const [key, dbKey] of Object.entries(oldMappings)) {
+      if (config[key] !== undefined && config[key] !== null && config.provider === targetProvider) {
+        await dbRun(
+          'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
+          [dbKey, config[key]?.toString()]
+        );
+      }
     }
   }
 }
@@ -678,8 +710,12 @@ async function clearAIConfig() {
 
   const keys = [
     'ai_provider', 
+    'ai_api_key', 
+    'ai_base_url', 
+    'ai_model', 
     'ai_request_delay', 
-    'ai_auto_generate'
+    'ai_auto_generate', 
+    'ai_last_tested_ok'
   ];
   for (const key of keys) {
     let defaultValue = '';
@@ -691,12 +727,6 @@ async function clearAIConfig() {
       'REPLACE INTO settings (key, value, updated_at) VALUES (?, ?, CURRENT_TIMESTAMP)',
       [key, defaultValue]
     );
-  }
-
-  // 同时清理旧的单模式 Key
-  const oldKeys = ['ai_api_key', 'ai_base_url', 'ai_model', 'ai_last_tested_ok'];
-  for (const key of oldKeys) {
-    await dbRun('DELETE FROM settings WHERE key = ?', [key]);
   }
 }
 
