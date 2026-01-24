@@ -1322,6 +1322,50 @@
         }
     }
     
+    // 验证成功后加载分类（跳过 Token 验证）
+    async function loadCategoriesAfterAuth(url, title) {
+        try {
+            const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
+            lastMenuId = config.lastMenuId;
+            lastSubMenuId = config.lastSubMenuId;
+            
+            // 强制刷新获取最新分类
+            const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+            
+            if (!response.success) {
+                showCategoryError('加载分类失败');
+                return;
+            }
+            
+            allMenus = response.menus || [];
+            
+            // 如果有上次选择的分类，显示快速添加
+            if (lastMenuId) {
+                const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
+                if (lastMenu) {
+                    let categoryName = lastMenu.name;
+                    if (lastSubMenuId && lastMenu.subMenus) {
+                        const lastSubMenu = lastMenu.subMenus.find(s => s.id.toString() === lastSubMenuId);
+                        if (lastSubMenu) categoryName += ' / ' + lastSubMenu.name;
+                    }
+                    
+                    const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
+                    const quickAddText = dialogShadowRoot.getElementById('quickAddText');
+                    const divider = dialogShadowRoot.getElementById('divider');
+                    
+                    quickAddText.textContent = `快速添加到「${categoryName}」`;
+                    quickAddSection.style.display = 'block';
+                    divider.style.display = 'flex';
+                }
+            }
+            
+            renderCategories(allMenus);
+        } catch (e) {
+            console.error('加载分类失败:', e);
+            showCategoryError('加载分类失败');
+        }
+    }
+    
     // 显示密码验证区域
     function showAuthSection() {
         const authSection = dialogShadowRoot.getElementById('authSection');
@@ -1378,24 +1422,24 @@
                 password: password
             });
             
-            if (response.success) {
-                // 验证成功
-                isAuthenticated = true;
-                
-                // 隐藏密码输入，显示分类选择
-                const authSection = dialogShadowRoot.getElementById('authSection');
-                const categorySection = dialogShadowRoot.querySelector('.category-section');
-                const moreOptions = dialogShadowRoot.querySelector('.more-options');
-                
-                authSection.style.display = 'none';
-                categorySection.style.display = 'block';
-                moreOptions.style.display = 'block';
-                
-                showToast('验证成功', 'success');
-                
-                // 重新加载分类
-                loadCategories(url, title);
-            } else {
+if (response.success) {
+                  // 验证成功
+                  isAuthenticated = true;
+                  
+                  // 隐藏密码输入，显示分类选择
+                  const authSection = dialogShadowRoot.getElementById('authSection');
+                  const categorySection = dialogShadowRoot.querySelector('.category-section');
+                  const moreOptions = dialogShadowRoot.querySelector('.more-options');
+                  
+                  authSection.style.display = 'none';
+                  categorySection.style.display = 'block';
+                  moreOptions.style.display = 'block';
+                  
+                  showToast('验证成功', 'success');
+                  
+                  // 重新加载分类（跳过 Token 验证，因为刚刚验证成功）
+                  loadCategoriesAfterAuth(url, title);
+              } else {
                 // 验证失败
                 authPassword.classList.add('error');
                 authError.textContent = response.error || '密码错误，请重新输入';

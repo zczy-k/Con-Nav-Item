@@ -1064,12 +1064,24 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                     return;
                 }
                 
-                if (data.success && data.token) {
-                    await chrome.storage.local.set({ navAuthToken: data.token });
-                    sendResponse({ success: true });
-                } else {
-                    sendResponse({ success: false, error: data.message || '验证失败' });
-                }
+if (data.success && data.token) {
+                      // 确保 Token 保存完成后再返回成功
+                      try {
+                          await chrome.storage.local.set({ navAuthToken: data.token });
+                          // 验证 Token 已保存
+                          const stored = await chrome.storage.local.get(['navAuthToken']);
+                          if (stored.navAuthToken === data.token) {
+                              sendResponse({ success: true });
+                          } else {
+                              sendResponse({ success: false, error: 'Token保存失败，请重试' });
+                          }
+                      } catch (storageErr) {
+                          console.error('保存Token失败:', storageErr);
+                          sendResponse({ success: false, error: 'Token保存失败，请重试' });
+                      }
+                  } else {
+                      sendResponse({ success: false, error: data.message || '验证失败' });
+                  }
             } catch (e) {
                 console.error('验证密码失败:', e);
                 sendResponse({ success: false, error: '网络错误，请检查连接' });
