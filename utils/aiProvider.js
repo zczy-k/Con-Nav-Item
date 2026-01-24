@@ -503,8 +503,64 @@ async function probeBaseUrl(config) {
   }
 }
 
+async function testAndActivateAIConfig() {
+  const db = require('../db');
+  const { decrypt } = require('./crypto');
+  
+  try {
+    const aiConfig = await db.getAIConfig();
+    
+    if (!aiConfig.provider || !aiConfig.apiKey) {
+      return { success: false, reason: 'no_config', message: 'AI 未配置' };
+    }
+    
+    let decryptedApiKey;
+    try {
+      const encrypted = JSON.parse(aiConfig.apiKey);
+      decryptedApiKey = decrypt(encrypted.encrypted, encrypted.iv, encrypted.authTag);
+    } catch (e) {
+      return { success: false, reason: 'decrypt_failed', message: 'API Key 解密失败，请重新配置' };
+    }
+    
+    if (!decryptedApiKey) {
+      return { success: false, reason: 'decrypt_failed', message: 'API Key 解密失败，请重新配置' };
+    }
+    
+    const config = {
+      provider: aiConfig.provider,
+      apiKey: decryptedApiKey,
+      baseUrl: aiConfig.baseUrl || '',
+      model: aiConfig.model || ''
+    };
+    
+    const probeResult = await probeBaseUrl(config);
+    
+    if (probeResult.success) {
+      await db.saveAIConfig({ provider: aiConfig.provider, lastTestedOk: 'true' });
+      return { 
+        success: true, 
+        provider: aiConfig.provider,
+        responseTime: probeResult.responseTime,
+        message: `AI 服务 (${AI_PROVIDERS[aiConfig.provider]?.name || aiConfig.provider}) 已自动激活`
+      };
+    } else {
+      await db.saveAIConfig({ provider: aiConfig.provider, lastTestedOk: 'false' });
+      return { 
+        success: false, 
+        reason: 'connection_failed',
+        provider: aiConfig.provider,
+        message: `AI 连接测试失败: ${probeResult.error}`
+      };
+    }
+  } catch (error) {
+    console.error('testAndActivateAIConfig error:', error);
+    return { success: false, reason: 'error', message: error.message };
+  }
+}
+
 module.exports = {
   AI_PROVIDERS,
   callAI,
-  probeBaseUrl
+  probeBaseUrl,
+  testAndActivateAIConfig
 };

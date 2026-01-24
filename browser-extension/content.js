@@ -1262,20 +1262,23 @@
             if (!tokenVerifyResult.valid) {
                 // Token 无效（密码已更改或Token过期）
                 isAuthenticated = false;
-                if (tokenVerifyResult.reason === 'password_changed') {
+                
+                if (tokenVerifyResult.reason === 'network_error') {
+                    // 网络错误时继续尝试（可能只是暂时无法验证）
+                    console.warn('Token验证网络错误，继续尝试加载');
+                } else if (tokenVerifyResult.reason === 'password_changed') {
+                    // 密码已更改，需要重新验证
                     showAuthSection();
                     showToast('管理密码已更改，请重新验证', 'error');
-                } else if (tokenVerifyResult.reason !== 'network_error') {
-                    // 非网络错误，需要重新验证
+                    return;
+                } else if (tokenVerifyResult.reason === 'expired') {
+                    // Token过期，需要重新验证
                     showAuthSection();
-                    if (tokenVerifyResult.message) {
-                        showToast(tokenVerifyResult.message, 'error');
-                    }
-                }
-                // 网络错误时继续尝试（可能只是暂时无法验证）
-                if (tokenVerifyResult.reason === 'network_error') {
-                    console.warn('Token验证网络错误，继续尝试加载');
+                    showToast('登录已过期，请重新验证', 'error');
+                    return;
                 } else {
+                    // 其他情况（invalid, no_token等）静默显示密码输入界面，不弹提示
+                    showAuthSection();
                     return;
                 }
             }

@@ -871,22 +871,33 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       await initCryptoSecret();
       console.log('✓ 加密密钥已重新加载');
       
-      // 3. 验证 AI 配置是否可用
-      try {
-        const { decrypt } = require('../utils/crypto');
-        const aiConfig = await db.getAIConfig();
-        if (aiConfig.apiKey) {
-          const encrypted = JSON.parse(aiConfig.apiKey);
-          const decrypted = decrypt(encrypted.encrypted, encrypted.iv, encrypted.authTag);
-          if (decrypted) {
-            console.log('✓ AI 配置验证成功');
-          } else {
-            console.warn('⚠️ AI 配置 API Key 解密失败，可能需要重新配置');
+// 3. 验证 AI 配置是否可用
+        let aiActivationResult = null;
+        try {
+          const { decrypt } = require('../utils/crypto');
+          const aiConfig = await db.getAIConfig();
+          if (aiConfig.apiKey) {
+            const encrypted = JSON.parse(aiConfig.apiKey);
+            const decrypted = decrypt(encrypted.encrypted, encrypted.iv, encrypted.authTag);
+            if (decrypted) {
+              console.log('✓ AI 配置验证成功，正在自动激活...');
+              
+              // 自动测试并激活 AI 配置
+              const { testAndActivateAIConfig } = require('../utils/aiProvider');
+              aiActivationResult = await testAndActivateAIConfig();
+              
+              if (aiActivationResult.success) {
+                console.log(`✓ ${aiActivationResult.message}`);
+              } else {
+                console.warn(`⚠️ AI 自动激活失败: ${aiActivationResult.message}`);
+              }
+            } else {
+              console.warn('⚠️ AI 配置 API Key 解密失败，可能需要重新配置');
+            }
           }
+        } catch (e) {
+          console.warn('⚠️ AI 配置验证失败:', e.message);
         }
-      } catch (e) {
-        console.warn('⚠️ AI 配置验证失败:', e.message);
-      }
       
       // 4. 清除应用缓存
       try {
@@ -906,25 +917,35 @@ router.post('/restore/:filename', authMiddleware, backupLimiter, async (req, res
       try {
         const { notifyDataChange } = require('../utils/autoBackup');
         await notifyDataChange(null, { type: 'backup_restored' });
-      } catch (e) {
-        console.warn('广播恢复通知失败:', e.message);
+} catch (e) {
+          console.warn('广播恢复通知失败:', e.message);
+        }
+
+        let message = '备份恢复成功！';
+      if (skippedFiles.length > 0) {
+        message += ` 已跳过: ${skippedFiles.join(', ')}`;
+      }
+      
+      // 添加 AI 激活状态信息
+      if (aiActivationResult) {
+        if (aiActivationResult.success) {
+          message += ` AI 服务已自动激活。`;
+        } else if (aiActivationResult.reason !== 'no_config') {
+          message += ` AI 自动激活失败，请手动检查配置。`;
+        }
       }
 
-      let message = '备份恢复成功！';
-    if (skippedFiles.length > 0) {
-      message += ` 已跳过: ${skippedFiles.join(', ')}`;
-    }
-
-    // 所有初始化完成后，再发送响应
-    res.json({ 
-      success: true, 
-      message,
-      restored: restoredFiles,
-      skipped: skippedFiles,
-      preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null,
-      needReload: true,
-      checkAIConfig: true
-    });
+      // 所有初始化完成后，再发送响应
+      res.json({ 
+        success: true, 
+        message,
+        restored: restoredFiles,
+        skipped: skippedFiles,
+        preRestoreBackup: preRestoreFiles.length > 0 ? `backups/pre-restore/*-${timestamp}` : null,
+        needReload: true,
+        checkAIConfig: aiActivationResult ? !aiActivationResult.success : true,
+        aiActivation: aiActivationResult
+      });
 
   } catch (error) {
     console.error('恢复备份失败:', error);
@@ -1562,21 +1583,31 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
           await initCryptoSecret();
           console.log('✓ 加密密钥已重新加载');
           
-          // 验证 AI 配置是否可用
-          try {
-            const aiConfig = await db.getAIConfig();
-            if (aiConfig.apiKey) {
-              const encrypted = JSON.parse(aiConfig.apiKey);
-              const decrypted = decrypt(encrypted.encrypted, encrypted.iv, encrypted.authTag);
-              if (decrypted) {
-                console.log('✓ AI 配置验证成功');
-              } else {
-                console.warn('⚠️ AI 配置 API Key 解密失败，可能需要重新配置');
+// 验证 AI 配置是否可用
+            try {
+              const aiConfig = await db.getAIConfig();
+              if (aiConfig.apiKey) {
+                const encrypted = JSON.parse(aiConfig.apiKey);
+                const decrypted = decrypt(encrypted.encrypted, encrypted.iv, encrypted.authTag);
+                if (decrypted) {
+                  console.log('✓ AI 配置验证成功，正在自动激活...');
+                  
+                  // 自动测试并激活 AI 配置
+                  const { testAndActivateAIConfig } = require('../utils/aiProvider');
+                  const aiActivationResult = await testAndActivateAIConfig();
+                  
+                  if (aiActivationResult.success) {
+                    console.log(`✓ ${aiActivationResult.message}`);
+                  } else {
+                    console.warn(`⚠️ AI 自动激活失败: ${aiActivationResult.message}`);
+                  }
+                } else {
+                  console.warn('⚠️ AI 配置 API Key 解密失败，可能需要重新配置');
+                }
               }
+            } catch (e) {
+              console.warn('⚠️ AI 配置验证失败:', e.message);
             }
-          } catch (e) {
-            console.warn('⚠️ AI 配置验证失败:', e.message);
-          }
         } catch (e) {
           console.warn('重新加载加密密钥失败:', e.message);
         }
