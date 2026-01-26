@@ -6,7 +6,7 @@
 
 现代化的个人导航站，提供美观的卡片式导航界面、AI 智能生成。
 
-**🎉 正式版本 1.0.0 发布！请先部署项目，可搭配扩展插件使用更加方便，插件可以到[Releases](https://github.com/zczy-k/Con-Nav-Item/releases) 下载最新版本的扩展包** 功能完整稳定。
+**🎉 正式版本 1.0.1 发布！请先部署项目，可搭配扩展插件使用更加方便，插件可以到[Releases](https://github.com/zczy-k/Con-Nav-Item/releases) 下载最新版本的扩展包** 功能完整稳定。
 
 示例站：https://con-nav-item.zeabur.app/
 
