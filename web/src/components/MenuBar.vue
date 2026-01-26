@@ -179,22 +179,82 @@ function cancelHideSubMenu(menuId) {
   hoveredMenuId.value = menuId;
 }
 
-function handleMenuContextMenu(event, menu) {
+async function handleMenuContextMenu(event, menu) {
   contextMenuType.value = 'menu';
   contextMenuData.value = menu;
   contextParentMenu.value = null;
-  contextMenuX.value = event.clientX;
-  contextMenuY.value = event.clientY;
   contextMenuVisible.value = true;
+  
+  const x = event.clientX;
+  const y = event.clientY;
+  
+  await nextTick();
+  
+  const menuEl = document.querySelector('.menu-context-menu');
+  if (menuEl) {
+    const menuWidth = menuEl.offsetWidth;
+    const menuHeight = menuEl.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let finalX = x;
+    let finalY = y;
+    
+    if (x + menuWidth > viewportWidth) {
+      finalX = viewportWidth - menuWidth - 10;
+    }
+    if (y + menuHeight > viewportHeight) {
+      finalY = viewportHeight - menuHeight - 10;
+    }
+    
+    finalX = Math.max(10, finalX);
+    finalY = Math.max(10, finalY);
+    
+    contextMenuX.value = finalX;
+    contextMenuY.value = finalY;
+  } else {
+    contextMenuX.value = x;
+    contextMenuY.value = y;
+  }
 }
 
-function handleSubMenuContextMenu(event, subMenu, parentMenu) {
+async function handleSubMenuContextMenu(event, subMenu, parentMenu) {
   contextMenuType.value = 'subMenu';
   contextMenuData.value = subMenu;
   contextParentMenu.value = parentMenu;
-  contextMenuX.value = event.clientX;
-  contextMenuY.value = event.clientY;
   contextMenuVisible.value = true;
+  
+  const x = event.clientX;
+  const y = event.clientY;
+  
+  await nextTick();
+  
+  const menuEl = document.querySelector('.menu-context-menu');
+  if (menuEl) {
+    const menuWidth = menuEl.offsetWidth;
+    const menuHeight = menuEl.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let finalX = x;
+    let finalY = y;
+    
+    if (x + menuWidth > viewportWidth) {
+      finalX = viewportWidth - menuWidth - 10;
+    }
+    if (y + menuHeight > viewportHeight) {
+      finalY = viewportHeight - menuHeight - 10;
+    }
+    
+    finalX = Math.max(10, finalX);
+    finalY = Math.max(10, finalY);
+    
+    contextMenuX.value = finalX;
+    contextMenuY.value = finalY;
+  } else {
+    contextMenuX.value = x;
+    contextMenuY.value = y;
+  }
 }
 
 function closeContextMenu() {
@@ -457,19 +517,22 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-.menu-context-menu {
-  position: fixed;
-  background: rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  padding: 6px 0;
-  min-width: 160px;
-  z-index: 99999;
-  animation: contextMenuFadeIn 0.15s ease;
-}
+  .menu-context-menu {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.98);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+    padding: 6px 0;
+    min-width: 160px;
+    max-width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    z-index: 99999;
+    animation: contextMenuFadeIn 0.15s ease;
+  }
 
 @keyframes contextMenuFadeIn {
   from {

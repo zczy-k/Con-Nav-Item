@@ -132,11 +132,47 @@ const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuCard = ref(null);
 
-function handleContextMenu(event, card) {
+async function handleContextMenu(event, card) {
   contextMenuCard.value = card;
-  contextMenuX.value = event.clientX;
-  contextMenuY.value = event.clientY;
   contextMenuVisible.value = true;
+  
+  const x = event.clientX;
+  const y = event.clientY;
+  
+  // Use nextTick to ensure the menu is in the DOM before measuring
+  const { nextTick } = await import('vue');
+  await nextTick();
+  
+  const menu = document.querySelector('.context-menu');
+  if (menu) {
+    const menuWidth = menu.offsetWidth;
+    const menuHeight = menu.offsetHeight;
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let finalX = x;
+    let finalY = y;
+    
+    // Adjust horizontal position
+    if (x + menuWidth > viewportWidth) {
+      finalX = viewportWidth - menuWidth - 10;
+    }
+    
+    // Adjust vertical position
+    if (y + menuHeight > viewportHeight) {
+      finalY = viewportHeight - menuHeight - 10;
+    }
+    
+    // Ensure it doesn't go off the left or top edge either
+    finalX = Math.max(10, finalX);
+    finalY = Math.max(10, finalY);
+    
+    contextMenuX.value = finalX;
+    contextMenuY.value = finalY;
+  } else {
+    contextMenuX.value = x;
+    contextMenuY.value = y;
+  }
 }
 
 function closeContextMenu() {
@@ -565,21 +601,24 @@ function isCardSelected(card) {
   z-index: 10;
 }
 
-.context-menu {
-  position: fixed;
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.08);
-  padding: 6px;
-  min-width: 150px;
-  z-index: 9999;
-  animation: contextMenuFadeIn 0.15s ease;
-}
+  .context-menu {
+    position: fixed;
+    background: rgba(255, 255, 255, 0.95);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-radius: 12px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    box-shadow: 
+      0 8px 32px rgba(0, 0, 0, 0.12),
+      0 2px 8px rgba(0, 0, 0, 0.08);
+    padding: 6px;
+    min-width: 150px;
+    max-width: calc(100vw - 20px);
+    max-height: calc(100vh - 20px);
+    overflow-y: auto;
+    z-index: 9999;
+    animation: contextMenuFadeIn 0.15s ease;
+  }
 
 @keyframes contextMenuFadeIn {
   from {
