@@ -1,23 +1,24 @@
 <template>
   <nav ref="menuBarRef" class="menu-bar">
-    <div 
-      v-for="menu in menus" 
-      :key="menu.id" 
-      class="menu-item"
-      :data-menu-id="menu.id"
-      @mouseenter="showSubMenu(menu.id)"
-      @mouseleave="scheduleHideSubMenu(menu.id)"
-      @contextmenu.prevent="handleMenuContextMenu($event, menu)"
-    >
-      <button 
-        ref="menuBtnRefs"
-        @click="handleMenuClick(menu)" 
-        :class="{active: menu.id === activeId}"
+      <div 
+        v-for="menu in menus" 
+        :key="menu.id" 
+        class="menu-item"
         :data-menu-id="menu.id"
+        @mouseenter="showSubMenu(menu.id)"
+        @mouseleave="scheduleHideSubMenu(menu.id)"
+        @contextmenu.prevent="handleMenuContextMenu($event, menu)"
       >
-        {{ menu.name }}
-      </button>
-    </div>
+        <button 
+          ref="menuBtnRefs"
+          @click="handleMenuClick(menu)" 
+          @contextmenu.prevent
+          :class="{active: menu.id === activeId}"
+          :data-menu-id="menu.id"
+        >
+          {{ menu.name }}
+        </button>
+      </div>
   </nav>
   
   <Teleport to="body">
@@ -34,11 +35,12 @@
         class="sub-menu-row"
         @contextmenu.prevent="handleSubMenuContextMenu($event, subMenu, hoveredMenu)"
       >
-        <button 
-          @click="$emit('select', subMenu, hoveredMenu)"
-          :class="{active: subMenu.id === activeSubMenuId}"
-          class="sub-menu-item"
-        >
+          <button 
+            @click="$emit('select', subMenu, hoveredMenu)"
+            @contextmenu.prevent
+            :class="{active: subMenu.id === activeSubMenuId}"
+            class="sub-menu-item"
+          >
           {{ subMenu.name }}
         </button>
       </div>
@@ -374,6 +376,9 @@ onUnmounted(() => {
   letter-spacing: 0.02em;
   outline: none;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .menu-bar button::before {
@@ -500,6 +505,9 @@ onUnmounted(() => {
   border-radius: 4px;
   line-height: 1.5;
   white-space: nowrap;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .sub-menu-portal .sub-menu-item:hover {

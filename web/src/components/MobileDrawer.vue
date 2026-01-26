@@ -1,12 +1,12 @@
 <template>
-  <Teleport to="body">
-    <transition name="drawer-overlay">
-      <div v-if="visible" class="drawer-overlay" @click="close"></div>
-    </transition>
-    
-    <transition name="drawer-slide">
-      <div v-if="visible" class="mobile-drawer">
-        <div class="drawer-header">
+    <Teleport to="body">
+      <transition name="drawer-overlay">
+        <div v-if="visible" class="drawer-overlay" @click="close" @contextmenu.prevent></div>
+      </transition>
+      
+      <transition name="drawer-slide">
+        <div v-if="visible" class="mobile-drawer" @contextmenu.prevent>
+          <div class="drawer-header">
           <span class="drawer-title">导航菜单</span>
           <button class="drawer-close" @click="close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -17,42 +17,45 @@
         </div>
         
         <div class="drawer-content">
-          <div v-for="menu in menus" :key="menu.id" class="drawer-menu-item">
-            <div 
-              class="drawer-menu-header"
-              :class="{ active: activeMenuId === menu.id && !activeSubMenuId }"
-              @click="handleMenuClick(menu)"
-            >
-              <span class="menu-name">{{ menu.name }}</span>
-              <div class="menu-actions">
-                <span v-if="menu.subMenus?.length" class="sub-count">{{ menu.subMenus.length }}</span>
-                <button 
-                  v-if="menu.subMenus?.length"
-                  class="expand-btn"
-                  :class="{ expanded: expandedMenuId === menu.id }"
-                  @click.stop="toggleExpand(menu.id)"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polyline points="6 9 12 15 18 9"></polyline>
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            <transition name="submenu-expand">
-              <div v-if="expandedMenuId === menu.id && menu.subMenus?.length" class="drawer-submenu">
-                <div 
-                  v-for="sub in menu.subMenus" 
-                  :key="sub.id"
-                  class="drawer-submenu-item"
-                  :class="{ active: activeSubMenuId === sub.id }"
-                  @click="handleSubMenuClick(sub, menu)"
-                >
-                  {{ sub.name }}
+            <div v-for="menu in menus" :key="menu.id" class="drawer-menu-item">
+              <div 
+                class="drawer-menu-header"
+                :class="{ active: activeMenuId === menu.id && !activeSubMenuId }"
+                @click="handleMenuClick(menu)"
+                @contextmenu.prevent
+              >
+                <span class="menu-name">{{ menu.name }}</span>
+                <div class="menu-actions">
+                  <span v-if="menu.subMenus?.length" class="sub-count">{{ menu.subMenus.length }}</span>
+                  <button 
+                    v-if="menu.subMenus?.length"
+                    class="expand-btn"
+                    :class="{ expanded: expandedMenuId === menu.id }"
+                    @click.stop="toggleExpand(menu.id)"
+                    @contextmenu.prevent
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
                 </div>
               </div>
-            </transition>
-          </div>
+              
+              <transition name="submenu-expand">
+                <div v-if="expandedMenuId === menu.id && menu.subMenus?.length" class="drawer-submenu">
+                  <div 
+                    v-for="sub in menu.subMenus" 
+                    :key="sub.id"
+                    class="drawer-submenu-item"
+                    :class="{ active: activeSubMenuId === sub.id }"
+                    @click="handleSubMenuClick(sub, menu)"
+                    @contextmenu.prevent
+                  >
+                    {{ sub.name }}
+                  </div>
+                </div>
+              </transition>
+            </div>
         </div>
       </div>
     </transition>
@@ -181,6 +184,10 @@ function handleSubMenuClick(subMenu, parentMenu) {
   cursor: pointer;
   transition: all 0.2s ease;
   color: #333;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .drawer-menu-header:hover {
@@ -195,6 +202,7 @@ function handleSubMenuClick(subMenu, parentMenu) {
 .menu-name {
   font-size: 15px;
   font-weight: 500;
+  pointer-events: none;
 }
 
 .menu-actions {
@@ -209,6 +217,7 @@ function handleSubMenuClick(subMenu, parentMenu) {
   background: rgba(0, 0, 0, 0.04);
   padding: 2px 8px;
   border-radius: 10px;
+  pointer-events: none;
 }
 
 .expand-btn {
@@ -223,6 +232,10 @@ function handleSubMenuClick(subMenu, parentMenu) {
   justify-content: center;
   border-radius: 6px;
   transition: all 0.2s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .expand-btn:hover {
@@ -232,6 +245,7 @@ function handleSubMenuClick(subMenu, parentMenu) {
 
 .expand-btn svg {
   transition: transform 0.25s ease;
+  pointer-events: none;
 }
 
 .expand-btn.expanded svg {
@@ -253,6 +267,10 @@ function handleSubMenuClick(subMenu, parentMenu) {
   border-radius: 8px;
   transition: all 0.2s ease;
   margin: 2px 0;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .drawer-submenu-item:hover {

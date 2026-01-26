@@ -1,29 +1,34 @@
 <template>
-  <div ref="cardGridRef" class="container card-grid" :class="{ 'selection-mode': selectionMode }">
-    <div v-for="(card, index) in cards" :key="card.id"
-         class="link-item" 
-         :class="{ 
-           'selected': isCardSelected(card)
-         }"
-         :data-card-id="card.id"
-         @contextmenu.prevent="handleContextMenu($event, card)"
-         @click="handleCardClick($event, card)">
-      <a :href="selectionMode ? 'javascript:void(0)' : card.url" 
-         :target="selectionMode ? '' : '_blank'" 
-         :title="getTooltip(card)" 
-         @click="handleLinkClick($event, card)"
-         class="card-link">
-        <img 
-          class="link-icon" 
-          :ref="(el) => el && setupIconLazyLoad(el, card)"
-          :src="placeholderIcon"
-          :data-url="card.url"
-          alt="" 
-          @error="onImgError($event, card)">
-        <span class="link-text">{{ truncate(card.title) }}</span>
-      </a>
-      <div v-if="isCardSelected(card)" class="card-selected-badge">✓</div>
-    </div>
+    <div ref="cardGridRef" class="container card-grid" :class="{ 'selection-mode': selectionMode }">
+      <div v-for="(card, index) in cards" :key="card.id"
+           class="link-item" 
+           :class="{ 
+             'selected': isCardSelected(card)
+           }"
+           :data-card-id="card.id"
+           draggable="false"
+           @contextmenu.prevent="handleContextMenu($event, card)"
+           @click="handleCardClick($event, card)">
+          <a :href="selectionMode ? 'javascript:void(0)' : card.url" 
+             :target="selectionMode ? '' : '_blank'" 
+             :title="getTooltip(card)" 
+             draggable="false"
+             @click="handleLinkClick($event, card)"
+             @contextmenu.prevent
+             class="card-link">
+            <img 
+              class="link-icon" 
+              :ref="(el) => el && setupIconLazyLoad(el, card)"
+              :src="placeholderIcon"
+              :data-url="card.url"
+              alt="" 
+              draggable="false"
+              @error="onImgError($event, card)"
+              @contextmenu.prevent>
+            <span class="link-text" @contextmenu.prevent>{{ truncate(card.title) }}</span>
+          </a>
+        <div v-if="isCardSelected(card)" class="card-selected-badge">✓</div>
+      </div>
     
     <Teleport to="body">
       <div v-if="contextMenuVisible" 
@@ -477,6 +482,9 @@ function isCardSelected(card) {
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }
@@ -547,6 +555,11 @@ function isCardSelected(card) {
   box-sizing: border-box;
   position: relative;
   z-index: 1;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .link-icon {
@@ -557,6 +570,8 @@ function isCardSelected(card) {
   transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
   margin-bottom: 8px;
   opacity: 0.8;
+  pointer-events: none;
+  -webkit-user-drag: none;
 }
 
 .link-icon[src]:not([src=""]):not([src$="default-favicon.png"]) {
@@ -582,6 +597,7 @@ function isCardSelected(card) {
   text-overflow: ellipsis;
   line-height: 1.4;
   letter-spacing: 0.01em;
+  pointer-events: none;
 }
 
 .card-selected-badge {
