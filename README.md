@@ -51,10 +51,19 @@ docker run -d \
 ```
 
 #### C. Serv00 / 免费虚拟主机
+
+**方式一：使用系统自带域名 (推荐新手)**
 ```bash
 # 脚本会自动识别域名并提示选择可用端口
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
 ```
+
+**方式二：使用自定义域名**
+```bash
+# 将 your-domain.com 替换为你已解析到 Serv00 的域名
+DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
+```
+> 💡 使用自定义域名前，请先在域名服务商处添加 CNAME 或 A 记录指向 Serv00 服务器。
 
 ### 3. 初始化配置 (安装后必看)
 1.  **访问后台**：打开 `http://你的IP:3000/admin` (Serv00 请使用脚本分配的域名)。
