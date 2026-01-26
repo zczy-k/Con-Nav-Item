@@ -71,20 +71,23 @@
 
 ## 🚀 快速部署
 
-### 一键安装脚本
+### 一键管理脚本 (推荐)
+
+我们提供了综合管理脚本，支持一键 **安装、更新、卸载/重置**。
 
 **Serv00 / CT8 / Hostuno**：
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
 ```
 
-**Linux 服务器**：
+**Linux 服务器 (Ubuntu/Debian/CentOS)**：
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/install-linux.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
 ```
 
 ### Docker 部署
 
+**首次部署**：
 ```bash
 docker run -d \
   --name Con-Nav-Item \
@@ -96,6 +99,12 @@ docker run -d \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
+
+**更新说明**：
+若要更新到最新版本，请依次执行：
+1. **拉取新镜像**：`docker pull ghcr.io/zczy-k/con-nav-item:latest`
+2. **停止并删除旧容器**：`docker stop Con-Nav-Item && docker rm Con-Nav-Item`
+3. **重新运行部署命令**：执行上方的 `docker run` 完整命令即可（挂载的目录会自动保留数据）。
 
 ### 源码部署
 
@@ -161,12 +170,10 @@ npm run check-password check
 npm run check-password reset 新密码
 ```
 
-### Serv00 部署问题
-如果遇到 524 错误或前端无法显示：
-```bash
-# 一键修复
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/fix-serv00-frontend.sh)
-```
+### 脚本管理功能
+如果你需要卸载或重置环境，只需重新运行对应平台的一键脚本：
+- **Linux**: 选择 `Uninstall` 即可彻底卸载并清理进程。
+- **Serv00**: 选择 `Reset` 即可重置域名、端口及文件。
 
 ### 前端编辑模式
 1. 点击首页右下角的"+"按钮
@@ -195,6 +202,3 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scrip
 ---
 
 ⭐ 如果这个项目对你有帮助，请给它一个星标！
-
-
-
