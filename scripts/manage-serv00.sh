@@ -151,7 +151,7 @@ do_reset() {
     yellow "  - ~/domains/ 下的所有文件"
     yellow "  - ~/bin/ 下的 node/npm 链接"
     yellow "  - ~/.npm-global/ 全局 npm 包"
-    yellow "  - 所有运行中的 Node.js 进程"
+    yellow "  - 运行中的 Node.js 应用进程（不影响 SSH）"
     echo ""
     read -p "确认重置? (yes/no): " -r
     [ "$REPLY" != "yes" ] && { yellow "已取消"; exit 0; }
@@ -160,10 +160,12 @@ do_reset() {
     echo ""
     
     # 1. 停止所有进程
-    yellow "  [1/7] 停止运行中的进程..."
-    pkill -u "$USERNAME" -f "node" > /dev/null 2>&1 || true
-    pkill -u "$USERNAME" -f "npm" > /dev/null 2>&1 || true
+    yellow "  [1/7] 停止运行中的 Node.js 进程..."
+    # 只杀掉 Node.js 应用进程，不影响 SSH 和系统进程
+    ps aux | grep "$USERNAME" | grep -E "node.*app\.js|node.*passenger\.js|node.*start" | grep -v grep | awk '{print $2}' | xargs -r kill -15 > /dev/null 2>&1 || true
     sleep 2
+    # 如果还有残留，强制杀掉
+    ps aux | grep "$USERNAME" | grep -E "node.*app\.js|node.*passenger\.js|node.*start" | grep -v grep | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1 || true
     
     # 2. 删除所有站点（包括默认域名）
     yellow "  [2/7] 删除所有站点配置..."
