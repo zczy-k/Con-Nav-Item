@@ -203,6 +203,38 @@ do_uninstall() {
     green "✔ 卸载完成，应用目录已删除"
 }
 
+# 重置密码
+do_reset_password() {
+    if [ ! -d "$INSTALL_DIR" ]; then
+        red "错误: 未找到安装目录 $INSTALL_DIR"
+        exit 1
+    fi
+    
+    cd "$INSTALL_DIR"
+    
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    yellow "  密码重置向导"
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    yellow "⚠️  安全提示: 使用交互式重置更安全"
+    echo ""
+    
+    # 使用交互式重置
+    if node scripts/check-password.js interactive 2>/dev/null; then
+        echo ""
+        green "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        green "  密码重置成功！"
+        green "  管理后台: http://YOUR_IP:$(grep PORT .env | cut -d'=' -f2)/admin"
+        green "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+    else
+        red "❌ 密码重置失败"
+        red "   请尝试手动执行:"
+        red "   cd $INSTALL_DIR && node scripts/check-password.js interactive"
+    fi
+}
+
 show_finish_info() {
     IP=$(curl -s ifconfig.me 2>/dev/null || echo "YOUR_SERVER_IP")
     echo ""
@@ -235,15 +267,20 @@ case "$1" in
     uninstall)
         do_uninstall
         ;;
+    password)
+        do_reset_password
+        ;;
     *)
         echo "请选择操作："
         echo "  1) 安装 / 更新 (Install)"
-        echo "  2) 彻底卸载 (Uninstall)"
+        echo "  2) 重置管理密码 (Reset Password)"
+        echo "  3) 彻底卸载 (Uninstall)"
         echo "  q) 退出"
-        read -p "输入序号 [1-2]: " choice
+        read -p "输入序号 [1-3]: " choice
         case "$choice" in
             1) do_install ;;
-            2) do_uninstall ;;
+            2) do_reset_password ;;
+            3) do_uninstall ;;
             *) exit 0 ;;
         esac
         ;;

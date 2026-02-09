@@ -108,13 +108,32 @@ cd /path/to/Con-Nav-Item
 node scripts/check-password.js interactive
 ```
 
-**方法二：使用 Serv00 管理脚本**
+**方法二：使用 Linux 管理脚本**
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
+# 选择 2) 重置管理密码
+```
+
+**方法三：使用 Serv00 管理脚本**
 ```bash
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
 # 选择 3) 重置管理密码
 ```
 
-**方法三：紧急令牌重置**
+**方法四：Docker 容器重置**
+```bash
+# 下载重置脚本
+curl -O https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/docker-reset-password.sh
+chmod +x docker-reset-password.sh
+
+# 运行脚本
+./docker-reset-password.sh Con-Nav-Item
+
+# 或者直接进入容器
+docker exec -it Con-Nav-Item node scripts/check-password.js interactive
+```
+
+**方法五：紧急令牌重置**
 ```bash
 # 提前生成令牌（建议安装后立即执行）
 node scripts/check-password.js generate-token

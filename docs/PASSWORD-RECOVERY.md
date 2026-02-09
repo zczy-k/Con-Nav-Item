@@ -7,9 +7,10 @@
 | 场景 | 推荐方案 | 难度 |
 |------|---------|------|
 | 有 SSH 访问权限 | [方案1: 交互式重置](#方案1交互式重置推荐) | ⭐ 简单 |
-| 使用 Docker 部署 | [方案2: 环境变量重置](#方案2docker-环境变量重置) | ⭐⭐ 中等 |
-| 使用 Serv00 部署 | [方案3: 管理脚本重置](#方案3serv00-管理脚本重置) | ⭐ 简单 |
-| 无 SSH 但能访问文件 | [方案4: 紧急令牌重置](#方案4紧急令牌重置) | ⭐⭐⭐ 复杂 |
+| 使用 Docker 部署 | [方案2: Docker 重置](#方案2docker-容器重置) | ⭐ 简单 |
+| 使用 Linux 服务器 | [方案3: Linux 管理脚本](#方案3linux-管理脚本重置) | ⭐ 简单 |
+| 使用 Serv00 部署 | [方案4: Serv00 管理脚本](#方案4serv00-管理脚本重置) | ⭐ 简单 |
+| 无 SSH 但能访问文件 | [方案5: 紧急令牌重置](#方案5紧急令牌重置) | ⭐⭐⭐ 复杂 |
 
 ---
 
@@ -57,14 +58,41 @@ node scripts/check-password.js interactive
 
 ---
 
-## 方案2：Docker 环境变量重置
+## 方案2：Docker 容器重置
 
 **适用场景**：使用 Docker 部署
 
-### 步骤
+### 方法A：使用重置脚本（推荐）
 
-1. 停止容器
-2. 使用新的环境变量重启
+```bash
+# 下载重置脚本
+curl -O https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/docker-reset-password.sh
+chmod +x docker-reset-password.sh
+
+# 运行脚本（默认容器名 Con-Nav-Item）
+./docker-reset-password.sh
+
+# 或指定容器名
+./docker-reset-password.sh my-container-name
+```
+
+脚本提供4种重置方式：
+1. 交互式重置（最安全）
+2. 使用环境变量重置
+3. 生成紧急令牌
+4. 使用令牌重置
+
+### 方法B：直接进入容器
+
+```bash
+# 交互式重置
+docker exec -it Con-Nav-Item node scripts/check-password.js interactive
+
+# 或快速重置
+docker exec -it Con-Nav-Item node scripts/check-password.js reset 新密码123
+```
+
+### 方法C：环境变量重置
 
 ```bash
 # 停止并删除容器
@@ -81,13 +109,39 @@ docker run -d \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 
-# 进入容器重置密码
+# 进入容器应用环境变量
 docker exec -it Con-Nav-Item node scripts/check-password.js reset-env
 ```
 
 ---
 
-## 方案3：Serv00 管理脚本重置
+## 方案3：Linux 管理脚本重置
+
+**适用场景**：使用 Linux 服务器部署
+
+### 步骤
+
+```bash
+# 运行管理脚本
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
+
+# 选择 2) 重置管理密码
+# 按提示输入新密码即可
+```
+
+### 或者直接命令
+
+```bash
+# 进入安装目录（默认 ~/Con-Nav-Item）
+cd ~/Con-Nav-Item
+
+# 交互式重置
+node scripts/check-password.js interactive
+```
+
+---
+
+## 方案4：Serv00 管理脚本重置
 
 **适用场景**：使用 Serv00 部署脚本安装
 
@@ -113,7 +167,7 @@ node scripts/check-password.js reset 新密码123
 
 ---
 
-## 方案4：紧急令牌重置
+## 方案5：紧急令牌重置
 
 **适用场景**：无法 SSH 但能通过其他方式访问文件系统（如 FTP、文件管理器）
 
@@ -157,7 +211,7 @@ node scripts/check-password.js reset-token <令牌> <新密码>
 
 ---
 
-## 方案5：快速命令行重置
+## 方案6：快速命令行重置
 
 **适用场景**：有 SSH 访问权限，想快速重置
 
@@ -171,7 +225,7 @@ node scripts/check-password.js reset 新密码123
 
 ---
 
-## 方案6：检查当前密码信息
+## 方案7：检查当前密码信息
 
 如果不确定是否是默认密码：
 
