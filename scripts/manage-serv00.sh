@@ -77,16 +77,17 @@ check_website() {
 do_install() {
     check_website
     yellow "安装应用到 $WORKDIR ..."
+    echo ""
     
     mkdir -p "$WORKDIR"
     cd "$WORKDIR" || exit 1
     
     # 下载
-    yellow "  → 下载项目文件..."
+    yellow "  [1/5] 下载项目文件..."
     curl -sLo "Con-Nav-Item.zip" "https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip"
     
     # 解压与更新
-    yellow "  → 解压与数据恢复..."
+    yellow "  [2/5] 解压与数据恢复..."
     unzip -oq "Con-Nav-Item.zip" -d "."
     if [ -d "Con-Nav-Item-main" ]; then
         [ -d "database" ] && mv "database" "database.backup"
@@ -105,19 +106,19 @@ do_install() {
     fi
     
     # 环境配置
-    yellow "  → 配置环境..."
+    yellow "  [3/5] 配置环境..."
     mkdir -p ~/bin ~/.npm-global
     ln -fs /usr/local/bin/node20 ~/bin/node > /dev/null 2>&1
     ln -fs /usr/local/bin/npm20 ~/bin/npm > /dev/null 2>&1
     export PATH=~/.npm-global/bin:~/bin:/usr/local/devil/node20/bin:$PATH
     
     # 依赖安装
-    yellow "  → 安装依赖..."
+    yellow "  [4/5] 安装依赖（可能需要几分钟）..."
     npm install --silent 2>/dev/null || npm install
     
     # 生成配置
+    yellow "  [5/5] 生成配置文件..."
     if [ ! -f ".env" ]; then
-        yellow "  → 生成配置文件..."
         JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
         cat > ".env" <<EOF
 ADMIN_USERNAME=admin
@@ -126,55 +127,93 @@ NODE_ENV=production
 JWT_SECRET=${JWT_SECRET}
 EOF
         chmod 600 ".env"
+        green "      ✔ 新配置文件已生成"
+    else
+        green "      ✔ 使用现有配置文件"
     fi
     
     # 重启
+    yellow "  → 重启服务..."
     devil www restart "${CURRENT_DOMAIN}" > /dev/null 2>&1
+    
+    echo ""
     green "✔ 安装完成！"
     show_finish_info
 }
 
 # 彻底重置环境
 do_reset() {
-    red "警告: 这将删除所有域名、端口和数据！"
+    red "警告: 这将删除所有站点、端口、文件和数据！"
+    echo ""
+    yellow "将要删除的内容："
+    yellow "  - 所有 devil www 站点配置"
+    yellow "  - 所有 devil port 端口配置"
+    yellow "  - ~/domains/ 下的所有文件"
+    yellow "  - ~/bin/ 下的 node/npm 链接"
+    yellow "  - ~/.npm-global/ 全局 npm 包"
+    yellow "  - 所有运行中的 Node.js 进程"
+    echo ""
     read -p "确认重置? (yes/no): " -r
     [ "$REPLY" != "yes" ] && { yellow "已取消"; exit 0; }
     
     yellow "正在重置，请稍候..."
+    echo ""
     
-    # 停止进程
-    yellow "  → 停止运行中的进程..."
-    ps aux | grep "$USERNAME" | grep -v "sshd\|bash\|grep" | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1
+    # 1. 停止所有进程
+    yellow "  [1/7] 停止运行中的进程..."
+    pkill -u "$USERNAME" -f "node" > /dev/null 2>&1 || true
+    pkill -u "$USERNAME" -f "npm" > /dev/null 2>&1 || true
     sleep 2
     
-    # 删除站点
-    yellow "  → 删除所有站点..."
-    devil www list 2>/dev/null | awk 'NF>1 && $1 ~ /\./ {print $1}' | while read -r domain; do
+    # 2. 删除所有站点（包括默认域名）
+    yellow "  [2/7] 删除所有站点配置..."
+    devil www list 2>/dev/null | awk 'NR>1 && $1 ~ /\./ {print $1}' | while read -r domain; do
+        echo "      删除站点: $domain"
         devil www del "$domain" 2>&1 | grep -v "^$" || true
         sleep 1
     done
     
-    # 清理目录
-    yellow "  → 清理文件..."
-    find "$HOME" -mindepth 1 ! -name "domains" ! -name "mail" ! -name "repo" ! -name "backups" -exec rm -rf {} + > /dev/null 2>&1 || true
-    rm -rf $HOME/domains/* > /dev/null 2>&1 || true
-    
-    # 清理端口
-    yellow "  → 清理端口..."
-    devil port list 2>/dev/null | grep -E "^\s*[0-9]+" | while read -r line; do
-        port=$(echo "$line" | awk '{print $1}')
-        proto=$(echo "$line" | awk '{print $2}')
-        [[ "$proto" =~ ^(tcp|udp)$ ]] && devil port del "$proto" "$port" 2>&1 | grep -v "^$" || true
+    # 3. 清理所有端口
+    yellow "  [3/7] 清理所有端口..."
+    devil port list 2>/dev/null | awk 'NR>1 && $1 ~ /^[0-9]+$/ {print $1, $2}' | while read -r port proto; do
+        echo "      删除端口: $port ($proto)"
+        devil port del "$proto" "$port" 2>&1 | grep -v "^$" || true
     done
     
-    # 重新启用 binexec
-    yellow "  → 启用 binexec..."
+    # 4. 清理 domains 目录
+    yellow "  [4/7] 清理 domains 目录..."
+    if [ -d "$HOME/domains" ]; then
+        find "$HOME/domains" -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
+            echo "      删除: $dir"
+            rm -rf "$dir" 2>/dev/null || true
+        done
+    fi
+    
+    # 5. 清理环境配置
+    yellow "  [5/7] 清理环境配置..."
+    rm -f ~/bin/node ~/bin/npm 2>/dev/null || true
+    rm -rf ~/.npm-global 2>/dev/null || true
+    
+    # 6. 清理临时文件
+    yellow "  [6/7] 清理临时文件..."
+    rm -rf ~/tmp/npm-* 2>/dev/null || true
+    rm -rf ~/.npm 2>/dev/null || true
+    
+    # 7. 重新启用 binexec
+    yellow "  [7/7] 启用 binexec..."
     devil binexec on > /dev/null 2>&1 || true
     
-    green "✔ 环境已彻底重置"
     echo ""
-    yellow "提示: 重置完成后，请等待 10-30 秒再重新安装"
-    yellow "      如果使用自定义域名，请确保域名已正确解析"
+    green "✔ 环境已彻底重置完成！"
+    echo ""
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    yellow "  重要提示："
+    yellow "  1. 请等待 30-60 秒后再重新安装"
+    yellow "  2. 如果使用自定义域名，请确保 DNS 已解析"
+    yellow "  3. 重新安装命令："
+    yellow "     DOMAIN=你的域名 bash <(curl -Ls ...)"
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
 }
 
 # 修复前端显示
