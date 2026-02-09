@@ -101,44 +101,33 @@ DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/
 ### 4. 忘记密码？
 如果忘记了管理员密码，可以通过以下方式重置：
 
-**方法一：交互式重置（推荐）**
+**Linux 服务器用户**
 ```bash
-# SSH 登录服务器后
-cd /path/to/Con-Nav-Item
+# 方法1: 使用管理脚本
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
+# 选择 2) 重置管理密码
+
+# 方法2: 交互式重置
+cd ~/Con-Nav-Item
 node scripts/check-password.js interactive
 ```
 
-**方法二：使用 Linux 管理脚本**
+**Serv00 用户**
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
-# 选择 2) 重置管理密码
-```
-
-**方法三：使用 Serv00 管理脚本**
-```bash
+# 使用管理脚本
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
 # 选择 3) 重置管理密码
 ```
 
-**方法四：Docker 容器重置**
+**Docker 用户**
 ```bash
-# 下载重置脚本
+# 方法1: 使用重置脚本
 curl -O https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/docker-reset-password.sh
 chmod +x docker-reset-password.sh
+./docker-reset-password.sh
 
-# 运行脚本
-./docker-reset-password.sh Con-Nav-Item
-
-# 或者直接进入容器
+# 方法2: 直接进入容器
 docker exec -it Con-Nav-Item node scripts/check-password.js interactive
-```
-
-**方法五：紧急令牌重置**
-```bash
-# 提前生成令牌（建议安装后立即执行）
-node scripts/check-password.js generate-token
-# 保存令牌，需要时使用
-node scripts/check-password.js reset-token <令牌> <新密码>
 ```
 
 📖 详细说明请查看 [密码找回指南](docs/PASSWORD-RECOVERY.md)

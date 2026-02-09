@@ -6,29 +6,34 @@
 
 | 场景 | 推荐方案 | 难度 |
 |------|---------|------|
-| 有 SSH 访问权限 | [方案1: 交互式重置](#方案1交互式重置推荐) | ⭐ 简单 |
-| 使用 Docker 部署 | [方案2: Docker 重置](#方案2docker-容器重置) | ⭐ 简单 |
-| 使用 Linux 服务器 | [方案3: Linux 管理脚本](#方案3linux-管理脚本重置) | ⭐ 简单 |
-| 使用 Serv00 部署 | [方案4: Serv00 管理脚本](#方案4serv00-管理脚本重置) | ⭐ 简单 |
-| 无 SSH 但能访问文件 | [方案5: 紧急令牌重置](#方案5紧急令牌重置) | ⭐⭐⭐ 复杂 |
+| Linux 服务器 | [方案1: Linux 管理脚本](#方案1linux-管理脚本重置) | ⭐ 简单 |
+| Serv00 部署 | [方案2: Serv00 管理脚本](#方案2serv00-管理脚本重置) | ⭐ 简单 |
+| Docker 部署 | [方案3: Docker 容器重置](#方案3docker-容器重置) | ⭐ 简单 |
+| 有 SSH 访问 | [方案4: 命令行快速重置](#方案4命令行快速重置) | ⭐⭐ 中等 |
 
 ---
 
-## 方案1：交互式重置（推荐）
+## 方案1：Linux 管理脚本重置
 
-**适用场景**：有 SSH 访问权限
+**适用场景**：使用 Linux 服务器部署（Ubuntu/Debian/CentOS 等）
 
-### 步骤
-
-1. SSH 登录到服务器
-2. 进入项目目录
-3. 运行交互式重置命令
+### 方法A：使用管理脚本（推荐）
 
 ```bash
-# 进入项目目录
-cd /path/to/Con-Nav-Item
+# 运行管理脚本
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
 
-# 运行交互式重置
+# 选择 2) 重置管理密码
+# 按提示输入新密码即可
+```
+
+### 方法B：交互式重置
+
+```bash
+# 进入安装目录（默认 ~/Con-Nav-Item）
+cd ~/Con-Nav-Item
+
+# 交互式重置
 node scripts/check-password.js interactive
 ```
 
@@ -51,14 +56,44 @@ node scripts/check-password.js interactive
 
 ✅ 更新成功!
    用户名: admin
-   密码: ******
+   密码: ********
 
 💡 现在可以使用新账号登录了
 ```
 
 ---
 
-## 方案2：Docker 容器重置
+## 方案2：Serv00 管理脚本重置
+
+**适用场景**：使用 Serv00/CT8 免费虚拟主机部署
+
+### 步骤
+
+```bash
+# 运行管理脚本
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
+
+# 选择 3) 重置管理密码
+# 按提示输入新密码即可
+```
+
+脚本会自动调用交互式重置工具，安全可靠。
+
+### 或者手动重置
+
+```bash
+# 进入项目目录
+cd ~/domains/你的域名/public_nodejs
+
+# 快速重置（密码会显示在命令行，不推荐）
+node scripts/check-password.js reset 新密码123
+```
+
+⚠️ **注意**：Serv00 环境下不支持完整的交互式输入，建议使用管理脚本。
+
+---
+
+## 方案3：Docker 容器重置
 
 **适用场景**：使用 Docker 部署
 
@@ -115,105 +150,9 @@ docker exec -it Con-Nav-Item node scripts/check-password.js reset-env
 
 ---
 
-## 方案3：Linux 管理脚本重置
+## 方案4：命令行快速重置
 
-**适用场景**：使用 Linux 服务器部署
-
-### 步骤
-
-```bash
-# 运行管理脚本
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
-
-# 选择 2) 重置管理密码
-# 按提示输入新密码即可
-```
-
-### 或者直接命令
-
-```bash
-# 进入安装目录（默认 ~/Con-Nav-Item）
-cd ~/Con-Nav-Item
-
-# 交互式重置
-node scripts/check-password.js interactive
-```
-
----
-
-## 方案4：Serv00 管理脚本重置
-
-**适用场景**：使用 Serv00 部署脚本安装
-
-### 步骤
-
-```bash
-# 运行管理脚本
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
-
-# 选择 3) 重置管理密码
-# 输入新密码即可
-```
-
-### 或者直接命令
-
-```bash
-# 进入项目目录
-cd ~/domains/你的域名/public_nodejs
-
-# 快速重置
-node scripts/check-password.js reset 新密码123
-```
-
----
-
-## 方案5：紧急令牌重置
-
-**适用场景**：无法 SSH 但能通过其他方式访问文件系统（如 FTP、文件管理器）
-
-### 步骤
-
-#### 第1步：生成令牌
-
-在能访问服务器的任何时候（比如安装后立即执行）：
-
-```bash
-cd /path/to/Con-Nav-Item
-node scripts/check-password.js generate-token
-```
-
-输出示例：
-```
-🔐 生成紧急重置令牌...
-
-✅ 紧急重置令牌已生成！
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-令牌: a1b2c3d4e5f6...
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-⚠️  重要提示:
-   1. 此令牌 1 小时后自动失效
-   2. 请妥善保管，不要泄露给他人
-   3. 使用后令牌会自动销毁
-```
-
-**请将令牌保存到安全的地方！**
-
-#### 第2步：使用令牌重置
-
-当忘记密码时：
-
-```bash
-cd /path/to/Con-Nav-Item
-node scripts/check-password.js reset-token <令牌> <新密码>
-```
-
----
-
-## 方案6：快速命令行重置
-
-**适用场景**：有 SSH 访问权限，想快速重置
+**适用场景**：有 SSH 访问权限，想快速重置（不推荐，密码会显示在命令行）
 
 ```bash
 # 进入项目目录
@@ -223,9 +162,14 @@ cd /path/to/Con-Nav-Item
 node scripts/check-password.js reset 新密码123
 ```
 
+⚠️ **安全警告**：
+- 密码会出现在进程列表中
+- 会记录到 Shell 历史
+- 建议使用后清除历史：`history -c && history -w`
+
 ---
 
-## 方案7：检查当前密码信息
+## 检查当前密码信息
 
 如果不确定是否是默认密码：
 
