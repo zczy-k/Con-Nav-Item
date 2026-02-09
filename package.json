@@ -8,7 +8,8 @@
   "main": "app.js",
   "overrides": {
     "qs": "^6.14.1",
-    "tar": "^7.5.3"
+    "tar": "^7.5.7",
+    "fast-xml-parser": "^5.3.4"
   },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run web:dev\"",
@@ -40,7 +41,7 @@
     "sqlite3": "^5.1.7",
     "undici": "7.18.2",
     "unzipper": "^0.12.3",
-    "webdav": "^5.8.0"
+    "webdav": "^5.9.0"
   },
   "engines": {
     "node": ">=14",
