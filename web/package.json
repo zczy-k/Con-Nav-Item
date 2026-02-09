@@ -1,9 +1,9 @@
 {
   "name": "Con-Nav-Item-frontend",
-  "version": "1.0.0",
+  "version": "1.0.2",
   "author": "eooce",
   "description": "Con-Nav-Item-frontend",
-  "repository": "https://github.com/eooce/Con-Nav-Item",
+  "repository": "https://github.com/zczy-k/Con-Nav-Item",
   "license": "MIT",
   "scripts": {
     "dev": "vite --host",
