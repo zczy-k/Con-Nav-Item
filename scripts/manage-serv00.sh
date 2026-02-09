@@ -240,6 +240,34 @@ do_fix_frontend() {
     green "✔ 前端修复尝试完成"
 }
 
+# 重置密码
+do_reset_password() {
+    [ ! -d "$WORKDIR" ] && { red "错误: 未找到安装目录"; exit 1; }
+    cd "$WORKDIR"
+    
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    yellow "  密码重置向导"
+    yellow "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+    echo ""
+    
+    yellow "⚠️  安全提示: 使用交互式重置更安全"
+    echo ""
+    
+    # 使用交互式重置，避免密码出现在命令行
+    if node scripts/check-password.js interactive 2>/dev/null; then
+        echo ""
+        green "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        green "  密码重置成功！"
+        green "  管理后台: https://${CURRENT_DOMAIN}/admin"
+        green "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+        echo ""
+    else
+        red "❌ 密码重置失败"
+        red "   请尝试手动执行:"
+        red "   cd $WORKDIR && node scripts/check-password.js interactive"
+    fi
+}
+
 show_finish_info() {
     echo ""
     green "=========================================="
@@ -261,17 +289,20 @@ case "$1" in
     install) do_install ;;
     reset) do_reset ;;
     fix) do_fix_frontend ;;
+    password) do_reset_password ;;
     *)
         echo "请选择操作："
         echo "  1) 安装 / 更新 (Install)"
         echo "  2) 修复前端显示 (Fix Frontend)"
-        echo "  3) 彻底重置环境 (Reset All - DANGEROUS)"
+        echo "  3) 重置管理密码 (Reset Password)"
+        echo "  4) 彻底重置环境 (Reset All - DANGEROUS)"
         echo "  q) 退出"
-        read -p "输入序号 [1-3]: " choice
+        read -p "输入序号 [1-4]: " choice
         case "$choice" in
             1) do_install ;;
             2) do_fix_frontend ;;
-            3) do_reset ;;
+            3) do_reset_password ;;
+            4) do_reset ;;
             *) exit 0 ;;
         esac
         ;;
