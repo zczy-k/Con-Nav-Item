@@ -44,17 +44,32 @@ WORKDIR="${HOME}/domains/${CURRENT_DOMAIN}/public_nodejs"
 # 检查/创建站点
 check_website() {
     yellow "检查站点配置..."
-    CURRENT_SITE=$(devil www list | awk -v domain="$CURRENT_DOMAIN" '$1 == domain && $2 == "nodejs"')
+    
+    # 检查站点是否存在
+    CURRENT_SITE=$(devil www list 2>/dev/null | awk -v domain="$CURRENT_DOMAIN" '$1 == domain && $2 == "nodejs"')
     
     if [ -n "$CURRENT_SITE" ]; then
         green "  ✔ 站点已存在"
-    else
-        EXIST_SITE=$(devil www list | awk -v domain="$CURRENT_DOMAIN" '$1 == domain')
-        if [ -n "$EXIST_SITE" ]; then
-            devil www del "$CURRENT_DOMAIN" >/dev/null 2>&1
-        fi
-        devil www add "$CURRENT_DOMAIN" nodejs /usr/local/bin/node20 > /dev/null 2>&1
+        return 0
+    fi
+    
+    # 检查是否有同名但类型不同的站点
+    EXIST_SITE=$(devil www list 2>/dev/null | awk -v domain="$CURRENT_DOMAIN" '$1 == domain')
+    if [ -n "$EXIST_SITE" ]; then
+        yellow "  → 删除旧站点配置..."
+        devil www del "$CURRENT_DOMAIN" 2>&1 | grep -v "^$" || true
+        sleep 2
+    fi
+    
+    # 创建新站点
+    yellow "  → 创建 Node.js 站点..."
+    if devil www add "$CURRENT_DOMAIN" nodejs /usr/local/bin/node20 2>&1; then
         green "  ✔ 站点创建成功"
+        sleep 1
+    else
+        red "  ✘ 站点创建失败"
+        red "  提示: 请检查域名是否正确解析，或稍后重试"
+        exit 1
     fi
 }
 
@@ -128,27 +143,38 @@ do_reset() {
     yellow "正在重置，请稍候..."
     
     # 停止进程
+    yellow "  → 停止运行中的进程..."
     ps aux | grep "$USERNAME" | grep -v "sshd\|bash\|grep" | awk '{print $2}' | xargs -r kill -9 > /dev/null 2>&1
+    sleep 2
     
     # 删除站点
-    devil www list | awk 'NF>1 && $1 ~ /\./ {print $1}' | while read -r domain; do
-        devil www del "$domain" > /dev/null 2>&1
+    yellow "  → 删除所有站点..."
+    devil www list 2>/dev/null | awk 'NF>1 && $1 ~ /\./ {print $1}' | while read -r domain; do
+        devil www del "$domain" 2>&1 | grep -v "^$" || true
+        sleep 1
     done
     
     # 清理目录
-    find "$HOME" -mindepth 1 ! -name "domains" ! -name "mail" ! -name "repo" ! -name "backups" -exec rm -rf {} + > /dev/null 2>&1
-    rm -rf $HOME/domains/* > /dev/null 2>&1
+    yellow "  → 清理文件..."
+    find "$HOME" -mindepth 1 ! -name "domains" ! -name "mail" ! -name "repo" ! -name "backups" -exec rm -rf {} + > /dev/null 2>&1 || true
+    rm -rf $HOME/domains/* > /dev/null 2>&1 || true
     
     # 清理端口
-    devil port list | grep -E "^\s*[0-9]+" | while read -r line; do
+    yellow "  → 清理端口..."
+    devil port list 2>/dev/null | grep -E "^\s*[0-9]+" | while read -r line; do
         port=$(echo "$line" | awk '{print $1}')
         proto=$(echo "$line" | awk '{print $2}')
-        [[ "$proto" =~ ^(tcp|udp)$ ]] && devil port del "$proto" "$port" > /dev/null 2>&1
+        [[ "$proto" =~ ^(tcp|udp)$ ]] && devil port del "$proto" "$port" 2>&1 | grep -v "^$" || true
     done
     
     # 重新启用 binexec
-    devil binexec on > /dev/null 2>&1
+    yellow "  → 启用 binexec..."
+    devil binexec on > /dev/null 2>&1 || true
+    
     green "✔ 环境已彻底重置"
+    echo ""
+    yellow "提示: 重置完成后，请等待 10-30 秒再重新安装"
+    yellow "      如果使用自定义域名，请确保域名已正确解析"
 }
 
 # 修复前端显示
