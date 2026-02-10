@@ -8,6 +8,18 @@
 Con-Nav-Item 是一款专为数字化工作者打造的现代化个人导航系统。它不仅仅是一个链接收藏夹，更是一个集成了 AI 智能生成、多端同步、卡片化管理和浏览器深度集成的全能工作台。
 
 ---
+## 📸 界面预览
+
+<div align="center">
+  <img width="90%" alt="首页预览" src="https://github.com/user-attachments/assets/3b974405-312b-4cb1-9c16-5b87d45e79e5" />
+  <p><i>现代化渐变卡片首页</i></p>
+  
+  <img width="45%" alt="管理后台" src="https://github.com/user-attachments/assets/b3a4bac2-f7b8-4742-8982-11a7381782cb" />
+  <img width="45%" alt="AI 配置" src="https://github.com/user-attachments/assets/e34ab03c-fe3a-43d2-835a-775b5ceb61ed" />
+</div>
+
+
+---
 
 ## 🌟 亮点功能
 
@@ -161,18 +173,6 @@ docker stop Con-Nav-Item && docker rm Con-Nav-Item
 
 #### 脚本用户 (Linux/Serv00)
 再次运行安装脚本，选择 **Update** 选项即可。
-
----
-
-## 📸 界面预览
-
-<div align="center">
-  <img width="90%" alt="首页预览" src="https://github.com/user-attachments/assets/3b974405-312b-4cb1-9c16-5b87d45e79e5" />
-  <p><i>现代化渐变卡片首页</i></p>
-  
-  <img width="45%" alt="管理后台" src="https://github.com/user-attachments/assets/b3a4bac2-f7b8-4742-8982-11a7381782cb" />
-  <img width="45%" alt="AI 配置" src="https://github.com/user-attachments/assets/e34ab03c-fe3a-43d2-835a-775b5ceb61ed" />
-</div>
 
 ---
 
