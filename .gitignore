@@ -40,6 +40,8 @@ Thumbs.db
 # Security secrets
 config/.jwt-secret
 config/.webdav-config.json
+config/.reset-token
+config/password-audit.log
 
 # IDE
 .vscode/
@@ -47,6 +49,11 @@ config/.webdav-config.json
 *.swp
 *.swo
 *~
+.cursor/
+
+# AI Assistant
+AGENTS.md
+CLEANUP_REPORT.md
 
 # Package lock conflicts
 package-lock.json.orig
