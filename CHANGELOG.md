@@ -13,6 +13,7 @@
 - 新增操作审计日志，记录所有密码重置操作
 - 密码重置后不再显示明文，统一显示 `********`
 - 添加命令行密码重置的安全警告提示
+- 修复 GitHub Dependabot 检测到的所有安全漏洞（13个）
 
 ### 🛠️ 部署优化
 - 修复 Serv00 重置功能会断开 SSH 连接的问题
@@ -20,10 +21,12 @@
 - Serv00 管理脚本新增密码重置选项（选项3）
 - 优化安装流程，添加详细的进度提示（7步重置，5步安装）
 - 改进站点检查和创建逻辑，添加错误处理
+- Linux 管理脚本新增密码重置功能
+- Docker 环境新增独立密码重置脚本
 
 ### 📚 文档完善
 - 新增 [密码找回指南](docs/PASSWORD-RECOVERY.md)
-  - 6种密码找回方案
+  - 4种实用密码找回方案（按平台分类）
   - 详细的使用步骤和示例
   - 常见问题解答
 - 新增 [安全最佳实践](docs/SECURITY.md)
@@ -37,25 +40,37 @@
   - 添加安全特性说明
   - 添加文档链接
 
-### 🐛 Bug 修复
-- 修复 `tar` 安全漏洞（CVE-2024-xxxx）：升级到 7.5.7+
-- 修复 `fast-xml-parser` DoS 漏洞：强制使用 5.3.4+
-- 修复 `webdav` 依赖漏洞：升级到 5.9.0
-- 更新 `undici` 到 7.21.0
-- 更新 `cheerio` 到 1.2.0
+### 🐛 Bug 修复与依赖更新
+- 修复 `qs` 原型污染漏洞：升级到 ^6.14.2
+- 修复 `tar` 路径遍历漏洞：升级到 ^7.5.10
+- 修复 `fast-xml-parser` DoS 漏洞：升级到 ^5.3.8
+- 修复 `minimatch` ReDoS 漏洞：升级到 ^10.0.1
+- 修复 `@tootallnate/once` 竞态条件漏洞：升级到 ^3.0.1
+- 更新 `express-rate-limit` 到 ^8.2.2
+- 更新 `multer` 到 ^2.1.1
+- 更新 `axios` 到 ^1.13.5
 - 所有依赖包安全审计通过（0 vulnerabilities）
 
 ### 🔧 改进
-- 优化密码检查脚本 `check-password.js`
+- 优化密码检查脚本 `scripts/check-password.js`
   - 添加 `interactive` 交互式重置模式
   - 添加 `generate-token` 生成紧急令牌
   - 添加 `reset-token` 使用令牌重置
   - 改进帮助信息和错误提示
-- 优化 Serv00 管理脚本 `manage-serv00.sh`
+- 优化 Serv00 管理脚本 `scripts/manage-serv00.sh`
   - 菜单从3项扩展到4项
   - 添加密码重置功能
   - 改进重置流程的安全性
   - 优化进度显示和错误处理
+- 优化 Linux 管理脚本 `scripts/manage-linux.sh`
+  - 添加密码重置选项
+- 新增 Docker 密码重置脚本 `scripts/docker-reset-password.sh`
+
+### 🧹 代码清理
+- 删除冗余文件：`check-password.js`（已移至 scripts/）
+- 删除冗余文件：`AGENTS.md`（AI 助手配置）
+- 删除冗余文件：`bun.lock` 和 `web/bun.lock`
+- 更新 `.gitignore` 添加密码重置相关文件
 
 ## [1.0.1] - 2024-02-08
 

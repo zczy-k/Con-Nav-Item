@@ -7,9 +7,11 @@
   "license": "MIT",
   "main": "app.js",
   "overrides": {
-    "qs": "^6.14.1",
-    "tar": "^7.5.7",
-    "fast-xml-parser": "^5.3.4"
+    "qs": "^6.14.2",
+    "tar": "^7.5.10",
+    "fast-xml-parser": "^5.3.8",
+    "minimatch": "^10.0.1",
+    "@tootallnate/once": "^3.0.1"
   },
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run web:dev\"",
@@ -24,18 +26,18 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
-    "axios": "^1.13.1",
+    "axios": "^1.13.5",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.2.0",
     "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "express-rate-limit": "^8.2.1",
+    "express-rate-limit": "^8.2.2",
     "express-validator": "^7.3.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
-    "multer": "^2.0.2",
+    "multer": "^2.1.1",
     "node-schedule": "^2.1.1",
     "sanitize-html": "^2.17.0",
     "sqlite3": "^5.1.7",
