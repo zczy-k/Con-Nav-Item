@@ -5,6 +5,27 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.0.3] - 2024-02-10
+
+### 🐛 Bug 修复
+- 修复 Docker 部署中 WebDAV 配置无法保存的问题（400 错误）
+- 修复 Docker 容器重启后配置丢失的问题
+- 添加 `config` 和 `backups` 目录的持久化挂载
+
+### 📚 文档完善
+- 新增 [Docker 故障排查指南](docs/DOCKER-TROUBLESHOOTING.md)
+  - WebDAV 配置失败的解决方案
+  - 数据迁移指南
+  - 权限和端口问题排查
+  - Docker 最佳实践
+- 更新 README.md 添加 Docker 部署注意事项
+- 更新 docker-compose.yml 示例配置
+
+### 🔧 改进
+- Docker 部署现在正确挂载 `config` 目录
+- 优化 Docker 容器的目录结构
+- 添加健康检查配置示例
+
 ## [1.0.2] - 2024-02-09
 
 ### 🔐 安全性增强

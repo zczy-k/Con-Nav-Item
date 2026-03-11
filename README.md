@@ -82,12 +82,15 @@ docker run -d \
   --name Con-Nav-Item \
   -p 3000:3000 \
   -v $(pwd)/database:/app/database \
+  -v $(pwd)/config:/app/config \
   -v $(pwd)/backups:/app/backups \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD=123456 \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
+
+> ⚠️ **重要提示**：Docker 部署必须挂载 `config` 目录，否则 WebDAV 等配置无法持久化保存！
 
 #### C. Serv00 / 免费虚拟主机
 

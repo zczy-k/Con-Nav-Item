@@ -14,4 +14,6 @@ services:
       - JWT_SECRET=change-this-secret  # JWT密钥（必须修改！）
     volumes:
       - ./database:/app/database       # 持久化数据库文件
+      - ./config:/app/config           # 持久化配置文件（WebDAV、密钥等）
+      - ./backups:/app/backups         # 持久化备份文件
     restart: unless-stopped
