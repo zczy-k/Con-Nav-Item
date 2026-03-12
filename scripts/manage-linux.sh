@@ -108,7 +108,7 @@ do_install() {
     npm install --silent 2>/dev/null
     cd web
     npm install --silent 2>/dev/null
-    npm run build:prod >/dev/null 2>&1
+    npm run build >/dev/null 2>&1
     cd ..
     green "  ✔ 项目安装与构建完成"
     
