@@ -201,9 +201,12 @@ async function getWebDAVClient() {
   }
   
   const decodedUrl = decodeURIComponent(webdavConfig.url);
+  const { getForcedIPv4Agents } = require('./ipv4');
+  const { httpsAgent } = getForcedIPv4Agents();
   return createClient(decodedUrl, {
     username: webdavConfig.username,
-    password: webdavConfig.password
+    password: webdavConfig.password,
+    httpsAgent
   });
 }
 

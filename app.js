@@ -1,10 +1,61 @@
 // 加载环境变量
 require('dotenv').config();
 
-// 解决 Node.js 17+ 默认优先使用 IPv6 导致在某些 Docker 或 Linux 环境下网络请求失败的问题
+// 强制优先/仅使用 IPv4
+// 背景：部分服务器存在 IPv6 路由/出网异常，但 DNS 仍返回 AAAA，导致 WebDAV/AI 等网络请求超时 (ETIMEDOUT)
+// 目标：不依赖部署方式（Docker/PM2/systemd/面板），在代码层面稳定走 IPv4
 const dns = require('dns');
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
+
+// 允许通过环境变量关闭（极少数需要访问 IPv6-only 资源的场景）
+const FORCE_IPV4 = !['0', 'false', 'no', 'off'].includes(String(process.env.FORCE_IPV4 || '').toLowerCase());
+
+if (FORCE_IPV4) {
+  // Node.js 17+ 支持：影响 DNS 结果排序（优先返回 IPv4）
+  if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+  }
+
+  // 兜底：覆盖 dns.lookup，强制 family=4（影响 http(s)/undici/node-fetch 等大多数网络库）
+  try {
+    const originalLookup = dns.lookup.bind(dns);
+    dns.lookup = (hostname, options, callback) => {
+      let opts = options;
+      let cb = callback;
+
+      // dns.lookup(hostname, callback)
+      if (typeof opts === 'function') {
+        cb = opts;
+        opts = {};
+      }
+
+      // dns.lookup(hostname, family, callback)
+      if (typeof opts === 'number') {
+        opts = { family: 4 };
+      } else {
+        opts = { ...(opts || {}), family: 4 };
+      }
+
+      return originalLookup(hostname, opts, cb);
+    };
+
+    // 同步覆盖 promises 版本（如果存在）
+    if (dns.promises && typeof dns.promises.lookup === 'function') {
+      const originalLookupAsync = dns.promises.lookup.bind(dns.promises);
+      dns.promises.lookup = (hostname, options) => {
+        let opts = options;
+        if (typeof opts === 'number') {
+          opts = { family: 4 };
+        } else {
+          opts = { ...(opts || {}), family: 4 };
+        }
+        return originalLookupAsync(hostname, opts);
+      };
+    }
+
+    console.log('✓ FORCE_IPV4 enabled (DNS lookup forced to IPv4)');
+  } catch (e) {
+    console.warn('⚠️  FORCE_IPV4: failed to patch dns.lookup:', e.message);
+  }
 }
 
 const express = require('express');

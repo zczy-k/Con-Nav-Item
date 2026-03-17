@@ -1052,7 +1052,10 @@ router.post('/webdav/config', authMiddleware, async (req, res) => {
     try {
       // 确保URL正确解码（处理URL编码的字符，如%40 -> @）
       const decodedUrl = decodeURIComponent(url);
-      const client = createClient(decodedUrl, { username, password: finalPassword });
+      // 传入自定义 Agent：在 IPv6 出网异常的服务器上强制走 IPv4
+      const { getForcedIPv4Agents } = require('../utils/ipv4');
+      const { httpsAgent } = getForcedIPv4Agents();
+      const client = createClient(decodedUrl, { username, password: finalPassword, httpsAgent });
       await client.getDirectoryContents('/');
     } catch (error) {
       const errorMessage = getWebDAVErrorMessage(error);
@@ -1246,9 +1249,12 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
     
     // 3. 上传到WebDAV
     const decodedUrl = decodeURIComponent(config.url);
+    const { getForcedIPv4Agents } = require('../utils/ipv4');
+    const { httpsAgent } = getForcedIPv4Agents();
     const client = createClient(decodedUrl, {
       username: config.username,
-      password: config.password
+      password: config.password,
+      httpsAgent
     });
     
     // 确保备份目录存在
@@ -1323,9 +1329,12 @@ router.get('/webdav/list', authMiddleware, async (req, res) => {
     }
     
     const decodedUrl = decodeURIComponent(config.url);
+    const { getForcedIPv4Agents } = require('../utils/ipv4');
+    const { httpsAgent } = getForcedIPv4Agents();
     const client = createClient(decodedUrl, {
       username: config.username,
-      password: config.password
+      password: config.password,
+      httpsAgent
     });
     
     const remotePath = '/Con-Nav-Item-Backups';
@@ -1410,9 +1419,12 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     
     // 从WebDAV下载备份
     const decodedUrl = decodeURIComponent(config.url);
+    const { getForcedIPv4Agents } = require('../utils/ipv4');
+    const { httpsAgent } = getForcedIPv4Agents();
     const client = createClient(decodedUrl, {
       username: config.username,
-      password: config.password
+      password: config.password,
+      httpsAgent
     });
     
     const remotePath = `/Con-Nav-Item-Backups/${filename}`;
@@ -1809,9 +1821,12 @@ router.delete('/webdav/delete/:filename', authMiddleware, async (req, res) => {
       });
     }
     
+    const { getForcedIPv4Agents } = require('../utils/ipv4');
+    const { httpsAgent } = getForcedIPv4Agents();
     const client = createClient(config.url, {
       username: config.username,
-      password: config.password
+      password: config.password,
+      httpsAgent
     });
     
     const remotePath = `/Con-Nav-Item-Backups/${filename}`;
