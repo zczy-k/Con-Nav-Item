@@ -123,8 +123,12 @@ function sanitizeObject(obj, skipFields = []) {
 
 // 输入清理中间件
 const sanitizeMiddleware = (req, res, next) => {
-  // 跳过清理的字段
-  const skipFields = [];
+  // 对需要保留原始值的敏感配置字段跳过清理，避免 URL 编码或密码特殊字符被篡改
+  let skipFields = [];
+
+  if (req.path && req.path.startsWith('/api/backup/webdav/')) {
+    skipFields = ['url', 'username', 'password'];
+  }
   
   if (req.body) {
     req.body = sanitizeObject(req.body, skipFields);

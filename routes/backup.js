@@ -12,6 +12,25 @@ const { encryptWebDAVConfig, decryptWebDAVConfig, generateBackupSignature, verif
 const multer = require('multer');
 const { backupLimiter, validateUrl } = require('../middleware/security');
 
+function getWebDAVErrorMessage(error) {
+  const details = [
+    error?.cause?.message,
+    error?.cause?.code,
+    error?.code,
+    error?.errno,
+    error?.type,
+    error?.message
+  ].filter(item => typeof item === 'string' || typeof item === 'number');
+
+  const uniqueDetails = [...new Set(details.map(String).filter(Boolean))];
+
+  if (uniqueDetails.length > 0) {
+    return uniqueDetails.join(' | ');
+  }
+
+  return '底层网络请求失败（未返回具体原因）';
+}
+
 // 安全的路径验证函数
 function isPathSafe(basePath, targetPath) {
   const resolvedBase = path.resolve(basePath);
@@ -1031,17 +1050,22 @@ router.post('/webdav/config', authMiddleware, async (req, res) => {
     
     // 测试WebDAV连接
     try {
-      const client = createClient(url, { username, password: finalPassword });
+      // 确保URL正确解码（处理URL编码的字符，如%40 -> @）
+      const decodedUrl = decodeURIComponent(url);
+      const client = createClient(decodedUrl, { username, password: finalPassword });
       await client.getDirectoryContents('/');
     } catch (error) {
+      const errorMessage = getWebDAVErrorMessage(error);
+      console.error('WebDAV连接失败详情:', util.inspect(error, { depth: 6, colors: false }));
       return res.status(400).json({ 
         success: false, 
-        message: 'WebDAV连接失败，请检查配置: ' + error.message 
+        message: 'WebDAV连接失败，请检查配置: ' + errorMessage 
       });
     }
     
-    // 加密并保存配置
-    const encryptedConfig = encryptWebDAVConfig({ url, username, password: finalPassword });
+    // 确保URL正确解码后保存
+    const decodedUrl = decodeURIComponent(url);
+    const encryptedConfig = encryptWebDAVConfig({ url: decodedUrl, username, password: finalPassword });
     
     fs.writeFileSync(
       configPath, 
@@ -1221,7 +1245,8 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
     });
     
     // 3. 上传到WebDAV
-    const client = createClient(config.url, {
+    const decodedUrl = decodeURIComponent(config.url);
+    const client = createClient(decodedUrl, {
       username: config.username,
       password: config.password
     });
@@ -1297,7 +1322,8 @@ router.get('/webdav/list', authMiddleware, async (req, res) => {
       });
     }
     
-    const client = createClient(config.url, {
+    const decodedUrl = decodeURIComponent(config.url);
+    const client = createClient(decodedUrl, {
       username: config.username,
       password: config.password
     });
@@ -1383,7 +1409,8 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     }
     
     // 从WebDAV下载备份
-    const client = createClient(config.url, {
+    const decodedUrl = decodeURIComponent(config.url);
+    const client = createClient(decodedUrl, {
       username: config.username,
       password: config.password
     });

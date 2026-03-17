@@ -200,7 +200,8 @@ async function getWebDAVClient() {
     return null;
   }
   
-  return createClient(webdavConfig.url, {
+  const decodedUrl = decodeURIComponent(webdavConfig.url);
+  return createClient(decodedUrl, {
     username: webdavConfig.username,
     password: webdavConfig.password
   });

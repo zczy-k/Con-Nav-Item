@@ -1,6 +1,12 @@
 // 加载环境变量
 require('dotenv').config();
 
+// 解决 Node.js 17+ 默认优先使用 IPv6 导致在某些 Docker 或 Linux 环境下网络请求失败的问题
+const dns = require('dns');
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
