@@ -83,11 +83,13 @@ docker run -d \
   -p 3000:3000 \
   -v $(pwd)/database:/app/database \
   -v $(pwd)/backups:/app/backups \
+  -v $(pwd)/config:/app/config \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD=123456 \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
+> 💡 建议同时持久化 `database`、`backups` 和 `config` 三个目录，避免容器重建后丢失 WebDAV 配置、自动备份配置等关键信息。
 
 #### C. Serv00 / 免费虚拟主机
 
@@ -168,7 +170,7 @@ docker exec -it Con-Nav-Item node scripts/check-password.js interactive
 docker pull ghcr.io/zczy-k/con-nav-item:latest
 # 2. 删除容器 (数据不会丢)
 docker stop Con-Nav-Item && docker rm Con-Nav-Item
-# 3. 重新运行上面的 docker run 命令
+# 3. 重新运行上面的 docker run 命令（确保包含 -v $(pwd)/config:/app/config）
 ```
 
 #### 脚本用户 (Linux/Serv00)
