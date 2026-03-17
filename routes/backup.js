@@ -1532,6 +1532,46 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
     const backupContents = fs.readdirSync(tempDir);
     const skippedFiles = [];
     const restoredFiles = [];
+
+    // 在覆盖数据库文件前，尽量关闭当前 SQLite 连接，避免 Windows/容器卷下文件/目录被占用 (EBUSY)
+    const closeDatabaseForRestore = async () => {
+      try {
+        const db = require('../db');
+        if (!db || typeof db.close !== 'function') return;
+
+        await new Promise((resolve) => {
+          let done = false;
+          const timer = setTimeout(() => {
+            if (done) return;
+            done = true;
+            console.warn('⚠️  关闭数据库连接超时（继续恢复）');
+            resolve();
+          }, 3000);
+
+          db.close((err) => {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            if (err) {
+              console.warn('⚠️  关闭数据库连接失败（继续恢复）:', err.message);
+            }
+            resolve();
+          });
+        });
+      } catch (e) {
+        // 忽略关闭失败
+      }
+    };
+
+    // 清空目录内容但保留目录本身（适用于 bind mount / volume 挂载目录，直接 rmSync 目录会触发 EBUSY）
+    const clearDirectoryContents = (dirPath) => {
+      if (!fs.existsSync(dirPath)) return;
+      const entries = fs.readdirSync(dirPath);
+      for (const entry of entries) {
+        const p = path.join(dirPath, entry);
+        fs.rmSync(p, { recursive: true, force: true });
+      }
+    };
     
     for (const item of backupContents) {
       const sourcePath = path.join(tempDir, item);
@@ -1574,6 +1614,24 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
               restoredFiles.push(`config/${configFile}`);
             }
             continue;
+        }
+
+        // 特殊处理持久化挂载目录：database / backups
+        // Docker 常用 -v ./database:/app/database / -v ./backups:/app/backups
+        // 这类挂载目录不能直接删除目录本身，否则可能 EBUSY
+        if (item === 'database' || item === 'backups') {
+          if (item === 'database') {
+            await closeDatabaseForRestore();
+          }
+
+          if (!fs.existsSync(destPath)) {
+            fs.mkdirSync(destPath, { recursive: true });
+          }
+
+          clearDirectoryContents(destPath);
+          fs.cpSync(sourcePath, destPath, { recursive: true, force: true });
+          restoredFiles.push(`${item}/`);
+          continue;
         }
         
         if (fs.existsSync(destPath)) {
