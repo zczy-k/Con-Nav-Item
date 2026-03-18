@@ -2,7 +2,7 @@ const express = require('express');
 const db = require('../db');
 const auth = require('./authMiddleware');
 const { triggerDebouncedBackup } = require('../utils/autoBackup');
-const { detectDuplicates, isDuplicateCard } = require('../utils/urlNormalizer');
+const { detectDuplicates, getDuplicateMatch } = require('../utils/urlNormalizer');
 const { autoGenerateForCards } = require('./ai');
 const router = express.Router();
 
@@ -202,7 +202,10 @@ router.post('/', auth, (req, res) => {
     if (err) return res.status(500).json({error: err.message});
     
     const newCard = { title, url };
-    const duplicate = existingCards.find(card => isDuplicateCard(newCard, card));
+    const duplicate = existingCards.find(card => {
+      const match = getDuplicateMatch(newCard, card);
+      return match && match.type === 'exact';
+    });
     
     if (duplicate) {
       return res.status(409).json({

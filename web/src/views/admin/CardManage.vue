@@ -107,13 +107,17 @@
               <line x1="12" y1="9" x2="12" y2="13"></line>
               <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
-            <h3>检测到重复卡片</h3>
+            <h3>{{ duplicateMode === 'exact' ? '检测到重复卡片' : '检测到疑似重复卡片' }}</h3>
           </div>
           <button class="close-btn" @click="closeDuplicateModal">×</button>
         </div>
         <div class="modal-body">
           <div class="duplicate-warning">
-            <p class="warning-text">您要添加的卡片与以下现有卡片重复：</p>
+            <p class="warning-text">
+              {{ duplicateMode === 'exact'
+                ? '您要添加的卡片与以下现有卡片重复：'
+                : `您要添加的卡片与以下现有卡片疑似重复（${duplicateReason}）：` }}
+            </p>
           </div>
           
           <div class="duplicate-comparison">
@@ -178,12 +182,19 @@
             </svg>
             跳过
           </button>
-          <button class="btn btn-warning" @click="replaceDuplicate">
+          <button v-if="duplicateMode === 'exact'" class="btn btn-warning" @click="replaceDuplicate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
               <path d="M21 3v5h-5"></path>
             </svg>
             替换
+          </button>
+          <button v-else class="btn btn-warning" @click="continueAddAnyway">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M5 12h14"></path>
+              <path d="M12 5l7 7-7 7"></path>
+            </svg>
+            仍然添加
           </button>
           <button class="btn btn-primary" @click="editAndAdd">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -208,7 +219,7 @@ import {
   deleteCard as apiDeleteCard,
   getTags
 } from '../../api';
-import { isDuplicateCard } from '../../utils/urlNormalizer';
+import { getDuplicateMatch } from '../../utils/urlNormalizer';
 import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
@@ -227,6 +238,8 @@ const selectedTagIds = ref([]);
 const showDuplicateModal = ref(false);
 const duplicateInfo = ref(null);
 const pendingCard = ref(null);
+const duplicateMode = ref('exact');
+const duplicateReason = ref('');
 
 const currentSubMenus = computed(() => {
   if (!selectedMenuId.value) return [];
@@ -279,16 +292,25 @@ async function addCard() {
   if (!newCardTitle.value || !newCardUrl.value) return;
   
   // 检测重复
-  const duplicate = cards.value.find(card => 
-    isDuplicateCard(
+  let duplicate = null;
+  let duplicateMatch = null;
+  for (const card of cards.value) {
+    const match = getDuplicateMatch(
       { title: newCardTitle.value, url: newCardUrl.value },
       card
-    )
-  );
+    );
+    if (match) {
+      duplicate = card;
+      duplicateMatch = match;
+      if (match.type === 'exact') break;
+    }
+  }
   
   if (duplicate) {
     // 发现重复，显示对话框
     duplicateInfo.value = duplicate;
+    duplicateMode.value = duplicateMatch?.type || 'exact';
+    duplicateReason.value = duplicateMatch?.reason || '';
     pendingCard.value = {
       menu_id: selectedMenuId.value,
       sub_menu_id: selectedSubMenuId.value || null,
@@ -394,6 +416,8 @@ function closeDuplicateModal() {
   showDuplicateModal.value = false;
   duplicateInfo.value = null;
   pendingCard.value = null;
+  duplicateMode.value = 'exact';
+  duplicateReason.value = '';
 }
 
 // 跳过添加
@@ -413,6 +437,13 @@ async function replaceDuplicate() {
   await apiDeleteCard(duplicateInfo.value.id);
   await performAddCard(pendingCard.value);
   closeDuplicateModal();
+}
+
+async function continueAddAnyway() {
+  if (!pendingCard.value) return;
+  const cardToAdd = { ...pendingCard.value };
+  closeDuplicateModal();
+  await performAddCard(cardToAdd);
 }
 
 // 编辑后添加

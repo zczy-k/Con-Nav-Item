@@ -3,7 +3,7 @@ const axios = require('axios');
 const cheerio = require('cheerio');
 const db = require('../db');
 const auth = require('./authMiddleware');
-const { isDuplicateCard } = require('../utils/urlNormalizer');
+const { getDuplicateMatch } = require('../utils/urlNormalizer');
 const { triggerDebouncedBackup } = require('../utils/autoBackup');
 const { autoGenerateForCards } = require('./ai');
 const router = express.Router();
@@ -218,9 +218,10 @@ router.post('/add', auth, (req, res) => {
     
     cards.forEach(card => {
       // 检查与现有卡片重复
-      const duplicateExisting = existingCards.find(existing => 
-        isDuplicateCard({ title: card.title, url: card.url }, existing)
-      );
+      const duplicateExisting = existingCards.find(existing => {
+        const match = getDuplicateMatch({ title: card.title, url: card.url }, existing);
+        return match && match.type === 'exact';
+      });
       
       if (duplicateExisting) {
         skippedCards.push({
@@ -237,9 +238,13 @@ router.post('/add', auth, (req, res) => {
         });
       } else {
         // 检查是否与当前批次中的其他卡片重复
-        const duplicateInBatch = uniqueCards.find(unique => 
-          isDuplicateCard({ title: card.title, url: card.url }, { title: unique.title, url: unique.url })
-        );
+        const duplicateInBatch = uniqueCards.find(unique => {
+          const match = getDuplicateMatch(
+            { title: card.title, url: card.url },
+            { title: unique.title, url: unique.url }
+          );
+          return match && match.type === 'exact';
+        });
         
         if (!duplicateInBatch) {
           uniqueCards.push(card);

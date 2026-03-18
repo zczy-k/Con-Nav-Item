@@ -28,6 +28,19 @@ export function normalizeUrl(url) {
   }
 }
 
+export function extractHostname(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return parsed.hostname.toLowerCase().replace(/^www\./, '');
+  } catch (error) {
+    return extractDomain(url);
+  }
+}
+
 /**
  * 提取 URL 的域名
  * @param {string} url - 原始 URL
@@ -57,8 +70,12 @@ export function extractDomain(url) {
  * @returns {boolean} 是否重复
  */
 export function isDuplicateCard(card1, card2) {
+  return !!getDuplicateMatch(card1, card2);
+}
+
+export function getDuplicateMatch(card1, card2) {
   if (!card1 || !card2) {
-    return false;
+    return null;
   }
 
   // 1. URL 完全匹配（规范化后）
@@ -66,24 +83,24 @@ export function isDuplicateCard(card1, card2) {
   const url2 = normalizeUrl(card2.url);
   
   if (url1 && url2 && url1 === url2) {
-    return true;
+    return { type: 'exact', reason: 'URL 完全相同' };
   }
 
-  // 2. 域名相同即视为重复（防止同一网站不同页面重复添加）
-  const domain1 = extractDomain(card1.url);
-  const domain2 = extractDomain(card2.url);
+  // 2. 主机名相同视为疑似重复，仅提示不拦截
+  const hostname1 = extractHostname(card1.url);
+  const hostname2 = extractHostname(card2.url);
   
-  if (domain1 && domain2 && domain1 === domain2) {
-    return true;
+  if (hostname1 && hostname2 && hostname1 === hostname2) {
+    return { type: 'similar', reason: '主机名相同' };
   }
 
-  // 3. 标题完全相同也视为重复
+  // 3. 标题完全相同也视为疑似重复，仅提示不拦截
   const title1 = (card1.title || '').trim().toLowerCase();
   const title2 = (card2.title || '').trim().toLowerCase();
   
   if (title1 && title2 && title1.length > 3 && title1 === title2) {
-    return true;
+    return { type: 'similar', reason: '标题相同' };
   }
 
-  return false;
+  return null;
 }

@@ -989,7 +989,7 @@ const api = {
 import MenuBar from '../components/MenuBar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
-import { isDuplicateCard } from '../utils/urlNormalizer';
+import { getDuplicateMatch } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const mobileDrawerVisible = ref(false);
@@ -2919,16 +2919,26 @@ async function parseUrls() {
       const recommendedTagIds = recommendTags(card.url, card.title);
       
       // 检测与现有卡片重复
-      const duplicateCard = existingCards.find(existing => 
-        isDuplicateCard({ title: card.title, url: card.url }, existing)
-      );
+      let duplicateCard = null;
+      let duplicateMatch = null;
+      for (const existing of existingCards) {
+        const match = getDuplicateMatch({ title: card.title, url: card.url }, existing);
+        if (match) {
+          duplicateCard = existing;
+          duplicateMatch = match;
+          if (match.type === 'exact') break;
+        }
+      }
       
-      const isDuplicate = !!duplicateCard;
+      const isDuplicate = duplicateMatch?.type === 'exact';
+      const isSimilar = duplicateMatch?.type === 'similar';
       
       return {
         ...card,
-        selected: !isDuplicate, // 重复的默认不选中
-        isDuplicate: isDuplicate, // 标记是否重复
+        selected: !isDuplicate, // 只有精确重复的默认不选中
+        isDuplicate: isDuplicate,
+        isSimilarDuplicate: isSimilar,
+        duplicateReason: duplicateMatch?.reason || '',
         duplicateOf: duplicateCard ? {
           id: duplicateCard.id,
           title: duplicateCard.title,
