@@ -1115,7 +1115,10 @@ if (data.success && data.token) {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ name: request.name })
+                    body: JSON.stringify({
+                        name: request.name,
+                        afterId: request.afterId ?? null
+                    })
                 });
                 
                 if (!response.ok) {
@@ -1169,7 +1172,10 @@ if (data.success && data.token) {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
                     },
-                    body: JSON.stringify({ name: request.name })
+                    body: JSON.stringify({
+                        name: request.name,
+                        afterSubMenuId: request.afterSubMenuId ?? null
+                    })
                 });
                 
                 if (!response.ok) {
@@ -1192,6 +1198,104 @@ if (data.success && data.token) {
                 sendResponse({ success: true, subMenuId: result.id });
             } catch (e) {
                 console.error('创建子分类失败:', e);
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true;
+    }
+
+    if (request.action === 'reorderMenu') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站地址' });
+                    return;
+                }
+
+                if (!token) {
+                    sendResponse({ success: false, needAuth: true, error: '请先验证密码' });
+                    return;
+                }
+
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                const response = await fetch(`${navServerUrl}/api/menus/${request.menuId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ order: request.order })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        await chrome.storage.local.remove(['navAuthToken']);
+                        sendResponse({ success: false, needAuth: true, error: '登录已过期' });
+                        return;
+                    }
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || '排序失败');
+                }
+
+                cachedMenus = [];
+                lastMenuFetchTime = 0;
+                await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
+
+                sendResponse({ success: true });
+            } catch (e) {
+                console.error('调整主分类顺序失败:', e);
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true;
+    }
+
+    if (request.action === 'reorderSubCategory') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站地址' });
+                    return;
+                }
+
+                if (!token) {
+                    sendResponse({ success: false, needAuth: true, error: '请先验证密码' });
+                    return;
+                }
+
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                const response = await fetch(`${navServerUrl}/api/menus/submenus/${request.subMenuId}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ order: request.order })
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        await chrome.storage.local.remove(['navAuthToken']);
+                        sendResponse({ success: false, needAuth: true, error: '登录已过期' });
+                        return;
+                    }
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || '排序失败');
+                }
+
+                cachedMenus = [];
+                lastMenuFetchTime = 0;
+                await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
+
+                sendResponse({ success: true });
+            } catch (e) {
+                console.error('调整子分类顺序失败:', e);
                 sendResponse({ success: false, error: e.message });
             }
         })();

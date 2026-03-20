@@ -692,6 +692,7 @@
               maxlength="20"
             />
           </div>
+          <div v-if="menuModalMode === 'add'" class="menu-insert-hint">{{ menuInsertHint }}</div>
           <div class="batch-actions" style="margin-top: 20px;">
             <button @click="showMenuModal = false" class="btn btn-cancel">取消</button>
             <button @click="saveMenuModal" class="btn btn-primary" :disabled="menuModalLoading">
@@ -3355,11 +3356,77 @@ async function batchDeleteSelected() {
 const showMenuModal = ref(false);
 const menuModalMode = ref('add');
 const menuModalType = ref('menu');
-const editingMenuData = ref({ id: null, name: '', parentId: null });
+const editingMenuData = ref({ id: null, name: '', parentId: null, afterId: null, afterSubMenuId: null });
 const menuModalLoading = ref(false);
 
-function handleAddMenu() {
-  requireAuth(() => openAddMenuModal());
+const menuInsertHint = computed(() => {
+  if (menuModalType.value === 'menu') {
+    if (editingMenuData.value.afterId) {
+      const targetMenu = menus.value.find(m => m.id === editingMenuData.value.afterId);
+      return targetMenu
+        ? `新主菜单会插入到「${targetMenu.name}」后面`
+        : '未选中主菜单时，默认追加到末尾';
+    }
+    return '未选中主菜单时，默认追加到末尾';
+  }
+
+  const parentMenu = menus.value.find(m => m.id === editingMenuData.value.parentId);
+  if (editingMenuData.value.afterSubMenuId && parentMenu?.subMenus) {
+    const targetSubMenu = parentMenu.subMenus.find(s => s.id === editingMenuData.value.afterSubMenuId);
+    return targetSubMenu
+      ? `新子菜单会插入到「${targetSubMenu.name}」后面`
+      : '未选中子菜单时，默认追加到当前主菜单末尾';
+  }
+  return '未选中子菜单时，默认追加到当前主菜单末尾';
+});
+
+function refreshActiveMenuState() {
+  if (!activeMenu.value) return;
+
+  const updatedActiveMenu = menus.value.find(m => m.id === activeMenu.value.id);
+  if (!updatedActiveMenu) return;
+
+  activeMenu.value = updatedActiveMenu;
+  if (activeSubMenu.value) {
+    const updatedSubMenu = updatedActiveMenu.subMenus?.find(s => s.id === activeSubMenu.value.id);
+    activeSubMenu.value = updatedSubMenu || null;
+  }
+}
+
+function selectInsertedMenuItem(newMenuId, parentId, newSubMenuId) {
+  if (newMenuId) {
+    const insertedMenu = menus.value.find(m => m.id === newMenuId);
+    if (insertedMenu) {
+      activeMenu.value = insertedMenu;
+      activeSubMenu.value = null;
+    }
+    return;
+  }
+
+  if (newSubMenuId && parentId) {
+    const insertedParentMenu = menus.value.find(m => m.id === parentId);
+    const insertedSubMenu = insertedParentMenu?.subMenus?.find(s => s.id === newSubMenuId);
+    if (insertedParentMenu && insertedSubMenu) {
+      activeMenu.value = insertedParentMenu;
+      activeSubMenu.value = insertedSubMenu;
+    }
+  }
+}
+
+function buildMenuCreatePayload(name, afterId) {
+  const maxOrder = menus.value.length > 0 ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
+  return { name, order: maxOrder + 1, afterId };
+}
+
+function buildSubMenuCreatePayload(parentId, name, afterSubMenuId) {
+  const parentMenu = menus.value.find(m => m.id === parentId);
+  const subMenus = parentMenu?.subMenus || [];
+  const maxOrder = subMenus.length > 0 ? Math.max(...subMenus.map(s => s.order || 0)) : 0;
+  return { name, order: maxOrder + 1, afterSubMenuId };
+}
+
+function handleAddMenu(referenceMenu = null) {
+  requireAuth(() => openAddMenuModal(referenceMenu));
 }
 
 function handleEditMenu(menu) {
@@ -3382,31 +3449,44 @@ function handleDeleteSubMenuWithAuth(subMenu, parentMenu) {
   requireAuth(() => handleDeleteSubMenu(subMenu, parentMenu));
 }
 
-function openAddMenuModal() {
+function openAddMenuModal(referenceMenu = null) {
+  const targetMenu = referenceMenu || activeMenu.value || null;
   menuModalMode.value = 'add';
   menuModalType.value = 'menu';
-  editingMenuData.value = { id: null, name: '', parentId: null };
+  editingMenuData.value = {
+    id: null,
+    name: '',
+    parentId: null,
+    afterId: targetMenu?.id || null,
+    afterSubMenuId: null
+  };
   showMenuModal.value = true;
 }
 
 function openEditMenuModal(menu) {
   menuModalMode.value = 'edit';
   menuModalType.value = 'menu';
-  editingMenuData.value = { id: menu.id, name: menu.name, parentId: null };
+  editingMenuData.value = { id: menu.id, name: menu.name, parentId: null, afterId: null, afterSubMenuId: null };
   showMenuModal.value = true;
 }
 
 function openAddSubMenuModal(parentMenu) {
   menuModalMode.value = 'add';
   menuModalType.value = 'subMenu';
-  editingMenuData.value = { id: null, name: '', parentId: parentMenu.id };
+  editingMenuData.value = {
+    id: null,
+    name: '',
+    parentId: parentMenu.id,
+    afterId: null,
+    afterSubMenuId: activeMenu.value?.id === parentMenu.id ? activeSubMenu.value?.id || null : null
+  };
   showMenuModal.value = true;
 }
 
 function openEditSubMenuModal(subMenu, parentMenu) {
   menuModalMode.value = 'edit';
   menuModalType.value = 'subMenu';
-  editingMenuData.value = { id: subMenu.id, name: subMenu.name, parentId: parentMenu.id };
+  editingMenuData.value = { id: subMenu.id, name: subMenu.name, parentId: parentMenu.id, afterId: null, afterSubMenuId: null };
   showMenuModal.value = true;
 }
 
@@ -3422,6 +3502,8 @@ async function saveMenuModal() {
   const type = menuModalType.value;
   const id = editingMenuData.value.id;
   const parentId = editingMenuData.value.parentId;
+  const afterId = editingMenuData.value.afterId;
+  const afterSubMenuId = editingMenuData.value.afterSubMenuId;
   
   // 乐观更新：立即在界面上显示变化
   const originalMenus = [...menus.value];
@@ -3447,18 +3529,14 @@ async function saveMenuModal() {
     
     if (type === 'menu') {
       if (mode === 'add') {
-        const maxOrder = menus.value.length > 0 ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
-        const res = await addMenu({ name, order: maxOrder + 1 });
+        const res = await addMenu(buildMenuCreatePayload(name, afterId));
         newMenuId = res.data?.id;
       } else {
         await updateMenu(id, { name });
       }
     } else {
       if (mode === 'add') {
-        const parentMenu = menus.value.find(m => m.id === parentId);
-        const subMenus = parentMenu?.subMenus || [];
-        const maxOrder = subMenus.length > 0 ? Math.max(...subMenus.map(s => s.order || 0)) : 0;
-        const res = await addSubMenu(parentId, { name, order: maxOrder + 1 });
+        const res = await addSubMenu(parentId, buildSubMenuCreatePayload(parentId, name, afterSubMenuId));
         newSubMenuId = res.data?.id;
       } else {
         await updateSubMenu(id, { name });
@@ -3468,17 +3546,7 @@ async function saveMenuModal() {
     // 获取最新数据并同步状态
     const menusRes = await getMenus(true);
     menus.value = menusRes.data;
-    
-    if (activeMenu.value) {
-      const updatedActiveMenu = menus.value.find(m => m.id === activeMenu.value.id);
-      if (updatedActiveMenu) {
-        activeMenu.value = updatedActiveMenu;
-        if (activeSubMenu.value) {
-          const updatedSubMenu = updatedActiveMenu.subMenus?.find(s => s.id === activeSubMenu.value.id);
-          activeSubMenu.value = updatedSubMenu || null;
-        }
-      }
-    }
+    refreshActiveMenuState();
     
     // 初始化新分类的缓存
     if (newMenuId) {
@@ -3489,6 +3557,7 @@ async function saveMenuModal() {
       const cacheKey = getCardsCacheKey(parentId, newSubMenuId);
       cardsCache.value[cacheKey] = [];
     }
+    selectInsertedMenuItem(newMenuId, parentId, newSubMenuId);
     saveCardsCache();
     
     notifyExtensionRefreshMenus();
@@ -5628,6 +5697,17 @@ async function saveCardEdit() {
   flex: 1;
   padding: 28px;
   overflow-y: auto;
+}
+
+.menu-insert-hint {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, rgba(24, 144, 255, 0.08) 0%, rgba(64, 169, 255, 0.05) 100%);
+  border: 1px solid rgba(24, 144, 255, 0.15);
+  color: #2563eb;
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 /* 移动端弹窗适配 */

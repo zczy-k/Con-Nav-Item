@@ -253,6 +253,38 @@
                     display: flex;
                     align-items: center;
                     gap: 6px;
+                    justify-content: space-between;
+                }
+
+                .section-label-main {
+                    display: flex;
+                    align-items: center;
+                    gap: 6px;
+                }
+
+                .section-tools {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                }
+
+                .section-tip {
+                    font-size: 11px;
+                    color: #999;
+                }
+
+                .section-link-btn {
+                    border: none;
+                    background: none;
+                    color: #667eea;
+                    font-size: 12px;
+                    cursor: pointer;
+                    padding: 0;
+                    font-weight: 600;
+                }
+
+                .section-link-btn:hover {
+                    text-decoration: underline;
                 }
                 
                 .search-input {
@@ -410,6 +442,54 @@
                 .category-item.selected .count {
                     background: #667eea20;
                     color: #667eea;
+                }
+
+                .category-actions {
+                    display: flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin-left: auto;
+                }
+
+                .reorder-btn,
+                .add-sub-btn {
+                    border: none;
+                    background: #eef2ff;
+                    color: #5563d9;
+                    border-radius: 6px;
+                    min-width: 24px;
+                    height: 24px;
+                    display: inline-flex;
+                    align-items: center;
+                    justify-content: center;
+                    cursor: pointer;
+                    font-size: 12px;
+                    padding: 0 6px;
+                }
+
+                .reorder-btn:hover,
+                .add-sub-btn:hover {
+                    background: #dfe6ff;
+                }
+
+                .reorder-btn:disabled {
+                    opacity: 0.45;
+                    cursor: not-allowed;
+                }
+
+                .category-item.reordering {
+                    cursor: default;
+                }
+
+                .reorder-hint {
+                    margin-top: 8px;
+                    font-size: 12px;
+                    color: #7a7a7a;
+                    line-height: 1.5;
+                    background: #f8f9ff;
+                    border: 1px solid #ecefff;
+                    border-radius: 8px;
+                    padding: 8px 10px;
                 }
                 
                 .category-toggle {
@@ -946,8 +1026,14 @@
                         
                         <div class="category-section">
                             <div class="section-label">
-                                <span>📁</span>
-                                <span>选择分类</span>
+                                <div class="section-label-main">
+                                    <span>📁</span>
+                                    <span id="categorySectionTitle">选择分类</span>
+                                </div>
+                                <div class="section-tools">
+                                    <span class="section-tip" id="categoryModeTip">分类不顺手？可就地调整</span>
+                                    <button class="section-link-btn" id="reorderToggleBtn" type="button">管理顺序</button>
+                                </div>
                             </div>
                             <input type="text" class="search-input" id="searchInput" placeholder="搜索分类...">
                             <div class="category-list" id="categoryList">
@@ -956,6 +1042,7 @@
                                     <div>加载分类中...</div>
                                 </div>
                             </div>
+                            <div class="reorder-hint" id="reorderHint" style="display: none;">排序模式下可直接调整主分类和同一主分类内子分类的顺序；新建分类会插入到当前选中项后面。</div>
                         </div>
                         
                           <div class="confirm-section" id="confirmSection">
@@ -1025,6 +1112,7 @@
         const optionsPanel = dialogShadowRoot.getElementById('optionsPanel');
         const toggleIcon = dialogShadowRoot.getElementById('toggleIcon');
         const settingsLink = dialogShadowRoot.getElementById('settingsLink');
+        const reorderToggleBtn = dialogShadowRoot.getElementById('reorderToggleBtn');
         
         // 关闭弹窗
         overlay.addEventListener('click', (e) => {
@@ -1103,6 +1191,17 @@
         searchInput.addEventListener('input', () => {
             filterCategories(searchInput.value);
         });
+
+        reorderToggleBtn.addEventListener('click', () => {
+            if (reorderInFlight) return;
+            if (searchInput.value.trim()) {
+                showToast('请先清空搜索后再调整顺序', 'error');
+                return;
+            }
+            isReorderMode = !isReorderMode;
+            updateCategorySectionMode();
+            renderCategories(allMenus);
+        });
         
           // 提交按钮
           submitBtn.addEventListener('click', () => {
@@ -1176,6 +1275,30 @@
               }
           }
 
+          function updateCategorySectionMode() {
+              const titleEl = dialogShadowRoot.getElementById('categorySectionTitle');
+              const tipEl = dialogShadowRoot.getElementById('categoryModeTip');
+              const hintEl = dialogShadowRoot.getElementById('reorderHint');
+              const search = dialogShadowRoot.getElementById('searchInput');
+              const toggleBtn = dialogShadowRoot.getElementById('reorderToggleBtn');
+
+              if (!titleEl || !tipEl || !hintEl || !search || !toggleBtn) return;
+
+              if (isReorderMode) {
+                  titleEl.textContent = '调整分类顺序';
+                  tipEl.textContent = '完成后会保留当前已选分类';
+                  hintEl.style.display = 'block';
+                  search.style.display = 'none';
+                  toggleBtn.textContent = '完成调整';
+              } else {
+                  titleEl.textContent = '选择分类';
+                  tipEl.textContent = '分类不顺手？可就地调整';
+                  hintEl.style.display = 'none';
+                  search.style.display = 'block';
+                  toggleBtn.textContent = '管理顺序';
+              }
+          }
+
         
         // 密码验证相关
         const authSection = dialogShadowRoot.getElementById('authSection');
@@ -1216,6 +1339,8 @@
           // 重置状态
           isAddingCategory = false;
           isAddingSubCategory = null;
+          isReorderMode = false;
+          reorderInFlight = false;
           selectedMenuId = null;
           selectedSubMenuId = null;
           currentStep = 'selection';
@@ -1238,6 +1363,108 @@
       let isAddingCategory = false;
       let isAddingSubCategory = null;
       let currentStep = 'selection'; // 'selection' or 'confirmation'
+      let isReorderMode = false;
+      let reorderInFlight = false;
+
+    function getNewCategoryInsertAfterId() {
+        if (selectedMenuId && !selectedSubMenuId) {
+            return selectedMenuId;
+        }
+        if (selectedMenuId && selectedSubMenuId) {
+            return selectedMenuId;
+        }
+        if (lastMenuId) {
+            return parseInt(lastMenuId);
+        }
+        return null;
+    }
+
+    function getNewSubCategoryInsertAfterId(parentId) {
+        if (selectedMenuId === parentId && selectedSubMenuId) {
+            return selectedSubMenuId;
+        }
+        return null;
+    }
+
+    function scrollToSelectedCategory() {
+        setTimeout(() => {
+            if (!dialogShadowRoot) return;
+            const selectedItem = dialogShadowRoot.querySelector('.category-item.selected');
+            selectedItem?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+        }, 30);
+    }
+
+    async function refreshMenusAndRender(options = {}) {
+        const { preserveParentExpanded = null } = options;
+        const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+        if (!response.success) {
+            throw new Error(response.error || '刷新分类失败');
+        }
+        allMenus = response.menus || [];
+        if (preserveParentExpanded) {
+            expandedMenus.add(preserveParentExpanded);
+        }
+        renderCategories(allMenus);
+        scrollToSelectedCategory();
+    }
+
+    async function reorderMenuItem(menuId, targetOrder) {
+        if (reorderInFlight) return;
+        reorderInFlight = true;
+        try {
+            const result = await chrome.runtime.sendMessage({
+                action: 'reorderMenu',
+                menuId,
+                order: targetOrder
+            });
+
+            if (!result.success) {
+                if (result.needAuth) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('登录已过期，请重新验证', 'error');
+                    return;
+                }
+                throw new Error(result.error || '排序失败');
+            }
+
+            await refreshMenusAndRender();
+            showToast('主分类顺序已更新', 'success');
+        } catch (e) {
+            showToast(e.message || '调整顺序失败', 'error');
+        } finally {
+            reorderInFlight = false;
+        }
+    }
+
+    async function reorderSubMenuItem(parentId, subMenuId, targetOrder) {
+        if (reorderInFlight) return;
+        reorderInFlight = true;
+        try {
+            const result = await chrome.runtime.sendMessage({
+                action: 'reorderSubCategory',
+                subMenuId,
+                order: targetOrder
+            });
+
+            if (!result.success) {
+                if (result.needAuth) {
+                    isAuthenticated = false;
+                    showAuthSection();
+                    showToast('登录已过期，请重新验证', 'error');
+                    return;
+                }
+                throw new Error(result.error || '排序失败');
+            }
+
+            await refreshMenusAndRender({ preserveParentExpanded: parentId });
+            showToast('子分类顺序已更新', 'success');
+        } catch (e) {
+            showToast(e.message || '调整顺序失败', 'error');
+        } finally {
+            reorderInFlight = false;
+        }
+    }
 
     
     // 加载分类数据
@@ -1316,6 +1543,7 @@
             }
             
             renderCategories(allMenus);
+            updateCategorySectionMode();
         } catch (e) {
             console.error('加载分类失败:', e);
             showCategoryError('加载分类失败');
@@ -1360,6 +1588,7 @@
             }
             
             renderCategories(allMenus);
+            updateCategorySectionMode();
         } catch (e) {
             console.error('加载分类失败:', e);
             showCategoryError('加载分类失败');
@@ -1507,6 +1736,9 @@ if (response.success) {
                 const isSelected = selectedMenuId === menu.id && !selectedSubMenuId;
                 const hasChildren = menu.subMenus && menu.subMenus.length > 0;
                 const childCount = menu.subMenus?.length || 0;
+                const menuIndex = menus.findIndex(item => item.id === menu.id);
+                const canMoveMenuUp = menuIndex > 0;
+                const canMoveMenuDown = menuIndex < menus.length - 1;
                 // 搜索时自动展开，否则保持用户的展开状态
                 const shouldExpand = term ? true : expandedMenus.has(menu.id);
                 
@@ -1518,7 +1750,13 @@ if (response.success) {
                         <span class="icon">📁</span>
                         <span class="name">${escapeHtml(menu.name)}</span>
                         ${hasChildren ? `<span class="count">${childCount}</span>` : ''}
-                        <button class="add-sub-btn" data-parent-id="${menu.id}" title="添加子分类">➕</button>
+                        <div class="category-actions">
+                            ${isReorderMode ? `
+                                <button class="reorder-btn" data-reorder-type="menu-up" data-menu-id="${menu.id}" ${canMoveMenuUp ? '' : 'disabled'} title="上移">↑</button>
+                                <button class="reorder-btn" data-reorder-type="menu-down" data-menu-id="${menu.id}" ${canMoveMenuDown ? '' : 'disabled'} title="下移">↓</button>
+                            ` : ''}
+                            <button class="add-sub-btn" data-parent-id="${menu.id}" title="添加子分类">➕</button>
+                        </div>
                         ${hasChildren ? `<span class="category-toggle ${shouldExpand ? 'expanded' : ''}">▶</span>` : ''}
                     </div>
                 `;
@@ -1540,13 +1778,21 @@ if (response.success) {
                     }
                     
                     const subsToShow = term ? subMatches : (menu.subMenus || []);
-                    subsToShow.forEach(sub => {
+                    subsToShow.forEach((sub, subIndex) => {
                         const isSubSelected = selectedMenuId === menu.id && selectedSubMenuId === sub.id;
+                        const canMoveSubUp = subIndex > 0;
+                        const canMoveSubDown = subIndex < subsToShow.length - 1;
                         html += `
-                            <div class="category-item child ${isSubSelected ? 'selected' : ''}" 
+                            <div class="category-item child ${isSubSelected ? 'selected' : ''} ${isReorderMode ? 'reordering' : ''}" 
                                  data-menu-id="${menu.id}"
                                  data-submenu-id="${sub.id}">
                                 <span class="name">${escapeHtml(sub.name)}</span>
+                                ${isReorderMode ? `
+                                    <div class="category-actions">
+                                        <button class="reorder-btn" data-reorder-type="sub-up" data-menu-id="${menu.id}" data-submenu-id="${sub.id}" ${canMoveSubUp ? '' : 'disabled'} title="上移">↑</button>
+                                        <button class="reorder-btn" data-reorder-type="sub-down" data-menu-id="${menu.id}" data-submenu-id="${sub.id}" ${canMoveSubDown ? '' : 'disabled'} title="下移">↓</button>
+                                    </div>
+                                ` : ''}
                             </div>
                         `;
                     });
@@ -1579,12 +1825,46 @@ if (response.success) {
     // 绑定分类相关事件
     function bindCategoryEvents() {
         const categoryList = dialogShadowRoot.getElementById('categoryList');
+
+        categoryList.querySelectorAll('.reorder-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                if (btn.disabled) return;
+
+                const type = btn.dataset.reorderType;
+                const menuId = parseInt(btn.dataset.menuId);
+                const subMenuId = btn.dataset.submenuId ? parseInt(btn.dataset.submenuId) : null;
+
+                if (type === 'menu-up' || type === 'menu-down') {
+                    const menu = allMenus.find(item => item.id === menuId);
+                    if (!menu) return;
+                    const targetOrder = Number(menu.order || 0) + (type === 'menu-up' ? -1 : 1);
+                    await reorderMenuItem(menuId, targetOrder);
+                    return;
+                }
+
+                if (type === 'sub-up' || type === 'sub-down') {
+                    const parentMenu = allMenus.find(item => item.id === menuId);
+                    const subMenus = parentMenu?.subMenus || [];
+                    const currentIndex = subMenus.findIndex(item => item.id === subMenuId);
+                    if (currentIndex === -1) return;
+                    const targetIndex = currentIndex + (type === 'sub-up' ? -1 : 1);
+                    if (targetIndex < 0 || targetIndex >= subMenus.length) return;
+                    const targetOrder = Number(subMenus[targetIndex].order || 0);
+                    await reorderSubMenuItem(menuId, subMenuId, targetOrder);
+                }
+            });
+        });
         
         // 绑定点击事件
         categoryList.querySelectorAll('.category-item').forEach(item => {
             item.addEventListener('click', (e) => {
                 // 如果点击的是添加子分类按钮，不触发选中
-                if (e.target.classList.contains('add-sub-btn')) {
+                if (e.target.classList.contains('add-sub-btn') || e.target.classList.contains('reorder-btn')) {
+                    return;
+                }
+
+                if (isReorderMode) {
                     return;
                 }
                 
@@ -1746,18 +2026,14 @@ if (response.success) {
         try {
             const result = await chrome.runtime.sendMessage({
                 action: 'createCategory',
-                name: name
+                name: name,
+                afterId: getNewCategoryInsertAfterId()
             });
             
             if (result.success) {
                 showToast('分类创建成功', 'success');
                 isAddingCategory = false;
-                // 刷新分类列表
-                const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
-                if (response.success) {
-                    allMenus = response.menus || [];
-                }
-                renderCategories(allMenus);
+                await refreshMenusAndRender();
                 // 自动选中新建的分类
                 if (result.menuId) {
                     selectCategory(result.menuId, null);
@@ -1805,19 +2081,14 @@ if (response.success) {
             const result = await chrome.runtime.sendMessage({
                 action: 'createSubCategory',
                 parentId: parentId,
-                name: name
+                name: name,
+                afterSubMenuId: getNewSubCategoryInsertAfterId(parentId)
             });
             
             if (result.success) {
                 showToast('子分类创建成功', 'success');
                 isAddingSubCategory = null;
-                // 刷新分类列表
-                const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
-                if (response.success) {
-                    allMenus = response.menus || [];
-                }
-                expandedMenus.add(parentId); // 保持父分类展开
-                renderCategories(allMenus);
+                await refreshMenusAndRender({ preserveParentExpanded: parentId });
                 // 自动选中新建的子分类
                 if (result.subMenuId) {
                     selectCategory(parentId, result.subMenuId);
@@ -1865,6 +2136,8 @@ if (response.success) {
         const settingsLink = dialogShadowRoot.getElementById('settingsLink');
         settingsLink.disabled = false;
         settingsLink.classList.remove('disabled');
+
+        scrollToSelectedCategory();
     }
     
     // 搜索过滤分类

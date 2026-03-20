@@ -266,7 +266,7 @@ function closeContextMenu() {
 }
 
 function onAddMenu() {
-  emit('addMenu');
+  emit('addMenu', contextMenuData.value);
   closeContextMenu();
 }
 

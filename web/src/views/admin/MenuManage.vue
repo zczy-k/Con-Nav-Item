@@ -14,6 +14,9 @@
           + 添加主菜单
         </button>
       </div>
+      <div class="insert-tip">
+        {{ mainInsertTip }}
+      </div>
     </div>
 
     <div class="menu-content">
@@ -21,25 +24,25 @@
         <p>暂无菜单，请添加第一个主菜单</p>
       </div>
       
-      <div v-for="menu in menus" :key="menu.id" class="menu-card">
-        <div class="menu-card-header">
+      <div v-for="menu in menus" :key="menu.id" class="menu-card" :class="{ selected: selectedMenuId === menu.id && !selectedSubMenuId }">
+        <div class="menu-card-header" @click="selectMenu(menu)">
           <div class="menu-title">
             <span class="menu-name">{{ menu.name }}</span>
             <span class="menu-order">排序: {{ menu.order }}</span>
           </div>
           <div class="menu-actions">
-            <button class="btn-icon btn-edit" @click="openEditMenu(menu)" title="编辑">
+            <button class="btn-icon btn-edit" @click.stop="openEditMenu(menu)" title="编辑">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
               </svg>
             </button>
-            <button class="btn-icon btn-add" @click="openAddSubMenu(menu)" title="添加子菜单">
+            <button class="btn-icon btn-add" @click.stop="openAddSubMenu(menu)" title="添加子菜单">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M12 5v14M5 12h14"/>
               </svg>
             </button>
-            <button class="btn-icon btn-delete" @click="confirmDeleteMenu(menu)" title="删除">
+            <button class="btn-icon btn-delete" @click.stop="confirmDeleteMenu(menu)" title="删除">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
               </svg>
@@ -48,17 +51,17 @@
         </div>
         
         <div v-if="menu.subMenus && menu.subMenus.length > 0" class="sub-menu-list">
-          <div v-for="sub in menu.subMenus" :key="sub.id" class="sub-menu-item">
+          <div v-for="sub in menu.subMenus" :key="sub.id" class="sub-menu-item" :class="{ selected: selectedMenuId === menu.id && selectedSubMenuId === sub.id }" @click="selectSubMenu(menu, sub)">
             <span class="sub-menu-name">{{ sub.name }}</span>
             <span class="sub-menu-order">排序: {{ sub.order }}</span>
             <div class="sub-menu-actions">
-              <button class="btn-icon-sm btn-edit" @click="openEditSubMenu(menu, sub)" title="编辑">
+              <button class="btn-icon-sm btn-edit" @click.stop="openEditSubMenu(menu, sub)" title="编辑">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                   <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
                 </svg>
               </button>
-              <button class="btn-icon-sm btn-delete" @click="confirmDeleteSubMenu(sub)" title="删除">
+              <button class="btn-icon-sm btn-delete" @click.stop="confirmDeleteSubMenu(sub)" title="删除">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
                 </svg>
@@ -108,6 +111,7 @@
             <label>子菜单名称</label>
             <input v-model="subMenuForm.name" type="text" class="input" placeholder="请输入子菜单名称" />
           </div>
+          <div class="insert-hint">{{ subInsertTip }}</div>
           <div class="form-group">
             <label>排序</label>
             <input v-model.number="subMenuForm.order" type="number" class="input" placeholder="数字越小越靠前" />
@@ -147,7 +151,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, nextTick } from 'vue';
 import {
   getMenus,
   addMenu as apiAddMenu,
@@ -163,6 +167,8 @@ const menus = ref([]);
 const loading = ref(false);
 const loadingText = ref('加载中...');
 const newMenuName = ref('');
+const selectedMenuId = ref(null);
+const selectedSubMenuId = ref(null);
 
 // 编辑主菜单
 const showEditModal = ref(false);
@@ -179,6 +185,28 @@ const subMenuForm = ref({ name: '', order: 0 });
 const showEditSubModal = ref(false);
 const editingSubMenu = ref(null);
 const editSubForm = ref({ name: '', order: 0 });
+
+const mainInsertTip = computed(() => {
+  if (selectedMenuId.value && !selectedSubMenuId.value) {
+    const menu = menus.value.find(item => item.id === selectedMenuId.value);
+    return menu ? `当前新增主菜单将插入到「${menu.name}」后面` : '未选中主菜单时，默认追加到末尾';
+  }
+  if (selectedMenuId.value && selectedSubMenuId.value) {
+    const menu = menus.value.find(item => item.id === selectedMenuId.value);
+    return menu ? `当前选中了「${menu.name}」下的子菜单；新增主菜单将插入到「${menu.name}」后面` : '未选中主菜单时，默认追加到末尾';
+  }
+  return '未选中主菜单时，默认追加到末尾';
+});
+
+const subInsertTip = computed(() => {
+  if (!parentMenuId.value) return '未选中子菜单时，默认追加到当前主菜单末尾';
+  if (selectedMenuId.value === parentMenuId.value && selectedSubMenuId.value) {
+    const parent = menus.value.find(item => item.id === parentMenuId.value);
+    const sub = parent?.subMenus?.find(item => item.id === selectedSubMenuId.value);
+    return sub ? `当前新增子菜单将插入到「${sub.name}」后面` : '未选中子菜单时，默认追加到当前主菜单末尾';
+  }
+  return '未选中子菜单时，默认追加到当前主菜单末尾';
+});
 
 useDataSync('MenuManage', ({ isSelfChange }) => {
   if (!isSelfChange) {
@@ -206,6 +234,8 @@ async function loadMenus(isUpdate = false) {
   try {
     const res = await getMenus(true); // 强制刷新
     menus.value = res.data || [];
+    await nextTick();
+    scrollToCurrentSelection();
     // 如果是更新操作，通知扩展刷新右键菜单
     if (isUpdate) {
       notifyExtensionMenusUpdated();
@@ -217,6 +247,23 @@ async function loadMenus(isUpdate = false) {
   }
 }
 
+function selectMenu(menu) {
+  selectedMenuId.value = menu.id;
+  selectedSubMenuId.value = null;
+}
+
+function selectSubMenu(menu, sub) {
+  selectedMenuId.value = menu.id;
+  selectedSubMenuId.value = sub.id;
+}
+
+function scrollToCurrentSelection() {
+  const selectedElement = document.querySelector('.menu-manage .selected');
+  if (selectedElement?.scrollIntoView) {
+    selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
+}
+
 // 添加主菜单
 async function addMenu() {
   if (!newMenuName.value.trim()) return;
@@ -224,7 +271,13 @@ async function addMenu() {
   loadingText.value = '添加中...';
   try {
     const maxOrder = menus.value.length ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
-    await apiAddMenu({ name: newMenuName.value.trim(), order: maxOrder + 1 });
+    const res = await apiAddMenu({
+      name: newMenuName.value.trim(),
+      order: maxOrder + 1,
+      afterId: selectedMenuId.value || null
+    });
+    selectedMenuId.value = res.data?.id || selectedMenuId.value;
+    selectedSubMenuId.value = null;
     newMenuName.value = '';
     await loadMenus(true); // 通知扩展刷新
   } catch (e) {
@@ -276,6 +329,7 @@ async function confirmDeleteMenu(menu) {
 function openAddSubMenu(menu) {
   parentMenuId.value = menu.id;
   parentMenuName.value = menu.name;
+  selectedMenuId.value = menu.id;
   const subs = menu.subMenus || [];
   const maxOrder = subs.length ? Math.max(...subs.map(s => s.order || 0)) : 0;
   subMenuForm.value = { name: '', order: maxOrder + 1 };
@@ -292,7 +346,13 @@ async function saveSubMenu() {
   loading.value = true;
   loadingText.value = '添加中...';
   try {
-    await apiAddSubMenu(menuId, { name, order });
+    const res = await apiAddSubMenu(menuId, {
+      name,
+      order,
+      afterSubMenuId: selectedMenuId.value === menuId ? selectedSubMenuId.value || null : null
+    });
+    selectedMenuId.value = menuId;
+    selectedSubMenuId.value = res.data?.id || selectedSubMenuId.value;
     await loadMenus(true); // 通知扩展刷新
   } catch (e) {
     alert('添加失败: ' + (e.response?.data?.error || e.message));
@@ -415,6 +475,13 @@ function closeModal() {
   max-width: 300px;
 }
 
+.insert-tip {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.92);
+}
+
 /* 内容区 */
 .menu-content {
   display: flex;
@@ -436,6 +503,13 @@ function closeModal() {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.menu-card.selected {
+  border-color: #91caff;
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.12);
 }
 
 .menu-card-header {
@@ -445,6 +519,7 @@ function closeModal() {
   padding: 16px 20px;
   background: #f8fafc;
   border-bottom: 1px solid #eee;
+  cursor: pointer;
 }
 
 .menu-title {
@@ -485,10 +560,17 @@ function closeModal() {
   background: #f8fafc;
   border-radius: 8px;
   border-left: 3px solid #10b981;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
 }
 
 .sub-menu-item:last-child {
   margin-bottom: 0;
+}
+
+.sub-menu-item.selected {
+  background: #ecfdf5;
+  border-left-color: #059669;
 }
 
 .sub-menu-name {
@@ -690,6 +772,15 @@ function closeModal() {
 
 .form-group:last-child {
   margin-bottom: 0;
+}
+
+.insert-hint {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #f6ffed;
+  color: #389e0d;
+  font-size: 0.88rem;
 }
 
 .form-group label {

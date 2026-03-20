@@ -5,6 +5,77 @@ const { triggerDebouncedBackup } = require('../utils/autoBackup');
 const { paginateQuery } = require('../utils/dbHelpers');
 const router = express.Router();
 
+function runAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function(err) {
+      if (err) reject(err);
+      else resolve(this);
+    });
+  });
+}
+
+function getAsync(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) reject(err);
+      else resolve(row);
+    });
+  });
+}
+
+async function insertMenuWithPosition(name, explicitOrder, afterId) {
+  if (afterId !== undefined && afterId !== null) {
+    const anchor = await getAsync('SELECT id, "order" FROM menus WHERE id = ?', [afterId]);
+    if (!anchor) {
+      const error = new Error('参考菜单不存在');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const insertOrder = Number(anchor.order || 0) + 1;
+    await runAsync('UPDATE menus SET "order" = "order" + 1 WHERE "order" >= ?', [insertOrder]);
+    return await runAsync('INSERT INTO menus (name, "order") VALUES (?, ?)', [name, insertOrder]);
+  }
+
+  return await runAsync('INSERT INTO menus (name, "order") VALUES (?, ?)', [name, explicitOrder || 0]);
+}
+
+async function insertSubMenuWithPosition(parentId, name, explicitOrder, afterSubMenuId) {
+  if (afterSubMenuId !== undefined && afterSubMenuId !== null) {
+    const anchor = await getAsync(
+      'SELECT id, parent_id, "order" FROM sub_menus WHERE id = ?',
+      [afterSubMenuId]
+    );
+
+    if (!anchor) {
+      const error = new Error('参考子菜单不存在');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    if (Number(anchor.parent_id) !== Number(parentId)) {
+      const error = new Error('参考子菜单不属于当前主菜单');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const insertOrder = Number(anchor.order || 0) + 1;
+    await runAsync(
+      'UPDATE sub_menus SET "order" = "order" + 1 WHERE parent_id = ? AND "order" >= ?',
+      [parentId, insertOrder]
+    );
+    return await runAsync(
+      'INSERT INTO sub_menus (parent_id, name, "order") VALUES (?, ?, ?)',
+      [parentId, name, insertOrder]
+    );
+  }
+
+  return await runAsync(
+    'INSERT INTO sub_menus (parent_id, name, "order") VALUES (?, ?, ?)',
+    [parentId, name, explicitOrder || 0]
+  );
+}
+
 // 获取所有菜单（包含子菜单）- 优化：单次查询获取所有数据
 router.get('/', (req, res) => {
   const { page, pageSize } = req.query;
@@ -78,13 +149,18 @@ router.get('/:id/submenus', (req, res) => {
 
 // 新增、修改、删除菜单需认证
 router.post('/', auth, (req, res) => {
-  const { name, order } = req.body;
+  const { name, order, afterId } = req.body;
   const clientId = req.headers['x-client-id'];
-  db.run('INSERT INTO menus (name, "order") VALUES (?, ?)', [name, order || 0], function(err) {
-    if (err) return res.status(500).json({error: err.message});
-    triggerDebouncedBackup(clientId, { type: 'menu_updated' }); // 触发自动备份
-    res.json({ id: this.lastID });
-  });
+
+  (async () => {
+    try {
+      const result = await insertMenuWithPosition(name, order, afterId);
+      triggerDebouncedBackup(clientId, { type: 'menu_updated' });
+      res.json({ id: result.lastID });
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  })();
 });
 
 router.put('/:id', auth, (req, res) => {
@@ -179,14 +255,18 @@ router.delete('/:id', auth, (req, res) => {
 
 // 子菜单相关API
 router.post('/:id/submenus', auth, (req, res) => {
-  const { name, order } = req.body;
+  const { name, order, afterSubMenuId } = req.body;
   const clientId = req.headers['x-client-id'];
-  db.run('INSERT INTO sub_menus (parent_id, name, "order") VALUES (?, ?, ?)', 
-    [req.params.id, name, order || 0], function(err) {
-    if (err) return res.status(500).json({error: err.message});
-    triggerDebouncedBackup(clientId, { type: 'menu_updated' }); // 触发自动备份
-    res.json({ id: this.lastID });
-  });
+
+  (async () => {
+    try {
+      const result = await insertSubMenuWithPosition(req.params.id, name, order, afterSubMenuId);
+      triggerDebouncedBackup(clientId, { type: 'menu_updated' });
+      res.json({ id: result.lastID });
+    } catch (err) {
+      res.status(err.statusCode || 500).json({ error: err.message });
+    }
+  })();
 });
 
 router.put('/submenus/:id', auth, (req, res) => {
