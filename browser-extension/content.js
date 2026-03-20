@@ -1275,31 +1275,6 @@
               }
           }
 
-          function updateCategorySectionMode() {
-              const titleEl = dialogShadowRoot.getElementById('categorySectionTitle');
-              const tipEl = dialogShadowRoot.getElementById('categoryModeTip');
-              const hintEl = dialogShadowRoot.getElementById('reorderHint');
-              const search = dialogShadowRoot.getElementById('searchInput');
-              const toggleBtn = dialogShadowRoot.getElementById('reorderToggleBtn');
-
-              if (!titleEl || !tipEl || !hintEl || !search || !toggleBtn) return;
-
-              if (isReorderMode) {
-                  titleEl.textContent = '调整分类顺序';
-                  tipEl.textContent = '完成后会保留当前已选分类';
-                  hintEl.style.display = 'block';
-                  search.style.display = 'none';
-                  toggleBtn.textContent = '完成调整';
-              } else {
-                  titleEl.textContent = '选择分类';
-                  tipEl.textContent = '分类不顺手？可就地调整';
-                  hintEl.style.display = 'none';
-                  search.style.display = 'block';
-                  toggleBtn.textContent = '管理顺序';
-              }
-          }
-
-        
         // 密码验证相关
         const authSection = dialogShadowRoot.getElementById('authSection');
         const authPassword = dialogShadowRoot.getElementById('authPassword');
@@ -1392,6 +1367,32 @@
             const selectedItem = dialogShadowRoot.querySelector('.category-item.selected');
             selectedItem?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
         }, 30);
+    }
+
+    function updateCategorySectionMode() {
+        if (!dialogShadowRoot) return;
+
+        const titleEl = dialogShadowRoot.getElementById('categorySectionTitle');
+        const tipEl = dialogShadowRoot.getElementById('categoryModeTip');
+        const hintEl = dialogShadowRoot.getElementById('reorderHint');
+        const search = dialogShadowRoot.getElementById('searchInput');
+        const toggleBtn = dialogShadowRoot.getElementById('reorderToggleBtn');
+
+        if (!titleEl || !tipEl || !hintEl || !search || !toggleBtn) return;
+
+        if (isReorderMode) {
+            titleEl.textContent = '调整分类顺序';
+            tipEl.textContent = '完成后会保留当前已选分类';
+            hintEl.style.display = 'block';
+            search.style.display = 'none';
+            toggleBtn.textContent = '完成调整';
+        } else {
+            titleEl.textContent = '选择分类';
+            tipEl.textContent = '分类不顺手？可就地调整';
+            hintEl.style.display = 'none';
+            search.style.display = 'block';
+            toggleBtn.textContent = '管理顺序';
+        }
     }
 
     async function refreshMenusAndRender(options = {}) {
