@@ -1,16 +1,14 @@
-﻿<template>
+<template>
   <div class="card-manage">
     <div class="card-header">
       <div class="header-content">
-        <h2 class="page-title">管理网站导航卡片，支持主菜单和子菜单分类</h2>
+        <h2 class="page-title">管理分类下的网站导航卡片</h2>
       </div>
       <div class="card-add">
-        <select v-model="selectedMenuId" class="input narrow" @change="onMenuChange">
-          <option v-for="menu in menus" :value="menu.id" :key="menu.id">{{ menu.name }}</option>
-        </select>
-        <select v-model="selectedSubMenuId" class="input narrow" @change="onSubMenuChange">
-          <option value="">主菜单</option>
-          <option v-for="subMenu in currentSubMenus" :value="subMenu.id" :key="subMenu.id">{{ subMenu.name }}</option>
+        <select v-model="selectedCategoryId" class="input category-select" @change="loadCards">
+          <option v-for="option in categoryOptions" :key="option.id" :value="option.id">
+            {{ option.label }}
+          </option>
         </select>
         <input v-model="newCardTitle" placeholder="卡片标题" class="input narrow" />
         <input v-model="newCardUrl" placeholder="卡片链接" class="input wide" />
@@ -22,7 +20,9 @@
           添加卡片
         </button>
       </div>
+      <div class="category-tip">{{ selectedCategoryLabel }}</div>
     </div>
+
     <div class="card-card">
       <table class="card-table">
         <thead>
@@ -65,8 +65,7 @@
         </tbody>
       </table>
     </div>
-    
-    <!-- 标签选择弹窗 -->
+
     <div v-if="showTagModal" class="modal-overlay" @click="closeTagSelector">
       <div class="modal-content" @click.stop>
         <div class="modal-header">
@@ -74,19 +73,11 @@
           <button class="close-btn" @click="closeTagSelector">×</button>
         </div>
         <div class="modal-body">
-          <div v-if="allTags.length === 0" class="empty-tags">
-            <p>暂无标签，请先在标签管理页面创建</p>
-          </div>
+          <div v-if="allTags.length === 0" class="empty-tags"><p>暂无标签，请先在标签管理页面创建</p></div>
           <div v-else class="tag-options">
             <label v-for="tag in allTags" :key="tag.id" class="tag-option">
-              <input 
-                type="checkbox" 
-                :checked="selectedTagIds.includes(tag.id)"
-                @change="toggleTag(tag.id)"
-              />
-              <span class="tag-label" :style="{ backgroundColor: tag.color }">
-                {{ tag.name }}
-              </span>
+              <input type="checkbox" :checked="selectedTagIds.includes(tag.id)" @change="toggleTag(tag.id)" />
+              <span class="tag-label" :style="{ backgroundColor: tag.color }">{{ tag.name }}</span>
             </label>
           </div>
         </div>
@@ -96,8 +87,7 @@
         </div>
       </div>
     </div>
-    
-    <!-- 重复检测对话框 -->
+
     <div v-if="showDuplicateModal" class="modal-overlay" @click="closeDuplicateModal">
       <div class="modal-content duplicate-modal" @click.stop>
         <div class="modal-header">
@@ -114,95 +104,36 @@
         <div class="modal-body">
           <div class="duplicate-warning">
             <p class="warning-text">
-              {{ duplicateMode === 'exact'
-                ? '您要添加的卡片与以下现有卡片重复：'
-                : `您要添加的卡片与以下现有卡片疑似重复（${duplicateReason}）：` }}
+              {{ duplicateMode === 'exact' ? '您要添加的卡片与以下现有卡片重复：' : `您要添加的卡片与以下现有卡片疑似重复（${duplicateReason}）：` }}
             </p>
           </div>
-          
           <div class="duplicate-comparison">
-            <!-- 现有卡片 -->
             <div class="card-info-box existing">
-              <div class="box-header">
-                <span class="box-label">现有卡片</span>
-              </div>
+              <div class="box-header"><span class="box-label">现有卡片</span></div>
               <div class="card-details">
-                <div class="detail-row">
-                  <span class="detail-label">标题：</span>
-                  <span class="detail-value">{{ duplicateInfo?.title }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">网址：</span>
-                  <span class="detail-value url">{{ duplicateInfo?.url }}</span>
-                </div>
-                <div class="detail-row" v-if="duplicateInfo?.logo_url">
-                  <span class="detail-label">Logo：</span>
-                  <span class="detail-value url">{{ duplicateInfo?.logo_url }}</span>
-                </div>
+                <div class="detail-row"><span class="detail-label">标题：</span><span class="detail-value">{{ duplicateInfo?.title }}</span></div>
+                <div class="detail-row"><span class="detail-label">网址：</span><span class="detail-value url">{{ duplicateInfo?.url }}</span></div>
+                <div class="detail-row" v-if="duplicateInfo?.logo_url"><span class="detail-label">Logo：</span><span class="detail-value url">{{ duplicateInfo?.logo_url }}</span></div>
               </div>
             </div>
-            
-            <!-- 箭头 -->
             <div class="arrow-divider">
-              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2">
-                <path d="M5 12h14M12 5l7 7-7 7"/>
-              </svg>
+              <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
             </div>
-            
-            <!-- 待添加卡片 -->
             <div class="card-info-box pending">
-              <div class="box-header">
-                <span class="box-label">待添加卡片</span>
-              </div>
+              <div class="box-header"><span class="box-label">待添加卡片</span></div>
               <div class="card-details">
-                <div class="detail-row">
-                  <span class="detail-label">标题：</span>
-                  <span class="detail-value">{{ pendingCard?.title }}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="detail-label">网址：</span>
-                  <span class="detail-value url">{{ pendingCard?.url }}</span>
-                </div>
-                <div class="detail-row" v-if="pendingCard?.logo_url">
-                  <span class="detail-label">Logo：</span>
-                  <span class="detail-value url">{{ pendingCard?.logo_url }}</span>
-                </div>
+                <div class="detail-row"><span class="detail-label">标题：</span><span class="detail-value">{{ pendingCard?.title }}</span></div>
+                <div class="detail-row"><span class="detail-label">网址：</span><span class="detail-value url">{{ pendingCard?.url }}</span></div>
+                <div class="detail-row" v-if="pendingCard?.logo_url"><span class="detail-label">Logo：</span><span class="detail-value url">{{ pendingCard?.logo_url }}</span></div>
               </div>
             </div>
-          </div>
-          
-          <div class="duplicate-actions-info">
-            <p>请选择如何处理：</p>
           </div>
         </div>
         <div class="modal-footer duplicate-footer">
-          <button class="btn btn-secondary" @click="skipDuplicate">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 6L6 18M6 6l12 12"></path>
-            </svg>
-            跳过
-          </button>
-          <button v-if="duplicateMode === 'exact'" class="btn btn-warning" @click="replaceDuplicate">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 12a9 9 0 11-9-9c2.52 0 4.93 1 6.74 2.74L21 8"></path>
-              <path d="M21 3v5h-5"></path>
-            </svg>
-            替换
-          </button>
-          <button v-else class="btn btn-warning" @click="continueAddAnyway">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M5 12h14"></path>
-              <path d="M12 5l7 7-7 7"></path>
-            </svg>
-            仍然添加
-          </button>
-          <button class="btn btn-primary" @click="editAndAdd">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-            </svg>
-            编辑后添加
-          </button>
+          <button class="btn btn-secondary" @click="skipDuplicate">跳过</button>
+          <button v-if="duplicateMode === 'exact'" class="btn btn-warning" @click="replaceDuplicate">替换</button>
+          <button v-else class="btn btn-warning" @click="continueAddAnyway">仍然添加</button>
+          <button class="btn btn-primary" @click="editAndAdd">编辑后添加</button>
         </div>
       </div>
     </div>
@@ -210,22 +141,14 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, computed } from 'vue';
-import { 
-  getMenus, 
-  getCards, 
-  addCard as apiAddCard, 
-  updateCard as apiUpdateCard, 
-  deleteCard as apiDeleteCard,
-  getTags
-} from '../../api';
+import { computed, onMounted, ref, watch } from 'vue';
+import { addCard as apiAddCard, deleteCard as apiDeleteCard, getCardsByCategory, getCategoryTree, getTags, updateCard as apiUpdateCard } from '../../api';
 import { getDuplicateMatch } from '../../utils/urlNormalizer';
 import { useDataSync } from '../../composables/useDataSync';
 
-const menus = ref([]);
+const categories = ref([]);
 const cards = ref([]);
-const selectedMenuId = ref();
-const selectedSubMenuId = ref('');
+const selectedCategoryId = ref('');
 const newCardTitle = ref('');
 const newCardUrl = ref('');
 const newCardLogo = ref('');
@@ -234,107 +157,97 @@ const showTagModal = ref(false);
 const currentEditCard = ref(null);
 const selectedTagIds = ref([]);
 
-// 重复检测相关状态
 const showDuplicateModal = ref(false);
 const duplicateInfo = ref(null);
 const pendingCard = ref(null);
 const duplicateMode = ref('exact');
 const duplicateReason = ref('');
 
-const currentSubMenus = computed(() => {
-  if (!selectedMenuId.value) return [];
-  const menu = menus.value.find(m => m.id === selectedMenuId.value);
-  return menu?.subMenus || [];
+const categoryOptions = computed(() => {
+  const result = [];
+  const walk = (nodes, depth = 0) => {
+    nodes.forEach(node => {
+      result.push({ id: node.id, label: `${'　'.repeat(depth)}${depth > 0 ? '└ ' : ''}${node.name}` });
+      walk(node.children || [], depth + 1);
+    });
+  };
+  walk(categories.value || []);
+  return result;
+});
+
+const selectedCategoryLabel = computed(() => {
+  const option = categoryOptions.value.find(item => String(item.id) === String(selectedCategoryId.value));
+  return option ? `当前分类：${option.label.replace(/　/g, ' ')}` : '请选择分类';
 });
 
 onMounted(async () => {
-  const res = await getMenus();
-  menus.value = res.data;
-  if (menus.value.length) {
-    selectedMenuId.value = menus.value[0].id;
-    selectedSubMenuId.value = '';
-  }
-  
-  // 加载标签
+  await loadCategories();
   const tagsRes = await getTags();
   allTags.value = tagsRes.data;
 });
 
-watch(selectedMenuId, () => {
-  selectedSubMenuId.value = '';
-  loadCards();
-});
-
-watch(selectedSubMenuId, loadCards);
+watch(selectedCategoryId, loadCards);
 
 useDataSync('CardManage', ({ isSelfChange }) => {
   if (!isSelfChange) {
-    loadMenus();
+    loadCategories();
     loadCards();
   }
 });
 
-function onMenuChange() {
-  selectedSubMenuId.value = '';
-}
-
-function onSubMenuChange() {
-  loadCards();
+async function loadCategories() {
+  const res = await getCategoryTree(true);
+  categories.value = res.data || [];
+  if (!selectedCategoryId.value && categoryOptions.value.length) {
+    selectedCategoryId.value = categoryOptions.value[0].id;
+  }
 }
 
 async function loadCards() {
-  if (!selectedMenuId.value) return;
-  const res = await getCards(selectedMenuId.value, selectedSubMenuId.value || null);
-  cards.value = res.data;
+  if (!selectedCategoryId.value) return;
+  const res = await getCardsByCategory(selectedCategoryId.value, true);
+  cards.value = res.data || [];
 }
 
 async function addCard() {
-  if (!newCardTitle.value || !newCardUrl.value) return;
-  
-  // 检测重复
+  if (!newCardTitle.value || !newCardUrl.value || !selectedCategoryId.value) return;
+
   let duplicate = null;
   let duplicateMatch = null;
   for (const card of cards.value) {
-    const match = getDuplicateMatch(
-      { title: newCardTitle.value, url: newCardUrl.value },
-      card
-    );
+    const match = getDuplicateMatch({ title: newCardTitle.value, url: newCardUrl.value }, card);
     if (match) {
       duplicate = card;
       duplicateMatch = match;
       if (match.type === 'exact') break;
     }
   }
-  
+
   if (duplicate) {
-    // 发现重复，显示对话框
     duplicateInfo.value = duplicate;
     duplicateMode.value = duplicateMatch?.type || 'exact';
     duplicateReason.value = duplicateMatch?.reason || '';
     pendingCard.value = {
-      menu_id: selectedMenuId.value,
-      sub_menu_id: selectedSubMenuId.value || null,
+      category_id: selectedCategoryId.value,
       title: newCardTitle.value,
       url: newCardUrl.value,
       logo_url: newCardLogo.value
     };
     showDuplicateModal.value = true;
-  } else {
-    // 没有重复，直接添加
-    await performAddCard({
-      menu_id: selectedMenuId.value,
-      sub_menu_id: selectedSubMenuId.value || null,
-      title: newCardTitle.value,
-      url: newCardUrl.value,
-      logo_url: newCardLogo.value
-    });
+    return;
   }
+
+  await performAddCard({
+    category_id: selectedCategoryId.value,
+    title: newCardTitle.value,
+    url: newCardUrl.value,
+    logo_url: newCardLogo.value
+  });
 }
 
 async function updateCard(card) {
   await apiUpdateCard(card.id, {
-    menu_id: selectedMenuId.value,
-    sub_menu_id: selectedSubMenuId.value || null,
+    category_id: card.category_id || selectedCategoryId.value,
     title: card.title,
     url: card.url,
     logo_url: card.logo_url,
@@ -347,18 +260,12 @@ async function updateCard(card) {
 
 async function deleteCard(id) {
   if (!confirm('确定要删除这张卡片吗？')) return;
-  
-  // 乐观更新：立即从列表中移除
   const index = cards.value.findIndex(c => c.id === id);
-  if (index > -1) {
-    cards.value.splice(index, 1);
-  }
-  
+  if (index > -1) cards.value.splice(index, 1);
   try {
     await apiDeleteCard(id);
   } catch (error) {
     console.error('删除卡片失败:', error);
-    // 失败时重新加载
     await loadCards();
   }
 }
@@ -377,19 +284,14 @@ function closeTagSelector() {
 
 function toggleTag(tagId) {
   const index = selectedTagIds.value.indexOf(tagId);
-  if (index > -1) {
-    selectedTagIds.value.splice(index, 1);
-  } else {
-    selectedTagIds.value.push(tagId);
-  }
+  if (index > -1) selectedTagIds.value.splice(index, 1);
+  else selectedTagIds.value.push(tagId);
 }
 
 async function saveCardTags() {
   if (!currentEditCard.value) return;
-  
   await apiUpdateCard(currentEditCard.value.id, {
-    menu_id: currentEditCard.value.menu_id,
-    sub_menu_id: currentEditCard.value.sub_menu_id,
+    category_id: currentEditCard.value.category_id || selectedCategoryId.value,
     title: currentEditCard.value.title,
     url: currentEditCard.value.url,
     logo_url: currentEditCard.value.logo_url,
@@ -397,12 +299,10 @@ async function saveCardTags() {
     order: currentEditCard.value.order,
     tagIds: selectedTagIds.value
   });
-  
   closeTagSelector();
   loadCards();
 }
 
-// 执行添加卡片操作
 async function performAddCard(cardData) {
   await apiAddCard(cardData);
   newCardTitle.value = '';
@@ -411,7 +311,6 @@ async function performAddCard(cardData) {
   loadCards();
 }
 
-// 关闭重复对话框
 function closeDuplicateModal() {
   showDuplicateModal.value = false;
   duplicateInfo.value = null;
@@ -420,20 +319,15 @@ function closeDuplicateModal() {
   duplicateReason.value = '';
 }
 
-// 跳过添加
 function skipDuplicate() {
   closeDuplicateModal();
-  // 清空输入
   newCardTitle.value = '';
   newCardUrl.value = '';
   newCardLogo.value = '';
 }
 
-// 替换现有卡片
 async function replaceDuplicate() {
   if (!pendingCard.value || !duplicateInfo.value) return;
-  
-  // 删除旧卡片，添加新卡片
   await apiDeleteCard(duplicateInfo.value.id);
   await performAddCard(pendingCard.value);
   closeDuplicateModal();
@@ -446,573 +340,60 @@ async function continueAddAnyway() {
   await performAddCard(cardToAdd);
 }
 
-// 编辑后添加
 function editAndAdd() {
   if (!pendingCard.value) return;
-  
-  // 将待添加的卡片信息填充回输入框
   newCardTitle.value = pendingCard.value.title;
   newCardUrl.value = pendingCard.value.url;
   newCardLogo.value = pendingCard.value.logo_url || '';
-  
   closeDuplicateModal();
-  
-  // 提示用户修改
   alert('请修改卡片信息后再次点击“添加卡片”按钮');
 }
 </script>
 
 <style scoped>
-.card-manage {
-  max-width: 1200px;
-  width: 95%;
-  margin: 0 auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-}
-
-.card-header {
-  background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
-  border-radius: 16px;
-  padding: 24px;
-  margin-bottom: 20px;
-  color: white;
-  box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3);
-  width: 95%;
-  text-align: center;
-}
-
-.header-content {
-  margin-bottom: 15px;
-  text-align: center;
-}
-
-.page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin: 0 0 8px 0;
-  letter-spacing: -0.5px;
-}
-
-
-
-.card-add {
-  margin: 0 auto;
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-}
-
-.card-card {
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  overflow: hidden;
-  width: 100%;
-}
-
-.card-table {
-  width: 100%;
-  border-collapse: collapse;
-  padding: 24px;
-}
-
-.card-table th,
-.card-table td {
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.card-table th {
-  background: #f9fafb;
-  font-weight: 600;
-  color: #374151;
-}
-
-/* 表格列宽度设置 */
-.card-table th:nth-child(1), /* 标题列 */
-.card-table td:nth-child(1) {
-  width: 10%;
-}
-
-.card-table th:nth-child(2), /* 网址列 */
-.card-table td:nth-child(2) {
-  width: 22%;
-}
-
-.card-table th:nth-child(3), /* Logo链接列 */
-.card-table td:nth-child(3) {
-  width: 22%;
-}
-
-.card-table th:nth-child(4), /* 描述列 */
-.card-table td:nth-child(4) {
-  width: 12%;
-}
-
-.card-table th:nth-child(5), /* 标签列 */
-.card-table td:nth-child(5) {
-  width: 15%;
-}
-
-.card-table th:nth-child(6), /* 排序列 */
-.card-table td:nth-child(6) {
-  width: 7%;
-}
-
-.card-table th:nth-child(7), /* 操作列 */
-.card-table td:nth-child(7) {
-  width: 12%;
-  text-align: center;
-}
-
-.input {
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid #d0d7e2;
-  background: #fff;
-  color: #222;
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-}
-
-/* 窄输入框 - 主菜单、子菜单、卡片标题 */
-.input.narrow {
-  width: 140px;
-}
-
-/* 中等输入框 - 添加卡片按钮 */
-.input.medium {
-  width: 140px;
-}
-
-/* 宽输入框 - 卡片链接、logo链接 */
-.input.wide {
-  width: 200px;
-}
-
-/* 表格内输入框 */
-.table-input {
-  width: 100%;
-  padding: 8px 4px;
-  border-radius: 6px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  color: #222;
-  font-size: 0.85rem;
-  transition: all 0.2s ease;
-}
-
-.table-input:focus {
-  outline: none;
-  border-color: #399dff;
-  box-shadow: 0 0 0 2px rgba(57, 157, 255, 0.1);
-}
-
-.input:focus {
-  outline: none;
-  border-color: #399dff;
-  box-shadow: 0 0 0 3px rgba(57, 157, 255, 0.1);
-}
-
-.order-input {
-  width: 60px;
-}
-
-.btn {
-  padding: 10px 8px;
-  border: none;
-  border-radius: 8px;
-  background: #399dff;
-  color: white;
-  cursor: pointer;
-  font-weight: 500;
-  font-size: 0.9rem;
-  transition: all 0.2s;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.btn-icon {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  justify-content: center;
-  border-radius: 6px;
-}
-
-.btn:hover {
-  background: #2d7dd2;
-  transform: translateY(-1px);
-}
-
-.btn-danger {
-  background: #ef4444;
-}
-
-.btn-danger:hover {
-  background: #dc2626;
-}
-
-.tag-selector {
-  cursor: pointer;
-  padding: 6px 8px;
-  border: 1px dashed #d0d7e2;
-  border-radius: 6px;
-  min-height: 32px;
-  display: flex;
-  align-items: center;
-  transition: all 0.2s;
-}
-
-.tag-selector:hover {
-  border-color: #1890ff;
-  background: #f9fafb;
-}
-
-.selected-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-}
-
-.mini-tag {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 4px;
-  font-size: 12px;
-  color: white;
-  white-space: nowrap;
-}
-
-.tag-placeholder {
-  font-size: 12px;
-  color: #9ca3af;
-}
-
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-}
-
-.modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 20px 24px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.modal-header h3 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #374151;
-}
-
-.close-btn {
-  background: none;
-  border: none;
-  font-size: 28px;
-  color: #9ca3af;
-  cursor: pointer;
-  line-height: 1;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  transition: all 0.2s;
-}
-
-.close-btn:hover {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.modal-body {
-  padding: 24px;
-  max-height: 400px;
-  overflow-y: auto;
-}
-
-.empty-tags {
-  text-align: center;
-  padding: 40px 20px;
-  color: #9ca3af;
-}
-
-.tag-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-}
-
-.tag-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-}
-
-.tag-option input[type="checkbox"] {
-  width: 18px;
-  height: 18px;
-  cursor: pointer;
-}
-
-.tag-label {
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 14px;
-  color: white;
-  transition: opacity 0.2s;
-}
-
-.tag-option:hover .tag-label {
-  opacity: 0.8;
-}
-
-.modal-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
-  padding: 16px 24px;
-  border-top: 1px solid #e5e7eb;
-}
-
-.btn-secondary {
-  background: #f3f4f6;
-  color: #374151;
-}
-
-.btn-secondary:hover {
-  background: #e5e7eb;
-}
-
-.btn-primary {
-  background: #1890ff;
-  color: white;
-}
-
-.btn-primary:hover {
-  background: #5568d3;
-}
-
-.btn-warning {
-  background: #f59e0b;
-  color: white;
-}
-
-.btn-warning:hover {
-  background: #d97706;
-}
-
-/* 重复对话框样式 */
-.duplicate-modal {
-  max-width: 700px;
-}
-
-.header-with-icon {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.duplicate-warning {
-  background: #fef2f2;
-  border: 1px solid #fca5a5;
-  border-radius: 8px;
-  padding: 12px 16px;
-  margin-bottom: 20px;
-}
-
-.warning-text {
-  margin: 0;
-  color: #dc2626;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.duplicate-comparison {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
-}
-
-.card-info-box {
-  flex: 1;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 2px solid;
-}
-
-.card-info-box.existing {
-  border-color: #93c5fd;
-}
-
-.card-info-box.pending {
-  border-color: #a78bfa;
-}
-
-.box-header {
-  padding: 8px 12px;
-  font-weight: 600;
-  font-size: 13px;
-  color: white;
-}
-
-.card-info-box.existing .box-header {
-  background: #3b82f6;
-}
-
-.card-info-box.pending .box-header {
-  background: #8b5cf6;
-}
-
-.card-details {
-  padding: 12px;
-  background: #f9fafb;
-}
-
-.detail-row {
-  display: flex;
-  margin-bottom: 8px;
-  font-size: 13px;
-}
-
-.detail-row:last-child {
-  margin-bottom: 0;
-}
-
-.detail-label {
-  font-weight: 600;
-  color: #6b7280;
-  min-width: 50px;
-}
-
-.detail-value {
-  color: #374151;
-  word-break: break-all;
-  flex: 1;
-}
-
-.detail-value.url {
-  color: #3b82f6;
-  font-size: 12px;
-}
-
-.arrow-divider {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.duplicate-actions-info {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: 8px;
-  padding: 12px 16px;
-}
-
-.duplicate-actions-info p {
-  margin: 0;
-  color: #15803d;
-  font-size: 14px;
-  font-weight: 500;
-}
-
-.duplicate-footer {
-  justify-content: space-between;
-}
-
-@media (max-width: 768px) {
-  .card-manage {
-    width: 94%;
-    padding: 16px;
-  }
-  
-  .card-card {
-    padding: 16px 12px;
-  }
-  
-  .card-add {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 8px;
-  }
-  
-  .input.narrow,
-  .input.medium,
-  .input.wide {
-    width: 100%;
-  }
-  
-  .order-input {
-    width: 60px;
-  }
-  
-  /* 移动端表格列宽度调整 */
-  .card-table th:nth-child(1),
-  .card-table td:nth-child(1),
-  .card-table th:nth-child(2),
-  .card-table td:nth-child(2),
-  .card-table th:nth-child(3),
-  .card-table td:nth-child(3),
-  .card-table th:nth-child(4),
-  .card-table td:nth-child(4),
-  .card-table th:nth-child(5),
-  .card-table td:nth-child(5),
-  .card-table th:nth-child(6),
-  .card-table td:nth-child(6),
-  .card-table th:nth-child(7),
-  .card-table td:nth-child(7) {
-    width: auto;
-  }
-  
-  /* 重复对话框移动端适配 */
-  .duplicate-comparison {
-    flex-direction: column;
-    gap: 12px;
-  }
-  
-  .arrow-divider {
-    transform: rotate(90deg);
-  }
-  
-  .duplicate-footer {
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .duplicate-footer .btn {
-    width: 100%;
-    justify-content: center;
-  }
-}
-</style> 
+.card-manage { max-width: 1200px; width: 95%; margin: 0 auto; display: flex; flex-direction: column; align-items: center; }
+.card-header { background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%); border-radius: 16px; padding: 24px; margin-bottom: 20px; color: white; box-shadow: 0 8px 32px rgba(102, 126, 234, 0.3); width: 95%; text-align: center; }
+.header-content { margin-bottom: 15px; text-align: center; }
+.page-title { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px 0; letter-spacing: -0.5px; }
+.card-add { margin: 0 auto; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; justify-content: center; }
+.category-tip { margin-top: 12px; font-size: 0.9rem; color: rgba(255,255,255,0.92); }
+.card-card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden; width: 100%; }
+.card-table { width: 100%; border-collapse: collapse; padding: 24px; }
+.card-table th, .card-table td { padding: 8px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+.card-table th { background: #f9fafb; font-weight: 600; color: #374151; }
+.input { padding: 10px 12px; border-radius: 8px; border: 1px solid #d0d7e2; background: #fff; color: #222; font-size: 0.9rem; transition: all 0.2s ease; }
+.input.narrow { width: 160px; }
+.input.wide { width: 220px; }
+.category-select { width: 260px; }
+.table-input { width: 100%; padding: 8px 4px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #222; font-size: 0.85rem; transition: all 0.2s ease; }
+.order-input { width: 60px; }
+.btn { padding: 10px 8px; border: none; border-radius: 8px; background: #399dff; color: white; cursor: pointer; font-weight: 500; font-size: 0.9rem; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-icon { width: 32px; height: 32px; padding: 0; justify-content: center; border-radius: 6px; }
+.btn:hover { background: #2d7dd2; transform: translateY(-1px); }
+.btn-danger { background: #ef4444; }
+.btn-danger:hover { background: #dc2626; }
+.tag-selector { cursor: pointer; padding: 6px 8px; border: 1px dashed #d0d7e2; border-radius: 6px; min-height: 32px; display: flex; align-items: center; transition: all 0.2s; }
+.selected-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.mini-tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 12px; color: white; white-space: nowrap; }
+.tag-placeholder { font-size: 12px; color: #9ca3af; }
+.modal-overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+.modal-content { background: white; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); }
+.modal-header, .modal-footer { display: flex; align-items: center; justify-content: space-between; padding: 16px 20px; border-bottom: 1px solid #eee; }
+.modal-footer { border-bottom: none; border-top: 1px solid #eee; justify-content: flex-end; gap: 12px; }
+.modal-body { padding: 20px; }
+.close-btn { width: 32px; height: 32px; border: none; background: none; font-size: 24px; color: #999; cursor: pointer; }
+.tag-options { display: flex; flex-wrap: wrap; gap: 12px; }
+.tag-option { display: flex; align-items: center; gap: 8px; }
+.tag-label { padding: 4px 10px; border-radius: 999px; color: white; font-size: 13px; }
+.duplicate-modal { max-width: 760px; }
+.header-with-icon { display: flex; align-items: center; gap: 12px; }
+.duplicate-comparison { display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center; }
+.card-info-box { border: 1px solid #e5e7eb; border-radius: 10px; padding: 14px; }
+.box-header { margin-bottom: 10px; }
+.box-label { font-weight: 600; }
+.detail-row { margin-bottom: 8px; }
+.detail-label { color: #6b7280; }
+.detail-value.url { word-break: break-all; }
+.arrow-divider { display: flex; align-items: center; justify-content: center; }
+@media (max-width: 900px) { .duplicate-comparison { grid-template-columns: 1fr; } }
+</style>
