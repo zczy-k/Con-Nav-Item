@@ -3175,19 +3175,12 @@ function showAuthModal(action) {
     rememberAuthPassword.value = savedDuration !== 'session';
   }
   
-  const savedData = localStorage.getItem('nav_password_token');
-  if (savedData) {
-    try {
-      const { password, expiry, duration } = JSON.parse(savedData);
-      if (Date.now() < expiry) {
-        authPassword.value = password;
-        rememberAuthPassword.value = true;
-        if (duration) {
-          rememberDuration.value = duration;
-        }
-      }
-    } catch (e) {
-      // ignore
+  const savedAuth = getSavedPasswordToken();
+  if (savedAuth) {
+    authPassword.value = savedAuth.password;
+    rememberAuthPassword.value = true;
+    if (savedAuth.duration) {
+      rememberDuration.value = savedAuth.duration;
     }
   }
   
@@ -3210,9 +3203,45 @@ function onRememberChange() {
   localStorage.setItem('nav_remember_duration', rememberDuration.value);
 }
 
+function getSavedPasswordToken() {
+  const savedData = localStorage.getItem('nav_password_token');
+  if (!savedData) return null;
+
+  try {
+    const parsed = JSON.parse(savedData);
+    if (!parsed?.password || !parsed?.expiry) return null;
+    if (Date.now() >= parsed.expiry) {
+      localStorage.removeItem('nav_password_token');
+      return null;
+    }
+    return parsed;
+  } catch (error) {
+    localStorage.removeItem('nav_password_token');
+    return null;
+  }
+}
+
+async function tryRestoreAuthFromSavedPassword() {
+  const savedAuth = getSavedPasswordToken();
+  if (!savedAuth) return false;
+
+  try {
+    const res = await verifyPassword(savedAuth.password);
+    localStorage.setItem('token', res.data.token);
+    return true;
+  } catch (error) {
+    localStorage.removeItem('nav_password_token');
+    return false;
+  }
+}
+
 // 需要验证权限后执行操作（异步验证token有效性）
 async function requireAuth(action) {
   if (!hasLocalToken()) {
+    if (await tryRestoreAuthFromSavedPassword()) {
+      action();
+      return;
+    }
     showAuthModal(action);
     return;
   }
@@ -3223,6 +3252,11 @@ async function requireAuth(action) {
     // token有效，直接执行操作
     action();
   } catch (error) {
+    // token无效时，优先尝试用记住的密码静默续签
+    if (await tryRestoreAuthFromSavedPassword()) {
+      action();
+      return;
+    }
     // token无效，清除本地token并显示密码弹窗
     handleTokenInvalid();
     showAuthModal(action);
