@@ -1136,12 +1136,13 @@
             
             try {
                 const menu = findNodeById(allMenus, selectedMenuId);
-                const categoryName = buildCategoryPath(selectedMenuId, selectedSubMenuId || selectedMenuId);
+                const currentCategoryId = getCurrentSelectedCategoryId();
+                const categoryName = buildCategoryPath(selectedMenuId, currentCategoryId);
                 const subMenuName = selectedSubMenuId ? (findNodeById(getNodeChildren(menu), selectedSubMenuId)?.name || '') : '';
                 
                 // 保存为默认分类
                 await chrome.storage.sync.set({
-                    lastCategoryId: selectedSubMenuId || selectedMenuId,
+                    lastCategoryId: currentCategoryId,
                     defaultMenuId: selectedMenuId,
                     defaultSubMenuId: selectedSubMenuId || null,
                     defaultMenuName: menu?.name || '',
@@ -1151,7 +1152,7 @@
                 });
                 
                 // 更新本地变量
-                lastCategoryId = String(selectedCategoryId || selectedSubMenuId || selectedMenuId);
+                lastCategoryId = String(currentCategoryId);
                 lastMenuId = selectedMenuId.toString();
                 lastSubMenuId = selectedSubMenuId?.toString() || null;
                 
@@ -1246,7 +1247,7 @@
                   
                   // 更新确认信息
                   const customTitle = dialogShadowRoot.getElementById('customTitle').value;
-                  const categoryPath = buildCategoryPath(selectedMenuId, selectedSubMenuId || selectedMenuId);
+                  const categoryPath = buildCategoryPath(selectedMenuId, getCurrentSelectedCategoryId());
                   
                   dialogShadowRoot.getElementById('confirmTitleText').textContent = customTitle;
                   dialogShadowRoot.getElementById('confirmCategoryText').textContent = categoryPath;
@@ -1411,6 +1412,14 @@
                 return;
             }
         }
+    }
+
+    function getCurrentSelectedCategoryId() {
+        return selectedCategoryId || selectedSubMenuId || selectedMenuId || null;
+    }
+
+    function getCurrentLastCategoryId() {
+        return lastCategoryId || lastSubMenuId || lastMenuId || null;
     }
 
     function scrollToSelectedCategory() {
@@ -1580,7 +1589,7 @@
             if (lastMenuId) {
                 const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
                 if (lastMenu) {
-                    const categoryName = buildCategoryPath(lastMenu.id, lastSubMenuId ? parseInt(lastSubMenuId) : lastMenu.id);
+                    const categoryName = buildCategoryPath(lastMenu.id, getCurrentLastCategoryId() ? parseInt(getCurrentLastCategoryId()) : lastMenu.id);
                     
                     const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
                     const quickAddText = dialogShadowRoot.getElementById('quickAddText');
@@ -1622,7 +1631,7 @@
             if (lastMenuId) {
                 const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
                 if (lastMenu) {
-                    const categoryName = buildCategoryPath(lastMenu.id, lastSubMenuId ? parseInt(lastSubMenuId) : lastMenu.id);
+                    const categoryName = buildCategoryPath(lastMenu.id, getCurrentLastCategoryId() ? parseInt(getCurrentLastCategoryId()) : lastMenu.id);
                     
                     const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
                     const quickAddText = dialogShadowRoot.getElementById('quickAddText');
@@ -2200,7 +2209,7 @@ if (response.success) {
             
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
-                categoryId: lastCategoryId || lastSubMenuId || lastMenuId,
+                categoryId: getCurrentLastCategoryId(),
                 menuId: lastMenuId,
                 subMenuId: lastSubMenuId,
                 url: url,
@@ -2246,7 +2255,7 @@ if (response.success) {
             
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
-                categoryId: selectedCategoryId || selectedSubMenuId || selectedMenuId,
+                categoryId: getCurrentSelectedCategoryId(),
                 menuId: selectedMenuId.toString(),
                 subMenuId: selectedSubMenuId?.toString(),
                 url: url,

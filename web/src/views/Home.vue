@@ -2373,6 +2373,10 @@ function getNodeChildren(node) {
   return node?.children || node?.subMenus || [];
 }
 
+function getCurrentActiveCategoryId() {
+  return activeCategory.value?.id || null;
+}
+
 function getCardsCacheKey(categoryId) {
   return String(categoryId);
 }
@@ -2914,7 +2918,7 @@ async function addSelectedCards() {
       activeMenu.value.id,
       activeSubMenu.value?.id || null,
       cardsToAdd,
-      activeCategory.value?.id || null
+      getCurrentActiveCategoryId()
     );
     
     // 构建结果消息
@@ -3224,7 +3228,7 @@ function handleToggleCardSelection(card) {
 function openMovePanel() {
   requireAuth(() => {
     showMovePanel.value = true;
-    targetCategoryId.value = activeCategory.value?.id || null;
+    targetCategoryId.value = getCurrentActiveCategoryId();
   });
 }
 
