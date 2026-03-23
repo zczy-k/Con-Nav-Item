@@ -1,12 +1,12 @@
 <template>
-  <Teleport to="body">
-    <transition name="drawer-overlay">
-      <div v-if="visible" class="drawer-overlay" @click="close" @contextmenu.prevent></div>
-    </transition>
-
-    <transition name="drawer-slide">
-      <div v-if="visible" class="mobile-drawer" @contextmenu.prevent>
-        <div class="drawer-header">
+    <Teleport to="body">
+      <transition name="drawer-overlay">
+        <div v-if="visible" class="drawer-overlay" @click="close" @contextmenu.prevent></div>
+      </transition>
+      
+      <transition name="drawer-slide">
+        <div v-if="visible" class="mobile-drawer" @contextmenu.prevent>
+          <div class="drawer-header">
           <span class="drawer-title">导航菜单</span>
           <button class="drawer-close" @click="close">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -15,17 +15,47 @@
             </svg>
           </button>
         </div>
-
+        
         <div class="drawer-content">
-          <DrawerNode
-            v-for="node in menus"
-            :key="node.id"
-            :node="node"
-            :active-path-ids="activePathIds"
-            :expanded-ids="expandedIds"
-            @toggle="toggleExpand"
-            @select="handleNodeSelect"
-          />
+            <div v-for="menu in menus" :key="menu.id" class="drawer-menu-item">
+              <div 
+                class="drawer-menu-header"
+                :class="{ active: activeMenuId === menu.id && !activeSubMenuId }"
+                @click="handleMenuClick(menu)"
+                @contextmenu.prevent
+              >
+                <span class="menu-name">{{ menu.name }}</span>
+                <div class="menu-actions">
+                  <span v-if="menu.subMenus?.length" class="sub-count">{{ menu.subMenus.length }}</span>
+                  <button 
+                    v-if="menu.subMenus?.length"
+                    class="expand-btn"
+                    :class="{ expanded: expandedMenuId === menu.id }"
+                    @click.stop="toggleExpand(menu.id)"
+                    @contextmenu.prevent
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                      <polyline points="6 9 12 15 18 9"></polyline>
+                    </svg>
+                  </button>
+                </div>
+              </div>
+              
+              <transition name="submenu-expand">
+                <div v-if="expandedMenuId === menu.id && menu.subMenus?.length" class="drawer-submenu">
+                  <div 
+                    v-for="sub in menu.subMenus" 
+                    :key="sub.id"
+                    class="drawer-submenu-item"
+                    :class="{ active: activeSubMenuId === sub.id }"
+                    @click="handleSubMenuClick(sub, menu)"
+                    @contextmenu.prevent
+                  >
+                    {{ sub.name }}
+                  </div>
+                </div>
+              </transition>
+            </div>
         </div>
       </div>
     </transition>
@@ -33,103 +63,43 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 
 const props = defineProps({
   visible: Boolean,
-  menus: { type: Array, default: () => [] },
-  activePathIds: { type: Array, default: () => [] }
+  menus: Array,
+  activeMenuId: Number,
+  activeSubMenuId: Number
 });
 
-const emit = defineEmits(['close', 'select']);
+const emit = defineEmits(['close', 'selectMenu', 'selectSubMenu']);
 
-const expandedIds = ref(new Set());
+const expandedMenuId = ref(null);
 
-const activePathSet = computed(() => new Set(props.activePathIds || []));
-
-watch(
-  () => props.activePathIds,
-  ids => {
-    const next = new Set(expandedIds.value);
-    (ids || []).forEach(id => next.add(id));
-    expandedIds.value = next;
-  },
-  { immediate: true }
-);
-
-const DrawerNode = defineComponent({
-  name: 'DrawerNode',
-  props: {
-    node: { type: Object, required: true },
-    activePathIds: { type: Object, required: true },
-    expandedIds: { type: Object, required: true },
-    depth: { type: Number, default: 0 }
-  },
-  emits: ['toggle', 'select'],
-  setup(nodeProps, { emit: nodeEmit }) {
-    const childNodes = computed(() => nodeProps.node.children || nodeProps.node.subMenus || []);
-    const hasChildren = computed(() => childNodes.value.length > 0);
-    const isExpanded = computed(() => nodeProps.expandedIds.has(nodeProps.node.id));
-    const isActive = computed(() => nodeProps.activePathIds.has(nodeProps.node.id));
-
-    return () => h('div', { class: 'drawer-node-wrap' }, [
-      h('div', {
-        class: ['drawer-menu-header', { active: isActive.value }],
-        style: { paddingLeft: `${16 + nodeProps.depth * 18}px` },
-        onClick: () => nodeEmit('select', nodeProps.node)
-      }, [
-        h('span', { class: 'menu-name' }, nodeProps.node.name),
-        h('div', { class: 'menu-actions' }, [
-          hasChildren.value ? h('span', { class: 'sub-count' }, String(childNodes.value.length)) : null,
-          hasChildren.value
-            ? h('button', {
-                class: ['expand-btn', { expanded: isExpanded.value }],
-                onClick: event => {
-                  event.stopPropagation();
-                  nodeEmit('toggle', nodeProps.node.id);
-                }
-              }, [
-                h('svg', { width: '16', height: '16', viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', 'stroke-width': '2' }, [
-                  h('polyline', { points: '6 9 12 15 18 9' })
-                ])
-              ])
-            : null
-        ])
-      ]),
-      hasChildren.value && isExpanded.value
-        ? h('div', { class: 'drawer-submenu' }, childNodes.value.map(child =>
-            h(DrawerNode, {
-              key: child.id,
-              node: child,
-              depth: nodeProps.depth + 1,
-              activePathIds: nodeProps.activePathIds,
-              expandedIds: nodeProps.expandedIds,
-              onToggle: id => nodeEmit('toggle', id),
-              onSelect: selected => nodeEmit('select', selected)
-            })
-          ))
-        : null
-    ]);
+watch(() => props.activeMenuId, (newId) => {
+  if (newId && props.menus?.find(m => m.id === newId)?.subMenus?.length) {
+    expandedMenuId.value = newId;
   }
-});
+}, { immediate: true });
 
 function close() {
   emit('close');
 }
 
-function toggleExpand(id) {
-  const next = new Set(expandedIds.value);
-  if (next.has(id)) next.delete(id);
-  else next.add(id);
-  expandedIds.value = next;
+function toggleExpand(menuId) {
+  expandedMenuId.value = expandedMenuId.value === menuId ? null : menuId;
 }
 
-function handleNodeSelect(node) {
-  emit('select', node);
-  const children = node.children || node.subMenus || [];
-  if (!children.length) {
+function handleMenuClick(menu) {
+  emit('selectMenu', menu);
+  if (!menu.subMenus?.length) {
     close();
   }
+}
+
+function handleSubMenuClick(subMenu, parentMenu) {
+  emit('selectSubMenu', subMenu, parentMenu);
+  close();
 }
 </script>
 
@@ -151,8 +121,8 @@ function handleNodeSelect(node) {
   top: 0;
   left: 0;
   bottom: 0;
-  width: 260px;
-  max-width: 72vw;
+  width: 240px;
+  max-width: 65vw;
   background: rgba(255, 255, 255, 0.96);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
@@ -187,6 +157,12 @@ function handleNodeSelect(node) {
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.drawer-close:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: #333;
 }
 
 .drawer-content {
@@ -195,10 +171,8 @@ function handleNodeSelect(node) {
   padding: 12px 0;
 }
 
-.drawer-node-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.drawer-menu-item {
+  margin: 4px 12px;
 }
 
 .drawer-menu-header {
@@ -210,7 +184,14 @@ function handleNodeSelect(node) {
   cursor: pointer;
   transition: all 0.2s ease;
   color: #333;
-  margin: 0 12px;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-menu-header:hover {
+  background: rgba(24, 144, 255, 0.06);
 }
 
 .drawer-menu-header.active {
@@ -221,6 +202,7 @@ function handleNodeSelect(node) {
 .menu-name {
   font-size: 15px;
   font-weight: 500;
+  pointer-events: none;
 }
 
 .menu-actions {
@@ -235,6 +217,7 @@ function handleNodeSelect(node) {
   background: rgba(0, 0, 0, 0.04);
   padding: 2px 8px;
   border-radius: 10px;
+  pointer-events: none;
 }
 
 .expand-btn {
@@ -248,10 +231,21 @@ function handleNodeSelect(node) {
   align-items: center;
   justify-content: center;
   border-radius: 6px;
+  transition: all 0.2s ease;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.expand-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+  color: #666;
 }
 
 .expand-btn svg {
   transition: transform 0.25s ease;
+  pointer-events: none;
 }
 
 .expand-btn.expanded svg {
@@ -259,8 +253,72 @@ function handleNodeSelect(node) {
 }
 
 .drawer-submenu {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+  margin-top: 4px;
+  margin-left: 16px;
+  padding-left: 16px;
+  border-left: 2px solid rgba(24, 144, 255, 0.2);
+}
+
+.drawer-submenu-item {
+  padding: 12px 16px;
+  font-size: 14px;
+  color: #666;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  margin: 2px 0;
+  -webkit-touch-callout: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drawer-submenu-item:hover {
+  background: rgba(24, 144, 255, 0.06);
+  color: #333;
+}
+
+.drawer-submenu-item.active {
+  background: rgba(24, 144, 255, 0.1);
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.drawer-overlay-enter-active,
+.drawer-overlay-leave-active {
+  transition: opacity 0.25s ease;
+}
+
+.drawer-overlay-enter-from,
+.drawer-overlay-leave-to {
+  opacity: 0;
+}
+
+.drawer-slide-enter-active,
+.drawer-slide-leave-active {
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.drawer-slide-enter-from,
+.drawer-slide-leave-to {
+  transform: translateX(-100%);
+}
+
+.submenu-expand-enter-active,
+.submenu-expand-leave-active {
+  transition: all 0.25s ease;
+  overflow: hidden;
+}
+
+.submenu-expand-enter-from,
+.submenu-expand-leave-to {
+  opacity: 0;
+  max-height: 0;
+}
+
+.submenu-expand-enter-to,
+.submenu-expand-leave-from {
+  opacity: 1;
+  max-height: 500px;
 }
 </style>

@@ -64,7 +64,6 @@ const path = require('path');
 const db = require('./db');
 const { initCryptoSecret } = require('./utils/crypto');
 const menuRoutes = require('./routes/menu');
-const categoryRoutes = require('./routes/categories');
 const cardRoutes = require('./routes/card');
 const authRoutes = require('./routes/auth');
 const promoRoutes = require('./routes/promo');
@@ -181,7 +180,6 @@ app.use((req, res, next) => {
 app.clearCache = () => cache.clear();
 
 app.use('/api/menus', menuRoutes);
-app.use('/api/categories', categoryRoutes);
 app.use('/api/cards', cardRoutes);
 app.use('/api', authRoutes);
 app.use('/api/promos', promoRoutes);

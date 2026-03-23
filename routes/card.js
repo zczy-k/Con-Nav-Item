@@ -6,65 +6,12 @@ const { detectDuplicates, getDuplicateMatch } = require('../utils/urlNormalizer'
 const { autoGenerateForCards } = require('./ai');
 const router = express.Router();
 
-async function resolveCardLocation(payload = {}) {
-  if (payload.category_id) {
-    const legacyLocation = await db.getLegacyLocationByCategoryId(payload.category_id);
-    if (!legacyLocation) {
-      const error = new Error('分类不存在');
-      error.statusCode = 400;
-      throw error;
-    }
-
-    return {
-      category_id: payload.category_id,
-      menu_id: legacyLocation.menu_id,
-      sub_menu_id: legacyLocation.sub_menu_id
-    };
-  }
-
-  const category = await db.getCategoryByLegacy(payload.menu_id || null, payload.sub_menu_id || null);
-  return {
-    category_id: category?.id || null,
-    menu_id: payload.menu_id || null,
-    sub_menu_id: payload.sub_menu_id || null
-  };
-}
-
-function attachTagsToCards(cards, res, formatter = card => card) {
-  if (!cards || cards.length === 0) {
-    return res.json([]);
-  }
-
-  const cardIds = cards.map(c => c.id);
-  const placeholders = cardIds.map(() => '?').join(',');
-
-  db.all(
-    `SELECT ct.card_id, t.id, t.name, t.color
-     FROM card_tags ct
-     JOIN tags t ON ct.tag_id = t.id
-     WHERE ct.card_id IN (${placeholders})
-     ORDER BY t."order", t.name`,
-    cardIds,
-    (err, tagRows) => {
-      if (err) return res.status(500).json({ error: err.message });
-
-      const tagsByCard = {};
-      tagRows.forEach(tag => {
-        if (!tagsByCard[tag.card_id]) tagsByCard[tag.card_id] = [];
-        tagsByCard[tag.card_id].push({ id: tag.id, name: tag.name, color: tag.color });
-      });
-
-      res.json(cards.map(card => formatter({ ...card, tags: tagsByCard[card.id] || [] })));
-    }
-  );
-}
-
 // 获取所有卡片（按分类分组，用于首屏加载优化）
 router.get('/', (req, res) => {
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   
   db.all(`
-    SELECT c.*, c.category_id, sm.parent_id as parent_menu_id
+    SELECT c.*, sm.parent_id as parent_menu_id
     FROM cards c
     LEFT JOIN sub_menus sm ON c.sub_menu_id = sm.id
     ORDER BY c.menu_id, c.sub_menu_id, c."order"
@@ -130,7 +77,7 @@ router.get('/:menuId', (req, res) => {
   
   if (subMenuId) {
     query = `
-      SELECT c.*, c.category_id, sm.parent_id as parent_menu_id
+      SELECT c.*, sm.parent_id as parent_menu_id
       FROM cards c
       LEFT JOIN sub_menus sm ON c.sub_menu_id = sm.id
       WHERE c.sub_menu_id = ?
@@ -211,43 +158,35 @@ router.patch('/batch-update', auth, (req, res) => {
       }
       
       cards.forEach((card) => {
-        resolveCardLocation(card).then(location => {
-          const { id, order } = card;
-
-          db.run(
-            'UPDATE cards SET "order"=?, menu_id=?, sub_menu_id=?, category_id=? WHERE id=?',
-            [order, location.menu_id, location.sub_menu_id || null, location.category_id, id],
-            function(err) {
-              if (hasError) return;
-
-              if (err) {
-                hasError = true;
-                db.run('ROLLBACK', () => {
-                  res.status(500).json({ error: err.message });
-                });
-                return;
-              }
-
-              completed++;
-
-              if (completed === cards.length) {
-                db.run('COMMIT', (err) => {
-                  if (err) {
-                    return res.status(500).json({ error: err.message });
-                  }
-                  triggerDebouncedBackup(clientId, { type: 'cards_updated' });
-                  res.json({ success: true, updated: completed });
-                });
-              }
+        const { id, order, menu_id, sub_menu_id } = card;
+        
+        db.run(
+          'UPDATE cards SET "order"=?, menu_id=?, sub_menu_id=? WHERE id=?',
+          [order, menu_id, sub_menu_id || null, id],
+          function(err) {
+            if (hasError) return; // 已经处理过错误
+            
+            if (err) {
+              hasError = true;
+              db.run('ROLLBACK', () => {
+                res.status(500).json({ error: err.message });
+              });
+              return;
             }
-          );
-        }).catch(err => {
-          if (hasError) return; // 已经处理过错误
-          hasError = true;
-          db.run('ROLLBACK', () => {
-            res.status(err.statusCode || 500).json({ error: err.message });
-          });
-        });
+            
+            completed++;
+            
+            if (completed === cards.length) {
+              db.run('COMMIT', (err) => {
+                if (err) {
+                  return res.status(500).json({ error: err.message });
+                }
+                triggerDebouncedBackup(clientId, { type: 'cards_updated' }); // 触发自动备份和SSE广播
+                res.json({ success: true, updated: completed });
+              });
+            }
+          }
+        );
       });
     });
   });
@@ -255,7 +194,7 @@ router.patch('/batch-update', auth, (req, res) => {
 
 // 新增卡片（含标签）
 router.post('/', auth, (req, res) => {
-  const { title, url, logo_url, desc, order, tagIds } = req.body;
+  const { menu_id, sub_menu_id, title, url, logo_url, desc, order, tagIds } = req.body;
   const clientId = req.headers['x-client-id'];
   
   // 先检查是否重复
@@ -277,109 +216,35 @@ router.post('/', auth, (req, res) => {
     }
     
     // 不重复，添加卡片
-    resolveCardLocation(req.body).then(location => {
-      db.run(
-        'INSERT INTO cards (menu_id, sub_menu_id, category_id, title, url, logo_url, desc, "order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)', 
-        [location.menu_id, location.sub_menu_id || null, location.category_id, title, url, logo_url, desc, order || 0],
-        function(err) {
-          if (err) return res.status(500).json({error: err.message});
-          
-          const cardId = this.lastID;
-          
-          // 如果有标签，关联标签
-          if (tagIds && Array.isArray(tagIds) && tagIds.length > 0) {
-            const values = tagIds.map(tagId => `(${cardId}, ${tagId})`).join(',');
-            db.run(`INSERT INTO card_tags (card_id, tag_id) VALUES ${values}`, (err) => {
-              if (err) return res.status(500).json({error: err.message});
-              
-              triggerDebouncedBackup(clientId, { type: 'cards_updated' });
-              
-              setImmediate(() => autoGenerateForCards([cardId]));
-              
-              res.json({ id: cardId, category_id: location.category_id });
-            });
-          } else {
+    db.run(
+      'INSERT INTO cards (menu_id, sub_menu_id, title, url, logo_url, desc, "order") VALUES (?, ?, ?, ?, ?, ?, ?)', 
+      [menu_id, sub_menu_id || null, title, url, logo_url, desc, order || 0],
+      function(err) {
+        if (err) return res.status(500).json({error: err.message});
+        
+        const cardId = this.lastID;
+        
+        // 如果有标签，关联标签
+        if (tagIds && Array.isArray(tagIds) && tagIds.length > 0) {
+          const values = tagIds.map(tagId => `(${cardId}, ${tagId})`).join(',');
+          db.run(`INSERT INTO card_tags (card_id, tag_id) VALUES ${values}`, (err) => {
+            if (err) return res.status(500).json({error: err.message});
+            
             triggerDebouncedBackup(clientId, { type: 'cards_updated' });
             
+            // 异步触发 AI 自动生成（不阻塞响应）
             setImmediate(() => autoGenerateForCards([cardId]));
             
-            res.json({ id: cardId, category_id: location.category_id });
-          }
+            res.json({ id: cardId });
+          });
+        } else {
+          triggerDebouncedBackup(clientId, { type: 'cards_updated' });
+          
+          // 异步触发 AI 自动生成（不阻塞响应）
+          setImmediate(() => autoGenerateForCards([cardId]));
+          
+          res.json({ id: cardId });
         }
-      );
-    }).catch(err => {
-      res.status(err.statusCode || 500).json({ error: err.message });
-    });
-  });
-});
-
-router.get('/by-category/:categoryId', async (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-
-  try {
-    const location = await db.getLegacyLocationByCategoryId(req.params.categoryId);
-    if (!location) {
-      return res.status(404).json({ error: '分类不存在' });
-    }
-
-    const query = location.sub_menu_id
-      ? `SELECT c.*, c.category_id, sm.parent_id as parent_menu_id
-         FROM cards c
-         LEFT JOIN sub_menus sm ON c.sub_menu_id = sm.id
-         WHERE c.category_id = ?
-         ORDER BY c."order"`
-      : 'SELECT * FROM cards WHERE category_id = ? ORDER BY "order"';
-
-    db.all(query, [req.params.categoryId], (err, cards) => {
-      if (err) return res.status(500).json({ error: err.message });
-      attachTagsToCards(cards, res, card => ({
-        ...card,
-        menu_id: card.menu_id || card.parent_menu_id || null,
-        sub_menu_id: card.sub_menu_id || null
-      }));
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-router.get('/grouped/by-category', (req, res) => {
-  res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-
-  db.all('SELECT * FROM cards ORDER BY category_id, "order"', [], (err, cards) => {
-    if (err) return res.status(500).json({ error: err.message });
-
-    if (cards.length === 0) {
-      return res.json({ cardsByCategory: {} });
-    }
-
-    const cardIds = cards.map(card => card.id);
-    const placeholders = cardIds.map(() => '?').join(',');
-
-    db.all(
-      `SELECT ct.card_id, t.id, t.name, t.color
-       FROM card_tags ct
-       JOIN tags t ON ct.tag_id = t.id
-       WHERE ct.card_id IN (${placeholders})
-       ORDER BY t."order", t.name`,
-      cardIds,
-      (tagErr, tagRows) => {
-        if (tagErr) return res.status(500).json({ error: tagErr.message });
-
-        const tagsByCard = {};
-        tagRows.forEach(tag => {
-          if (!tagsByCard[tag.card_id]) tagsByCard[tag.card_id] = [];
-          tagsByCard[tag.card_id].push({ id: tag.id, name: tag.name, color: tag.color });
-        });
-
-        const cardsByCategory = {};
-        cards.forEach(card => {
-          const key = String(card.category_id || 'uncategorized');
-          if (!cardsByCategory[key]) cardsByCategory[key] = [];
-          cardsByCategory[key].push({ ...card, tags: tagsByCard[card.id] || [] });
-        });
-
-        res.json({ cardsByCategory });
       }
     );
   });
@@ -387,55 +252,56 @@ router.get('/grouped/by-category', (req, res) => {
 
 // 更新卡片（含标签）
 router.put('/:id', auth, (req, res) => {
-  const { title, url, logo_url, desc, order, tagIds } = req.body;
+  const { menu_id, sub_menu_id, title, url, logo_url, desc, order, tagIds } = req.body;
   const { id } = req.params;
   const clientId = req.headers['x-client-id'];
-
-  resolveCardLocation(req.body).then(location => {
-    db.run(
-      'UPDATE cards SET menu_id=?, sub_menu_id=?, category_id=?, title=?, url=?, logo_url=?, desc=?, "order"=? WHERE id=?', 
-      [location.menu_id, location.sub_menu_id || null, location.category_id, title, url, logo_url, desc, order || 0, id],
-      function(err) {
+  
+  db.run(
+    'UPDATE cards SET menu_id=?, sub_menu_id=?, title=?, url=?, logo_url=?, desc=?, "order"=? WHERE id=?', 
+    [menu_id, sub_menu_id || null, title, url, logo_url, desc, order || 0, id],
+    function(err) {
+      if (err) return res.status(500).json({error: err.message});
+      
+      const changes = this.changes;
+      
+      // 如果没有更新任何行，说明卡片不存在
+      if (changes === 0) {
+        return res.status(404).json({error: '卡片不存在'});
+      }
+      
+      // 删除旧的标签关联
+      db.run('DELETE FROM card_tags WHERE card_id=?', [id], (err) => {
         if (err) return res.status(500).json({error: err.message});
         
-        const changes = this.changes;
-        
-        if (changes === 0) {
-          return res.status(404).json({error: '卡片不存在'});
-        }
-        
-        db.run('DELETE FROM card_tags WHERE card_id=?', [id], (err) => {
-          if (err) return res.status(500).json({error: err.message});
-          
-          const finishUpdate = () => {
-            db.get('SELECT * FROM cards WHERE id=?', [id], (err, card) => {
-              if (err) return res.status(500).json({error: err.message});
-              if (!card) return res.status(404).json({error: '卡片不存在'});
-              
-              triggerDebouncedBackup(clientId, { type: 'cards_updated' });
-              res.json({ 
-                success: true,
-                changed: changes,
-                card: card
-              });
+        // 处理标签关联的函数
+        const finishUpdate = () => {
+          // 查询更新后的卡片数据返回给前端
+          db.get('SELECT * FROM cards WHERE id=?', [id], (err, card) => {
+            if (err) return res.status(500).json({error: err.message});
+            if (!card) return res.status(404).json({error: '卡片不存在'});
+            
+            triggerDebouncedBackup(clientId, { type: 'cards_updated' }); // 触发自动备份和SSE广播
+            res.json({ 
+              success: true,
+              changed: changes,
+              card: card
             });
-          };
-          
-          if (tagIds && Array.isArray(tagIds) && tagIds.length > 0) {
-            const values = tagIds.map(tagId => `(${id}, ${tagId})`).join(',');
-            db.run(`INSERT INTO card_tags (card_id, tag_id) VALUES ${values}`, (err) => {
-              if (err) return res.status(500).json({error: err.message});
-              finishUpdate();
-            });
-          } else {
+          });
+        };
+        
+        // 如果有新标签，添加关联
+        if (tagIds && Array.isArray(tagIds) && tagIds.length > 0) {
+          const values = tagIds.map(tagId => `(${id}, ${tagId})`).join(',');
+          db.run(`INSERT INTO card_tags (card_id, tag_id) VALUES ${values}`, (err) => {
+            if (err) return res.status(500).json({error: err.message});
             finishUpdate();
-          }
-        });
-      }
-    );
-  }).catch(err => {
-    res.status(err.statusCode || 500).json({ error: err.message });
-  });
+          });
+        } else {
+          finishUpdate();
+        }
+      });
+    }
+  );
 });
 
 router.delete('/:id', auth, (req, res) => {

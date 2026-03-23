@@ -54,15 +54,6 @@ export const addSubMenu = (menuId, data) => instance.post(`/menus/${menuId}/subm
 export const updateSubMenu = (id, data) => instance.put(`/menus/submenus/${id}`, data);
 export const deleteSubMenu = (id) => instance.delete(`/menus/submenus/${id}`);
 
-// 树形分类 API
-export const getCategoryTree = (noCache = false) => {
-  const params = noCache ? { _t: Date.now() } : {};
-  return instance.get(`/categories/tree`, { params });
-};
-export const addCategory = (data) => instance.post(`/categories`, data);
-export const updateCategory = (id, data) => instance.put(`/categories/${id}`, data);
-export const deleteCategory = (id) => instance.delete(`/categories/${id}`);
-
 // 卡片相关API
 export const getCards = (menuId, subMenuId = null, noCache = false) => {
   const params = subMenuId ? { subMenuId } : {};
@@ -73,14 +64,6 @@ export const getCards = (menuId, subMenuId = null, noCache = false) => {
 export const getAllCards = (noCache = false) => {
   const params = noCache ? { _t: Date.now() } : {};
   return instance.get(`/cards`, { params });
-};
-export const getCardsByCategory = (categoryId, noCache = false) => {
-  const params = noCache ? { _t: Date.now() } : {};
-  return instance.get(`/cards/by-category/${categoryId}`, { params });
-};
-export const getAllCardsByCategory = (noCache = false) => {
-  const params = noCache ? { _t: Date.now() } : {};
-  return instance.get(`/cards/grouped/by-category`, { params });
 };
 export const addCard = (data) => instance.post(`/cards`, data);
 export const updateCard = (id, data) => instance.put(`/cards/${id}`, data);
@@ -113,7 +96,7 @@ export const getUsers = () => instance.get(`/users`);
 
 // 批量添加API
 export const batchParseUrls = (urls) => instance.post(`/batch/parse`, { urls });
-export const batchAddCards = (menuId, subMenuId, cards, categoryId = null) => instance.post(`/batch/add`, { menu_id: menuId, sub_menu_id: subMenuId, category_id: categoryId, cards });
+export const batchAddCards = (menuId, subMenuId, cards) => instance.post(`/batch/add`, { menu_id: menuId, sub_menu_id: subMenuId, cards });
 export const batchCheckUrls = (urls) => instance.post(`/batch/check-urls`, { urls });
 
 // 搜索引擎API

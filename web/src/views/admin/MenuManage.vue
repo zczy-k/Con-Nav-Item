@@ -1,5 +1,6 @@
-<template>
+﻿<template>
   <div class="menu-manage">
+    <!-- 全局加载遮罩 -->
     <div v-if="loading" class="loading-overlay">
       <div class="loading-spinner"></div>
       <span>{{ loadingText }}</span>
@@ -8,52 +9,141 @@
     <div class="menu-header">
       <h2 class="page-title">栏目管理</h2>
       <div class="menu-add">
-        <input v-model="newRootName" placeholder="输入一级分类名称" class="input" @keyup.enter="createRootCategory" />
-        <button class="btn btn-primary" @click="createRootCategory" :disabled="loading || !newRootName.trim()">
-          + 添加一级分类
+        <input v-model="newMenuName" placeholder="输入主菜单名称" class="input" @keyup.enter="addMenu" />
+        <button class="btn btn-primary" @click="addMenu" :disabled="loading || !newMenuName.trim()">
+          + 添加主菜单
         </button>
       </div>
-      <div class="insert-tip">{{ rootInsertTip }}</div>
+      <div class="insert-tip">
+        {{ mainInsertTip }}
+      </div>
     </div>
 
     <div class="menu-content">
-      <div v-if="categories.length === 0" class="empty-state">
-        <p>暂无分类，请添加第一个一级分类</p>
+      <div v-if="menus.length === 0" class="empty-state">
+        <p>暂无菜单，请添加第一个主菜单</p>
       </div>
-
-      <div v-else class="tree-panel">
-        <CategoryTreeNode
-          v-for="node in categories"
-          :key="node.id"
-          :node="node"
-          :selected-id="selectedNodeId"
-          :expanded-ids="expandedNodeIds"
-          @select="selectNode"
-          @toggle="toggleNode"
-          @add-child="openCreateModal($event, 'child')"
-          @add-sibling="openCreateModal($event, 'sibling')"
-          @edit="openEditModal"
-          @remove="confirmDeleteCategory"
-        />
+      
+      <div v-for="menu in menus" :key="menu.id" class="menu-card" :class="{ selected: selectedMenuId === menu.id && !selectedSubMenuId }">
+        <div class="menu-card-header" @click="selectMenu(menu)">
+          <div class="menu-title">
+            <span class="menu-name">{{ menu.name }}</span>
+            <span class="menu-order">排序: {{ menu.order }}</span>
+          </div>
+          <div class="menu-actions">
+            <button class="btn-icon btn-edit" @click.stop="openEditMenu(menu)" title="编辑">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+              </svg>
+            </button>
+            <button class="btn-icon btn-add" @click.stop="openAddSubMenu(menu)" title="添加子菜单">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 5v14M5 12h14"/>
+              </svg>
+            </button>
+            <button class="btn-icon btn-delete" @click.stop="confirmDeleteMenu(menu)" title="删除">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+        
+        <div v-if="menu.subMenus && menu.subMenus.length > 0" class="sub-menu-list">
+          <div v-for="sub in menu.subMenus" :key="sub.id" class="sub-menu-item" :class="{ selected: selectedMenuId === menu.id && selectedSubMenuId === sub.id }" @click="selectSubMenu(menu, sub)">
+            <span class="sub-menu-name">{{ sub.name }}</span>
+            <span class="sub-menu-order">排序: {{ sub.order }}</span>
+            <div class="sub-menu-actions">
+              <button class="btn-icon-sm btn-edit" @click.stop="openEditSubMenu(menu, sub)" title="编辑">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                </svg>
+              </button>
+              <button class="btn-icon-sm btn-delete" @click.stop="confirmDeleteSubMenu(sub)" title="删除">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div v-else class="no-sub-menu">
+          <span>暂无子菜单</span>
+        </div>
       </div>
     </div>
 
-    <div v-if="showCategoryModal" class="modal-overlay">
-      <div class="modal tree-modal">
+    <!-- 编辑主菜单弹窗 -->
+    <div v-if="showEditModal" class="modal-overlay">
+      <div class="modal">
         <div class="modal-header">
-          <h3>{{ modalTitle }}</h3>
+          <h3>{{ editingMenu ? '编辑主菜单' : '添加子菜单' }}</h3>
           <button class="modal-close" @click="closeModal">×</button>
         </div>
         <div class="modal-body">
           <div class="form-group">
             <label>名称</label>
-            <input v-model="modalForm.name" type="text" class="input" placeholder="请输入分类名称" />
+            <input v-model="editForm.name" type="text" class="input" placeholder="请输入名称" />
           </div>
-          <div class="insert-hint">{{ modalHint }}</div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="editForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
         </div>
         <div class="modal-footer">
           <button class="btn btn-cancel" @click="closeModal">取消</button>
-          <button class="btn btn-primary" @click="submitModal" :disabled="!modalForm.name.trim()">保存</button>
+          <button class="btn btn-primary" @click="saveEdit" :disabled="!editForm.name.trim()">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 添加子菜单弹窗 -->
+    <div v-if="showAddSubModal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>添加子菜单到「{{ parentMenuName }}」</h3>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>子菜单名称</label>
+            <input v-model="subMenuForm.name" type="text" class="input" placeholder="请输入子菜单名称" />
+          </div>
+          <div class="insert-hint">{{ subInsertTip }}</div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="subMenuForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeModal">取消</button>
+          <button class="btn btn-primary" @click="saveSubMenu" :disabled="!subMenuForm.name.trim()">添加</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 编辑子菜单弹窗 -->
+    <div v-if="showEditSubModal" class="modal-overlay">
+      <div class="modal">
+        <div class="modal-header">
+          <h3>编辑子菜单</h3>
+          <button class="modal-close" @click="closeModal">×</button>
+        </div>
+        <div class="modal-body">
+          <div class="form-group">
+            <label>子菜单名称</label>
+            <input v-model="editSubForm.name" type="text" class="input" placeholder="请输入子菜单名称" />
+          </div>
+          <div class="form-group">
+            <label>排序</label>
+            <input v-model.number="editSubForm.order" type="number" class="input" placeholder="数字越小越靠前" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-cancel" @click="closeModal">取消</button>
+          <button class="btn btn-primary" @click="saveSubMenuEdit" :disabled="!editSubForm.name.trim()">保存</button>
         </div>
       </div>
     </div>
@@ -61,288 +151,279 @@
 </template>
 
 <script setup>
-import { computed, defineComponent, h, nextTick, onMounted, ref } from 'vue';
-import { addCategory, deleteCategory, getCategoryTree, updateCategory } from '../../api';
+import { ref, onMounted, computed, nextTick } from 'vue';
+import {
+  getMenus,
+  addMenu as apiAddMenu,
+  updateMenu as apiUpdateMenu,
+  deleteMenu as apiDeleteMenu,
+  addSubMenu as apiAddSubMenu,
+  updateSubMenu as apiUpdateSubMenu,
+  deleteSubMenu as apiDeleteSubMenu
+} from '../../api';
 import { useDataSync } from '../../composables/useDataSync';
 
-const CategoryTreeNode = defineComponent({
-  name: 'CategoryTreeNode',
-  props: {
-    node: { type: Object, required: true },
-    selectedId: { type: Number, default: null },
-    expandedIds: { type: Object, required: true }
-  },
-  emits: ['select', 'toggle', 'add-child', 'add-sibling', 'edit', 'remove'],
-  setup(props, { emit }) {
-    const renderChildren = () => {
-      if (!props.node.children?.length || !props.expandedIds.has(props.node.id)) return null;
-      return h('div', { class: 'tree-children' }, props.node.children.map(child =>
-        h(CategoryTreeNode, {
-          key: child.id,
-          node: child,
-          selectedId: props.selectedId,
-          expandedIds: props.expandedIds,
-          onSelect: node => emit('select', node),
-          onToggle: node => emit('toggle', node),
-          onAddChild: node => emit('add-child', node),
-          onAddSibling: node => emit('add-sibling', node),
-          onEdit: node => emit('edit', node),
-          onRemove: node => emit('remove', node)
-        })
-      ));
-    };
-
-    return () => h('div', { class: 'tree-node-wrap' }, [
-      h('div', {
-        class: ['tree-node', { selected: props.selectedId === props.node.id }],
-        onClick: () => emit('select', props.node),
-        'data-category-id': props.node.id
-      }, [
-        h('div', { class: 'tree-main' }, [
-          h('button', {
-            class: ['tree-toggle', { empty: !props.node.children?.length }],
-            onClick: event => {
-              event.stopPropagation();
-              if (props.node.children?.length) emit('toggle', props.node);
-            }
-          }, props.node.children?.length ? (props.expandedIds.has(props.node.id) ? '▾' : '▸') : '·'),
-          h('span', { class: 'tree-name' }, props.node.name),
-          h('span', { class: 'tree-meta' }, `L${props.node.level} / 排序 ${props.node.sort_order}`)
-        ]),
-        h('div', { class: 'tree-actions' }, [
-          h('button', { class: 'btn-icon-sm btn-add', title: '添加下级', onClick: event => { event.stopPropagation(); emit('add-child', props.node); } }, '+'),
-          h('button', { class: 'btn-icon-sm btn-edit', title: '添加同级', onClick: event => { event.stopPropagation(); emit('add-sibling', props.node); } }, '≡'),
-          h('button', { class: 'btn-icon-sm btn-edit', title: '编辑', onClick: event => { event.stopPropagation(); emit('edit', props.node); } }, '✎'),
-          h('button', { class: 'btn-icon-sm btn-delete', title: '删除', onClick: event => { event.stopPropagation(); emit('remove', props.node); } }, '×')
-        ])
-      ]),
-      renderChildren()
-    ]);
-  }
-});
-
-const categories = ref([]);
+const menus = ref([]);
 const loading = ref(false);
 const loadingText = ref('加载中...');
-const newRootName = ref('');
-const selectedNodeId = ref(null);
-const expandedNodeIds = ref(new Set());
+const newMenuName = ref('');
+const selectedMenuId = ref(null);
+const selectedSubMenuId = ref(null);
 
-const showCategoryModal = ref(false);
-const modalMode = ref('create');
-const modalTargetType = ref('root');
-const modalTargetNode = ref(null);
-const modalForm = ref({ name: '' });
+// 编辑主菜单
+const showEditModal = ref(false);
+const editingMenu = ref(null);
+const editForm = ref({ name: '', order: 0 });
 
-const rootInsertTip = computed(() => {
-  if (!selectedNodeId.value) return '未选中分类时，新增一级分类将追加到末尾';
-  const node = findNodeById(selectedNodeId.value);
-  return node ? `当前新增一级分类将插入到「${node.name}」所在顶级位置后面` : '未选中分类时，新增一级分类将追加到末尾';
+// 添加子菜单
+const showAddSubModal = ref(false);
+const parentMenuId = ref(null);
+const parentMenuName = ref('');
+const subMenuForm = ref({ name: '', order: 0 });
+
+// 编辑子菜单
+const showEditSubModal = ref(false);
+const editingSubMenu = ref(null);
+const editSubForm = ref({ name: '', order: 0 });
+
+const mainInsertTip = computed(() => {
+  if (selectedMenuId.value && !selectedSubMenuId.value) {
+    const menu = menus.value.find(item => item.id === selectedMenuId.value);
+    return menu ? `当前新增主菜单将插入到「${menu.name}」后面` : '未选中主菜单时，默认追加到末尾';
+  }
+  if (selectedMenuId.value && selectedSubMenuId.value) {
+    const menu = menus.value.find(item => item.id === selectedMenuId.value);
+    return menu ? `当前选中了「${menu.name}」下的子菜单；新增主菜单将插入到「${menu.name}」后面` : '未选中主菜单时，默认追加到末尾';
+  }
+  return '未选中主菜单时，默认追加到末尾';
 });
 
-const modalTitle = computed(() => {
-  if (modalMode.value === 'edit') return '编辑分类';
-  if (modalTargetType.value === 'child') return '添加下级分类';
-  if (modalTargetType.value === 'sibling') return '添加同级分类';
-  return '添加一级分类';
+const subInsertTip = computed(() => {
+  if (!parentMenuId.value) return '未选中子菜单时，默认追加到当前主菜单末尾';
+  if (selectedMenuId.value === parentMenuId.value && selectedSubMenuId.value) {
+    const parent = menus.value.find(item => item.id === parentMenuId.value);
+    const sub = parent?.subMenus?.find(item => item.id === selectedSubMenuId.value);
+    return sub ? `当前新增子菜单将插入到「${sub.name}」后面` : '未选中子菜单时，默认追加到当前主菜单末尾';
+  }
+  return '未选中子菜单时，默认追加到当前主菜单末尾';
 });
 
-const modalHint = computed(() => {
-  const node = modalTargetNode.value;
-  if (modalMode.value === 'edit') {
-    return node ? `正在编辑「${node.name}」` : '更新当前分类名称';
+useDataSync('MenuManage', ({ isSelfChange }) => {
+  if (!isSelfChange) {
+    loadMenus(false);
   }
-  if (modalTargetType.value === 'child') {
-    return node ? `新分类将作为「${node.name}」的下级分类创建` : '请选择一个父分类';
-  }
-  if (modalTargetType.value === 'sibling') {
-    return node ? `新分类将插入到「${node.name}」后面` : '请选择一个参考分类';
-  }
-  return '新一级分类将追加到顶级列表末尾';
-});
-
-useDataSync('CategoryTreeManage', ({ isSelfChange }) => {
-  if (!isSelfChange) loadCategories(false);
 });
 
 onMounted(() => {
-  loadCategories();
+  loadMenus();
 });
 
+// 通知浏览器扩展刷新右键菜单
 function notifyExtensionMenusUpdated() {
   try {
     window.dispatchEvent(new CustomEvent('nav-menus-updated'));
-  } catch (error) {
-    console.warn('[栏目管理] 通知扩展失败:', error);
+    console.log('[栏目管理] 已通知扩展刷新右键菜单');
+  } catch (e) {
+    console.warn('[栏目管理] 通知扩展失败:', e);
   }
 }
 
-function walkTree(nodes, callback) {
-  for (const node of nodes) {
-    callback(node);
-    if (node.children?.length) walkTree(node.children, callback);
-  }
-}
-
-function findNodeById(id) {
-  let result = null;
-  walkTree(categories.value, node => {
-    if (node.id === id) result = node;
-  });
-  return result;
-}
-
-function findTopLevelAncestor(node) {
-  if (!node) return null;
-  let current = node;
-  while (current.parent_id) {
-    current = findNodeById(current.parent_id) || current;
-    if (!current.parent_id) break;
-  }
-  return current;
-}
-
-function expandPathToNode(node) {
-  let current = node;
-  while (current?.parent_id) {
-    expandedNodeIds.value.add(current.parent_id);
-    current = findNodeById(current.parent_id);
-  }
-}
-
-async function loadCategories(isUpdate = false) {
+async function loadMenus(isUpdate = false) {
   loading.value = true;
   loadingText.value = '加载中...';
   try {
-    const res = await getCategoryTree(true);
-    categories.value = res.data || [];
-    categories.value.forEach(node => expandedNodeIds.value.add(node.id));
-    const selectedNode = selectedNodeId.value ? findNodeById(selectedNodeId.value) : null;
-    if (selectedNode) expandPathToNode(selectedNode);
+    const res = await getMenus(true); // 强制刷新
+    menus.value = res.data || [];
     await nextTick();
-    scrollToSelectedNode();
-    if (isUpdate) notifyExtensionMenusUpdated();
-  } catch (error) {
-    alert('加载失败: ' + (error.response?.data?.error || error.message));
+    scrollToCurrentSelection();
+    // 如果是更新操作，通知扩展刷新右键菜单
+    if (isUpdate) {
+      notifyExtensionMenusUpdated();
+    }
+  } catch (e) {
+    alert('加载失败: ' + (e.response?.data?.error || e.message));
   } finally {
     loading.value = false;
   }
 }
 
-function scrollToSelectedNode() {
-  const selectedElement = document.querySelector('.menu-manage .tree-node.selected');
-  selectedElement?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
+function selectMenu(menu) {
+  selectedMenuId.value = menu.id;
+  selectedSubMenuId.value = null;
 }
 
-function selectNode(node) {
-  selectedNodeId.value = node.id;
-  expandPathToNode(node);
+function selectSubMenu(menu, sub) {
+  selectedMenuId.value = menu.id;
+  selectedSubMenuId.value = sub.id;
 }
 
-function toggleNode(node) {
-  if (expandedNodeIds.value.has(node.id)) expandedNodeIds.value.delete(node.id);
-  else expandedNodeIds.value.add(node.id);
-  expandedNodeIds.value = new Set(expandedNodeIds.value);
+function scrollToCurrentSelection() {
+  const selectedElement = document.querySelector('.menu-manage .selected');
+  if (selectedElement?.scrollIntoView) {
+    selectedElement.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }
 }
 
-function openCreateModal(node = null, type = 'root') {
-  modalMode.value = 'create';
-  modalTargetType.value = type;
-  modalTargetNode.value = node;
-  modalForm.value = { name: '' };
-  showCategoryModal.value = true;
-}
-
-function openEditModal(node) {
-  modalMode.value = 'edit';
-  modalTargetType.value = 'edit';
-  modalTargetNode.value = node;
-  modalForm.value = { name: node.name };
-  showCategoryModal.value = true;
-}
-
-function closeModal() {
-  showCategoryModal.value = false;
-  modalTargetNode.value = null;
-  modalForm.value = { name: '' };
-}
-
-async function createRootCategory() {
-  if (!newRootName.value.trim()) return;
+// 添加主菜单
+async function addMenu() {
+  if (!newMenuName.value.trim()) return;
   loading.value = true;
   loadingText.value = '添加中...';
   try {
-    const anchor = selectedNodeId.value ? findTopLevelAncestor(findNodeById(selectedNodeId.value)) : null;
-    const res = await addCategory({ name: newRootName.value.trim(), parentId: null, afterId: anchor?.id || null });
-    selectedNodeId.value = res.data?.id || null;
-    newRootName.value = '';
-    await loadCategories(true);
-  } catch (error) {
-    alert('添加失败: ' + (error.response?.data?.error || error.message));
+    const maxOrder = menus.value.length ? Math.max(...menus.value.map(m => m.order || 0)) : 0;
+    const res = await apiAddMenu({
+      name: newMenuName.value.trim(),
+      order: maxOrder + 1,
+      afterId: selectedMenuId.value || null
+    });
+    selectedMenuId.value = res.data?.id || selectedMenuId.value;
+    selectedSubMenuId.value = null;
+    newMenuName.value = '';
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('添加失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
   }
 }
 
-async function submitModal() {
-  if (!modalForm.value.name.trim()) return;
+// 打开编辑主菜单弹窗
+function openEditMenu(menu) {
+  editingMenu.value = menu;
+  editForm.value = { name: menu.name, order: menu.order };
+  showEditModal.value = true;
+}
 
-  loading.value = true;
-  loadingText.value = modalMode.value === 'edit' ? '保存中...' : '添加中...';
-  const targetNode = modalTargetNode.value;
-  const name = modalForm.value.name.trim();
+// 保存主菜单编辑
+async function saveEdit() {
+  if (!editForm.value.name.trim() || !editingMenu.value) return;
+  const menuId = editingMenu.value.id; // 先保存id
+  const name = editForm.value.name.trim();
+  const order = editForm.value.order;
   closeModal();
-
+  loading.value = true;
+  loadingText.value = '保存中...';
   try {
-    let result = null;
-    if (modalMode.value === 'edit' && targetNode) {
-      await updateCategory(targetNode.id, { name });
-      selectedNodeId.value = targetNode.id;
-    } else if (modalTargetType.value === 'child' && targetNode) {
-      result = await addCategory({ name, parentId: targetNode.id, afterId: null });
-      selectedNodeId.value = result.data?.id || null;
-      expandedNodeIds.value.add(targetNode.id);
-    } else if (modalTargetType.value === 'sibling' && targetNode) {
-      result = await addCategory({ name, parentId: targetNode.parent_id || null, afterId: targetNode.id });
-      selectedNodeId.value = result.data?.id || null;
-      if (targetNode.parent_id) expandedNodeIds.value.add(targetNode.parent_id);
-    } else {
-      result = await addCategory({ name, parentId: null, afterId: null });
-      selectedNodeId.value = result.data?.id || null;
-    }
-
-    await loadCategories(true);
-  } catch (error) {
-    alert('操作失败: ' + (error.response?.data?.error || error.message));
+    await apiUpdateMenu(menuId, { name, order });
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('保存失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
   }
 }
 
-async function confirmDeleteCategory(node) {
-  if (!confirm(`确定删除分类「${node.name}」吗？\n将同时删除其下所有子分类和卡片！`)) return;
+// 删除主菜单
+async function confirmDeleteMenu(menu) {
+  if (!confirm(`确定删除主菜单「${menu.name}」吗？\n将同时删除其下所有子菜单和卡片！`)) return;
   loading.value = true;
   loadingText.value = '删除中...';
   try {
-    await deleteCategory(node.id);
-    if (selectedNodeId.value === node.id) selectedNodeId.value = null;
-    await loadCategories(true);
-  } catch (error) {
-    alert('删除失败: ' + (error.response?.data?.error || error.message));
+    await apiDeleteMenu(menu.id);
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('删除失败: ' + (e.response?.data?.error || e.message));
     loading.value = false;
   }
 }
+
+// 打开添加子菜单弹窗
+function openAddSubMenu(menu) {
+  parentMenuId.value = menu.id;
+  parentMenuName.value = menu.name;
+  selectedMenuId.value = menu.id;
+  const subs = menu.subMenus || [];
+  const maxOrder = subs.length ? Math.max(...subs.map(s => s.order || 0)) : 0;
+  subMenuForm.value = { name: '', order: maxOrder + 1 };
+  showAddSubModal.value = true;
+}
+
+// 保存新子菜单
+async function saveSubMenu() {
+  if (!subMenuForm.value.name.trim() || !parentMenuId.value) return;
+  const menuId = parentMenuId.value; // 先保存id
+  const name = subMenuForm.value.name.trim();
+  const order = subMenuForm.value.order;
+  closeModal();
+  loading.value = true;
+  loadingText.value = '添加中...';
+  try {
+    const res = await apiAddSubMenu(menuId, {
+      name,
+      order,
+      afterSubMenuId: selectedMenuId.value === menuId ? selectedSubMenuId.value || null : null
+    });
+    selectedMenuId.value = menuId;
+    selectedSubMenuId.value = res.data?.id || selectedSubMenuId.value;
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('添加失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
+  }
+}
+
+// 打开编辑子菜单弹窗
+function openEditSubMenu(menu, sub) {
+  editingSubMenu.value = sub;
+  editSubForm.value = { name: sub.name, order: sub.order };
+  showEditSubModal.value = true;
+}
+
+// 保存子菜单编辑
+async function saveSubMenuEdit() {
+  if (!editSubForm.value.name.trim() || !editingSubMenu.value) return;
+  const subMenuId = editingSubMenu.value.id; // 先保存id
+  const name = editSubForm.value.name.trim();
+  const order = editSubForm.value.order;
+  closeModal();
+  loading.value = true;
+  loadingText.value = '保存中...';
+  try {
+    await apiUpdateSubMenu(subMenuId, { name, order });
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('保存失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
+  }
+}
+
+// 删除子菜单
+async function confirmDeleteSubMenu(sub) {
+  if (!confirm(`确定删除子菜单「${sub.name}」吗？\n将同时删除其下所有卡片！`)) return;
+  loading.value = true;
+  loadingText.value = '删除中...';
+  try {
+    await apiDeleteSubMenu(sub.id);
+    await loadMenus(true); // 通知扩展刷新
+  } catch (e) {
+    alert('删除失败: ' + (e.response?.data?.error || e.message));
+    loading.value = false;
+  }
+}
+
+function closeModal() {
+  showEditModal.value = false;
+  showAddSubModal.value = false;
+  showEditSubModal.value = false;
+  editingMenu.value = null;
+  editingSubMenu.value = null;
+}
 </script>
+
 
 <style scoped>
 .menu-manage {
-  max-width: 980px;
+  max-width: 900px;
   width: 95%;
   margin: 0 auto;
   position: relative;
 }
 
+/* 加载遮罩 */
 .loading-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(255, 255, 255, 0.9);
   display: flex;
   flex-direction: column;
@@ -367,9 +448,10 @@ async function confirmDeleteCategory(node) {
   to { transform: rotate(360deg); }
 }
 
+/* 头部 */
 .menu-header {
   background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 24px;
   margin-bottom: 20px;
   color: white;
@@ -378,7 +460,7 @@ async function confirmDeleteCategory(node) {
 .page-title {
   font-size: 1.4rem;
   font-weight: 600;
-  margin: 0 0 16px;
+  margin: 0 0 16px 0;
   text-align: center;
 }
 
@@ -388,6 +470,11 @@ async function confirmDeleteCategory(node) {
   justify-content: center;
 }
 
+.menu-add .input {
+  flex: 1;
+  max-width: 300px;
+}
+
 .insert-tip {
   margin-top: 12px;
   text-align: center;
@@ -395,6 +482,7 @@ async function confirmDeleteCategory(node) {
   color: rgba(255, 255, 255, 0.92);
 }
 
+/* 内容区 */
 .menu-content {
   display: flex;
   flex-direction: column;
@@ -409,90 +497,107 @@ async function confirmDeleteCategory(node) {
   border-radius: 12px;
 }
 
-.tree-panel {
+/* 菜单卡片 */
+.menu-card {
   background: white;
-  border-radius: 16px;
-  padding: 18px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  border: 1px solid transparent;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.tree-node-wrap {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+.menu-card.selected {
+  border-color: #91caff;
+  box-shadow: 0 8px 24px rgba(24, 144, 255, 0.12);
 }
 
-.tree-children {
-  margin-left: 20px;
-  padding-left: 14px;
-  border-left: 2px solid #eef4ff;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.tree-node {
+.menu-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 14px 16px;
-  border: 1px solid #edf2f7;
-  border-radius: 12px;
-  background: #fbfdff;
+  padding: 16px 20px;
+  background: #f8fafc;
+  border-bottom: 1px solid #eee;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
 }
 
-.tree-node.selected {
-  border-color: #91caff;
-  background: #f0f7ff;
-  box-shadow: 0 8px 20px rgba(24, 144, 255, 0.12);
-}
-
-.tree-main {
+.menu-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
+  gap: 16px;
 }
 
-.tree-toggle {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: 6px;
-  background: #eef4ff;
-  color: #3b82f6;
-  cursor: pointer;
-}
-
-.tree-toggle.empty {
-  color: #bbb;
-  cursor: default;
-}
-
-.tree-name {
+.menu-name {
+  font-size: 1.1rem;
   font-weight: 600;
-  color: #1f2937;
+  color: #333;
 }
 
-.tree-meta {
-  font-size: 0.82rem;
-  color: #7b8794;
+.menu-order {
+  font-size: 0.85rem;
+  color: #888;
+  background: #e8e8e8;
+  padding: 2px 8px;
+  border-radius: 4px;
 }
 
-.tree-actions {
+.menu-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* 子菜单列表 */
+.sub-menu-list {
+  padding: 12px 20px;
+}
+
+.sub-menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border-left: 3px solid #10b981;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.sub-menu-item:last-child {
+  margin-bottom: 0;
+}
+
+.sub-menu-item.selected {
+  background: #ecfdf5;
+  border-left-color: #059669;
+}
+
+.sub-menu-name {
+  flex: 1;
+  font-size: 0.95rem;
+  color: #444;
+}
+
+.sub-menu-order {
+  font-size: 0.8rem;
+  color: #888;
+  margin-right: 12px;
+}
+
+.sub-menu-actions {
   display: flex;
   gap: 6px;
 }
 
-.btn,
-.input,
-.btn-icon-sm {
-  font: inherit;
+.no-sub-menu {
+  padding: 20px;
+  text-align: center;
+  color: #aaa;
+  font-size: 0.9rem;
 }
 
+/* 按钮样式 */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -504,39 +609,111 @@ async function confirmDeleteCategory(node) {
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
+  transition: all 0.2s;
 }
 
-.btn-primary { background: #1890ff; color: white; }
-.btn-cancel { background: #f0f0f0; color: #666; }
+.btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #1890ff;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #1478d4;
+}
+
+.btn-cancel {
+  background: #f0f0f0;
+  color: #666;
+}
+
+.btn-cancel:hover {
+  background: #e0e0e0;
+}
+
+.btn-icon {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
 
 .btn-icon-sm {
   width: 28px;
   height: 28px;
+  padding: 0;
   border: none;
   border-radius: 6px;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
 }
 
-.btn-add { background: #f6ffed; color: #52c41a; }
-.btn-edit { background: #e6f7ff; color: #1890ff; }
-.btn-delete { background: #fff1f0; color: #ff4d4f; }
+.btn-edit {
+  background: #e6f7ff;
+  color: #1890ff;
+}
+
+.btn-edit:hover {
+  background: #1890ff;
+  color: white;
+}
+
+.btn-add {
+  background: #f6ffed;
+  color: #52c41a;
+}
+
+.btn-add:hover {
+  background: #52c41a;
+  color: white;
+}
+
+.btn-delete {
+  background: #fff1f0;
+  color: #ff4d4f;
+}
+
+.btn-delete:hover {
+  background: #ff4d4f;
+  color: white;
+}
 
 .input {
   padding: 10px 14px;
   border: 1px solid #d9d9d9;
   border-radius: 8px;
   font-size: 0.95rem;
+  transition: all 0.2s;
+  color: #333;
   background: white;
 }
 
-.menu-add .input {
-  flex: 1;
-  max-width: 320px;
+.input:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
+/* 弹窗 */
 .modal-overlay {
   position: fixed;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
@@ -548,12 +725,11 @@ async function confirmDeleteCategory(node) {
   background: white;
   border-radius: 12px;
   width: 90%;
-  max-width: 420px;
+  max-width: 400px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
 }
 
-.modal-header,
-.modal-footer {
+.modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -561,14 +737,11 @@ async function confirmDeleteCategory(node) {
   border-bottom: 1px solid #eee;
 }
 
-.modal-footer {
-  justify-content: flex-end;
-  gap: 12px;
-  border-bottom: none;
-  border-top: 1px solid #eee;
+.modal-header h3 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: #333;
 }
-
-.modal-body { padding: 20px; }
 
 .modal-close {
   width: 32px;
@@ -578,11 +751,31 @@ async function confirmDeleteCategory(node) {
   font-size: 24px;
   color: #999;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
 }
 
-.form-group { margin-bottom: 16px; }
+.modal-close:hover {
+  background: #f0f0f0;
+  color: #333;
+}
+
+.modal-body {
+  padding: 20px;
+}
+
+.form-group {
+  margin-bottom: 16px;
+}
+
+.form-group:last-child {
+  margin-bottom: 0;
+}
 
 .insert-hint {
+  margin-bottom: 12px;
   padding: 10px 12px;
   border-radius: 8px;
   background: #f6ffed;
@@ -590,19 +783,49 @@ async function confirmDeleteCategory(node) {
   font-size: 0.88rem;
 }
 
-@media (max-width: 640px) {
+.form-group label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+.form-group .input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #eee;
+}
+
+/* 响应式 */
+@media (max-width: 600px) {
   .menu-add {
     flex-direction: column;
   }
-
-  .tree-node {
+  
+  .menu-add .input {
+    max-width: none;
+  }
+  
+  .menu-card-header {
     flex-direction: column;
+    gap: 12px;
     align-items: flex-start;
   }
-
-  .tree-actions {
+  
+  .sub-menu-item {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .sub-menu-name {
     width: 100%;
-    justify-content: flex-end;
   }
 }
 </style>
