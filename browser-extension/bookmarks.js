@@ -5260,28 +5260,16 @@ let navMenus = [];
 let navServerUrl = '';
 let pendingNavBookmarks = [];
 let newMenuType = 'menu'; // 'menu' 或 'submenu'
-let lastSelectedCategoryId = ''; // 记住上次选择的分类
 let lastSelectedMenuId = ''; // 记住上次选择的菜单
 let lastSelectedSubMenuId = ''; // 记住上次选择的子菜单
 let navConfigLoaded = false; // 是否已加载配置
 
-function normalizeCategoryNodes(nodes) {
-    return (nodes || []).map(node => ({
-        id: node.id,
-        name: node.name,
-        subMenus: normalizeCategoryNodes(node.children || [])
-    }));
-}
-
 // 初始化导航页配置（在页面加载时调用）
 async function initNavConfig() {
     try {
-        const result = await chrome.storage.sync.get(['navUrl', 'lastCategoryId', 'lastMenuId', 'lastSubMenuId']);
+        const result = await chrome.storage.sync.get(['navUrl', 'lastMenuId', 'lastSubMenuId']);
         if (result.navUrl) {
             navServerUrl = result.navUrl;
-        }
-        if (result.lastCategoryId) {
-            lastSelectedCategoryId = result.lastCategoryId;
         }
         if (result.lastMenuId) {
             lastSelectedMenuId = result.lastMenuId;
@@ -5303,7 +5291,7 @@ async function quickAddToNav() {
     }
     
     // 检查是否有保存的配置
-    if (!navServerUrl || (!lastSelectedCategoryId && !lastSelectedMenuId)) {
+    if (!navServerUrl || !lastSelectedMenuId) {
         // 没有配置，显示完整弹窗
         showAddToNavModal();
         return;
@@ -5361,7 +5349,6 @@ async function quickAddToNav() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                category_id: lastSelectedCategoryId ? parseInt(lastSelectedCategoryId) : null,
                 menu_id: parseInt(lastSelectedMenuId),
                 sub_menu_id: lastSelectedSubMenuId ? parseInt(lastSelectedSubMenuId) : null,
                 cards
@@ -5555,10 +5542,10 @@ async function loadNavMenus() {
     document.getElementById('navAddStatus').textContent = '正在加载分类...';
     
     try {
-        const response = await fetch(`${navServerUrl}/api/categories/tree`);
+        const response = await fetch(`${navServerUrl}/api/menus`);
         if (!response.ok) throw new Error('请求失败');
         
-        navMenus = normalizeCategoryNodes(await response.json());
+        navMenus = await response.json();
         
         // 填充菜单下拉框
         const menuSelect = document.getElementById('navMenuSelect');
@@ -5900,7 +5887,6 @@ async function confirmAddToNav() {
         document.getElementById('navAddStatus').textContent = '正在添加到导航页...';
         
         // 批量添加卡片
-        const categoryId = subMenuId || menuId;
         const addResponse = await fetch(`${navServerUrl}/api/batch/add`, {
             method: 'POST',
             headers: { 
@@ -5908,7 +5894,6 @@ async function confirmAddToNav() {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                category_id: categoryId ? parseInt(categoryId) : null,
                 menu_id: parseInt(menuId),
                 sub_menu_id: subMenuId ? parseInt(subMenuId) : null,
                 cards
@@ -5932,13 +5917,11 @@ async function confirmAddToNav() {
         }
         
         // 保存用户选择，下次快速添加时使用
-        lastSelectedCategoryId = categoryId;
         lastSelectedMenuId = menuId;
         lastSelectedSubMenuId = subMenuId;
         try {
             await chrome.storage.sync.set({ 
                 navUrl: navServerUrl,
-                lastCategoryId: categoryId,
                 lastMenuId: menuId, 
                 lastSubMenuId: subMenuId 
             });
@@ -6368,11 +6351,9 @@ async function confirmImportFolder() {
             };
         }));
         
-        const categoryId = subMenuId || menuId;
         const addResponse = await fetchWithAuth(`${serverUrl}/api/batch/add`, {
             method: 'POST',
             body: JSON.stringify({
-                category_id: categoryId,
                 menu_id: menuId,
                 sub_menu_id: subMenuId,
                 cards: cards
