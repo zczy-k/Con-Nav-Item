@@ -5273,10 +5273,6 @@ function normalizeCategoryNodes(nodes) {
     }));
 }
 
-function getCurrentNavCategoryId(menuId = '', subMenuId = '') {
-    return subMenuId || menuId || '';
-}
-
 // 初始化导航页配置（在页面加载时调用）
 async function initNavConfig() {
     try {
@@ -5904,7 +5900,7 @@ async function confirmAddToNav() {
         document.getElementById('navAddStatus').textContent = '正在添加到导航页...';
         
         // 批量添加卡片
-        const categoryId = getCurrentNavCategoryId(menuId, subMenuId);
+        const categoryId = subMenuId || menuId;
         const addResponse = await fetch(`${navServerUrl}/api/batch/add`, {
             method: 'POST',
             headers: { 
@@ -6372,7 +6368,7 @@ async function confirmImportFolder() {
             };
         }));
         
-        const categoryId = getCurrentNavCategoryId(menuId, subMenuId);
+        const categoryId = subMenuId || menuId;
         const addResponse = await fetchWithAuth(`${serverUrl}/api/batch/add`, {
             method: 'POST',
             body: JSON.stringify({
