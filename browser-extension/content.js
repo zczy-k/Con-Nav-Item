@@ -1132,29 +1132,29 @@
         
         // 设置默认分类 - 将当前选中的分类设为默认
         settingsLink.addEventListener('click', async () => {
-            if (!selectedMenuId) return;
+            if (!selectedRootCategoryId) return;
             
             try {
-                const menu = findNodeById(allMenus, selectedMenuId);
+                const menu = findNodeById(allMenus, selectedRootCategoryId);
                 const currentCategoryId = getCurrentSelectedCategoryId();
-                const categoryName = buildCategoryPath(selectedMenuId, currentCategoryId);
-                const subMenuName = selectedSubMenuId ? (findNodeById(getNodeChildren(menu), selectedSubMenuId)?.name || '') : '';
+                const categoryName = buildCategoryPath(selectedRootCategoryId, currentCategoryId);
+                const subMenuName = selectedChildCategoryId ? (findNodeById(getNodeChildren(menu), selectedChildCategoryId)?.name || '') : '';
                 
                 // 保存为默认分类
                 await chrome.storage.sync.set({
                     lastCategoryId: currentCategoryId,
-                    defaultMenuId: selectedMenuId,
-                    defaultSubMenuId: selectedSubMenuId || null,
+                    defaultMenuId: selectedRootCategoryId,
+                    defaultSubMenuId: selectedChildCategoryId || null,
                     defaultMenuName: menu?.name || '',
                     defaultSubMenuName: subMenuName,
-                    lastMenuId: selectedMenuId.toString(),
-                    lastSubMenuId: selectedSubMenuId?.toString() || ''
+                    lastMenuId: selectedRootCategoryId.toString(),
+                    lastSubMenuId: selectedChildCategoryId?.toString() || ''
                 });
                 
                 // 更新本地变量
                 lastCategoryId = String(currentCategoryId);
-                lastMenuId = selectedMenuId.toString();
-                lastSubMenuId = selectedSubMenuId?.toString() || null;
+                lastRootCategoryId = selectedRootCategoryId.toString();
+                lastChildCategoryId = selectedChildCategoryId?.toString() || null;
                 
                 // 更新快速添加按钮
                 const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
@@ -1214,8 +1214,8 @@
           // 快速添加按钮
           quickAddBtn.addEventListener('click', () => {
               // 快速添加也进入确认步骤
-              const menuId = parseInt(lastMenuId);
-              const subMenuId = lastSubMenuId ? parseInt(lastSubMenuId) : null;
+              const menuId = parseInt(lastRootCategoryId);
+              const subMenuId = lastChildCategoryId ? parseInt(lastChildCategoryId) : null;
               if (lastCategoryId) {
                   syncLegacySelectionFromCategory(parseInt(lastCategoryId));
               } else {
@@ -1247,7 +1247,7 @@
                   
                   // 更新确认信息
                   const customTitle = dialogShadowRoot.getElementById('customTitle').value;
-                  const categoryPath = buildCategoryPath(selectedMenuId, getCurrentSelectedCategoryId());
+                  const categoryPath = buildCategoryPath(selectedRootCategoryId, getCurrentSelectedCategoryId());
                   
                   dialogShadowRoot.getElementById('confirmTitleText').textContent = customTitle;
                   dialogShadowRoot.getElementById('confirmCategoryText').textContent = categoryPath;
@@ -1255,7 +1255,7 @@
               } else {
                   // 返回选择步骤
                   // 如果有上次选择，显示快速添加
-                  if (lastMenuId) {
+                  if (lastRootCategoryId) {
                       quickAddSection.style.display = 'block';
                       divider.style.display = 'flex';
                   }
@@ -1310,8 +1310,8 @@
           isReorderMode = false;
           reorderInFlight = false;
           selectedCategoryId = null;
-          selectedMenuId = null;
-          selectedSubMenuId = null;
+          selectedRootCategoryId = null;
+          selectedChildCategoryId = null;
           currentStep = 'selection';
       }
     
@@ -1325,11 +1325,11 @@
     // 存储分类数据
     let allMenus = [];
     let selectedCategoryId = null;
-    let selectedMenuId = null;
-    let selectedSubMenuId = null;
+    let selectedRootCategoryId = null;
+    let selectedChildCategoryId = null;
     let lastCategoryId = null;
-    let lastMenuId = null;
-    let lastSubMenuId = null;
+    let lastRootCategoryId = null;
+    let lastChildCategoryId = null;
       let isAuthenticated = false;
       let isAddingCategory = false;
       let isAddingSubCategory = null;
@@ -1338,21 +1338,21 @@
       let reorderInFlight = false;
 
     function getNewCategoryInsertAfterId() {
-        if (selectedMenuId && !selectedSubMenuId) {
-            return selectedMenuId;
+        if (selectedRootCategoryId && !selectedChildCategoryId) {
+            return selectedRootCategoryId;
         }
-        if (selectedMenuId && selectedSubMenuId) {
-            return selectedMenuId;
+        if (selectedRootCategoryId && selectedChildCategoryId) {
+            return selectedRootCategoryId;
         }
-        if (lastMenuId) {
-            return parseInt(lastMenuId);
+        if (lastRootCategoryId) {
+            return parseInt(lastRootCategoryId);
         }
         return null;
     }
 
     function getNewSubCategoryInsertAfterId(parentId) {
-        if (selectedMenuId === parentId && selectedSubMenuId) {
-            return selectedSubMenuId;
+        if (selectedRootCategoryId === parentId && selectedChildCategoryId) {
+            return selectedChildCategoryId;
         }
         return null;
     }
@@ -1395,31 +1395,31 @@
 
     function syncLegacySelectionFromCategory(categoryId) {
         selectedCategoryId = categoryId || null;
-        selectedMenuId = null;
-        selectedSubMenuId = null;
+        selectedRootCategoryId = null;
+        selectedChildCategoryId = null;
 
         if (!categoryId) return;
 
         for (const root of allMenus) {
             if (root.id === categoryId) {
-                selectedMenuId = root.id;
+                selectedRootCategoryId = root.id;
                 return;
             }
             const child = findNodeById(getNodeChildren(root), categoryId);
             if (child) {
-                selectedMenuId = root.id;
-                selectedSubMenuId = child.id;
+                selectedRootCategoryId = root.id;
+                selectedChildCategoryId = child.id;
                 return;
             }
         }
     }
 
     function getCurrentSelectedCategoryId() {
-        return selectedCategoryId || selectedSubMenuId || selectedMenuId || null;
+        return selectedCategoryId || selectedChildCategoryId || selectedRootCategoryId || null;
     }
 
     function getCurrentLastCategoryId() {
-        return lastCategoryId || lastSubMenuId || lastMenuId || null;
+        return lastCategoryId || lastChildCategoryId || lastRootCategoryId || null;
     }
 
     function scrollToSelectedCategory() {
@@ -1535,8 +1535,8 @@
             // 先检查是否已有 token
             const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
             lastCategoryId = config.lastCategoryId;
-            lastMenuId = config.lastMenuId;
-            lastSubMenuId = config.lastSubMenuId;
+            lastRootCategoryId = config.lastMenuId;
+            lastChildCategoryId = config.lastSubMenuId;
             
             // 检查是否有 token
             const hasToken = config.hasToken;
@@ -1586,8 +1586,8 @@
             allMenus = response.menus || [];
             
             // 如果有上次选择的分类，显示快速添加
-            if (lastMenuId) {
-                const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
+            if (lastRootCategoryId) {
+                const lastMenu = allMenus.find(m => m.id.toString() === lastRootCategoryId);
                 if (lastMenu) {
                     const categoryName = buildCategoryPath(lastMenu.id, getCurrentLastCategoryId() ? parseInt(getCurrentLastCategoryId()) : lastMenu.id);
                     
@@ -1614,8 +1614,8 @@
         try {
             const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
             lastCategoryId = config.lastCategoryId;
-            lastMenuId = config.lastMenuId;
-            lastSubMenuId = config.lastSubMenuId;
+            lastRootCategoryId = config.lastMenuId;
+            lastChildCategoryId = config.lastSubMenuId;
             
             // 强制刷新获取最新分类
             const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
@@ -1628,8 +1628,8 @@
             allMenus = response.menus || [];
             
             // 如果有上次选择的分类，显示快速添加
-            if (lastMenuId) {
-                const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
+            if (lastRootCategoryId) {
+                const lastMenu = allMenus.find(m => m.id.toString() === lastRootCategoryId);
                 if (lastMenu) {
                     const categoryName = buildCategoryPath(lastMenu.id, getCurrentLastCategoryId() ? parseInt(getCurrentLastCategoryId()) : lastMenu.id);
                     
@@ -1795,8 +1795,8 @@ if (response.success) {
             const children = getNodeChildren(node).filter(child => matchesNode(child));
             const hasChildren = children.length > 0;
             const isSelected = isRoot
-                ? selectedMenuId === node.id && !selectedSubMenuId
-                : selectedMenuId === rootId && selectedSubMenuId === node.id;
+                ? selectedRootCategoryId === node.id && !selectedChildCategoryId
+                : selectedRootCategoryId === rootId && selectedChildCategoryId === node.id;
             const shouldExpand = term ? true : expandedMenus.has(node.id) || expandedMenus.has(rootId);
             const nodeIndex = siblings.findIndex(item => item.id === node.id);
             const canMoveUp = nodeIndex > 0;
@@ -2197,7 +2197,7 @@ if (response.success) {
     
     // 快速添加到上次分类
     async function quickAddToLast(url) {
-        if (!lastCategoryId && !lastMenuId) return;
+        if (!lastCategoryId && !lastRootCategoryId) return;
         
         const quickAddBtn = dialogShadowRoot.getElementById('quickAddBtn');
         quickAddBtn.disabled = true;
@@ -2210,8 +2210,8 @@ if (response.success) {
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
                 categoryId: getCurrentLastCategoryId(),
-                menuId: lastMenuId,
-                subMenuId: lastSubMenuId,
+                menuId: lastRootCategoryId,
+                subMenuId: lastChildCategoryId,
                 url: url,
                 title: customTitle,
                 description: customDesc
@@ -2240,7 +2240,7 @@ if (response.success) {
     
     // 提交添加
     async function submitAdd(url) {
-        if (!selectedMenuId) {
+        if (!selectedRootCategoryId) {
             showToast('请选择分类', 'error');
             return;
         }
@@ -2256,8 +2256,8 @@ if (response.success) {
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
                 categoryId: getCurrentSelectedCategoryId(),
-                menuId: selectedMenuId.toString(),
-                subMenuId: selectedSubMenuId?.toString(),
+                menuId: selectedRootCategoryId.toString(),
+                subMenuId: selectedChildCategoryId?.toString(),
                 url: url,
                 title: customTitle,
                 description: customDesc
