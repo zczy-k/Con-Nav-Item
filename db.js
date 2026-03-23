@@ -268,6 +268,7 @@ async function initializeDatabase() {
     )`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_menu_id ON cards(menu_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_sub_menu_id ON cards(sub_menu_id)`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_category_id ON cards(category_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_order ON cards("order")`);
 
     await dbRun(`CREATE TABLE IF NOT EXISTS users (
@@ -349,9 +350,6 @@ async function initializeDatabase() {
     } catch (e) { }
     try {
       await dbRun(`ALTER TABLE cards ADD COLUMN category_id INTEGER`);
-    } catch (e) { }
-    try {
-      await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_category_id ON cards(category_id)`);
     } catch (e) { }
     // 为旧卡片设置默认创建时间
     try {
