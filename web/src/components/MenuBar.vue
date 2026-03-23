@@ -1,110 +1,103 @@
 <template>
   <nav ref="menuBarRef" class="menu-bar">
-      <div 
-        v-for="menu in menus" 
-        :key="menu.id" 
-        class="menu-item"
+    <div
+      v-for="menu in menus"
+      :key="menu.id"
+      class="menu-item"
+      :data-menu-id="menu.id"
+      @mouseenter="showMenu(menu)"
+      @mouseleave="scheduleHideSubMenu(menu.id)"
+      @contextmenu.prevent="handleMenuContextMenu($event, menu)"
+    >
+      <button
+        @click="handleNodeClick(menu)"
+        @contextmenu.prevent
+        :class="{ active: activePathSet.has(menu.id) }"
         :data-menu-id="menu.id"
-        @mouseenter="showSubMenu(menu.id)"
-        @mouseleave="scheduleHideSubMenu(menu.id)"
-        @contextmenu.prevent="handleMenuContextMenu($event, menu)"
       >
-        <button 
-          ref="menuBtnRefs"
-          @click="handleMenuClick(menu)" 
-          @contextmenu.prevent
-          :class="{active: menu.id === activeId}"
-          :data-menu-id="menu.id"
-        >
-          {{ menu.name }}
-        </button>
-      </div>
+        {{ menu.name }}
+      </button>
+    </div>
   </nav>
-  
+
   <Teleport to="body">
-    <div 
-      v-if="hoveredMenuId && hoveredMenu && hoveredMenu.subMenus && hoveredMenu.subMenus.length > 0"
+    <div
+      v-if="hoveredMenu && getChildren(hoveredMenu).length"
       class="sub-menu-portal"
       :style="dropdownStyle"
-      @mouseenter="cancelHideSubMenu(hoveredMenuId)"
-      @mouseleave="scheduleHideSubMenu(hoveredMenuId)"
+      @mouseenter="cancelHideSubMenu(hoveredMenu.id)"
+      @mouseleave="scheduleHideSubMenu(hoveredMenu.id)"
     >
-      <div 
-        v-for="subMenu in hoveredMenu.subMenus" 
-        :key="subMenu.id" 
+      <div
+        v-for="child in getChildren(hoveredMenu)"
+        :key="child.id"
         class="sub-menu-row"
-        @contextmenu.prevent="handleSubMenuContextMenu($event, subMenu, hoveredMenu)"
+        @mouseenter="hoveredChildId = child.id"
+        @mouseleave="hoveredChildId = null"
+        @contextmenu.prevent="handleSubMenuContextMenu($event, child, hoveredMenu)"
       >
-          <button 
-            @click="$emit('select', subMenu, hoveredMenu)"
-            @contextmenu.prevent
-            :class="{active: subMenu.id === activeSubMenuId}"
-            class="sub-menu-item"
-          >
-          {{ subMenu.name }}
+        <button
+          @click="handleNodeClick(child, hoveredMenu)"
+          @contextmenu.prevent
+          :class="{ active: activePathSet.has(child.id) }"
+          class="sub-menu-item"
+        >
+          {{ child.name }}
+          <span v-if="getChildren(child).length" class="sub-menu-arrow">›</span>
         </button>
+
+        <div
+          v-if="hoveredChildId === child.id && getChildren(child).length"
+          class="third-menu-flyout"
+        >
+          <button
+            v-for="grandChild in getChildren(child)"
+            :key="grandChild.id"
+            class="third-menu-item"
+            :class="{ active: activePathSet.has(grandChild.id) }"
+            @click="handleNodeClick(grandChild, child, hoveredMenu)"
+            @contextmenu.prevent="handleSubMenuContextMenu($event, grandChild, child)"
+          >
+            {{ grandChild.name }}
+          </button>
+        </div>
       </div>
     </div>
-    
-    <div v-if="contextMenuVisible" 
-         class="menu-context-menu"
-         :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
-         @click.stop>
+
+    <div
+      v-if="contextMenuVisible"
+      class="menu-context-menu"
+      :style="{ left: contextMenuX + 'px', top: contextMenuY + 'px' }"
+      @click.stop
+    >
       <template v-if="contextMenuType === 'menu'">
-        <div class="context-menu-item" @click="onAddMenu">
-          <span class="context-menu-icon">➕</span>
-          <span>添加菜单</span>
-        </div>
-        <div class="context-menu-item" @click="onEditMenu">
-          <span class="context-menu-icon">✏️</span>
-          <span>编辑菜单</span>
-        </div>
-        <div class="context-menu-item" @click="onDeleteMenu">
-          <span class="context-menu-icon">🗑️</span>
-          <span>删除菜单</span>
-        </div>
+        <div class="context-menu-item" @click="emitContextAction('addMenu')"><span class="context-menu-icon">➕</span><span>添加菜单</span></div>
+        <div class="context-menu-item" @click="emitContextAction('editMenu')"><span class="context-menu-icon">✏️</span><span>编辑菜单</span></div>
+        <div class="context-menu-item" @click="emitContextAction('deleteMenu')"><span class="context-menu-icon">🗑️</span><span>删除菜单</span></div>
         <div class="context-menu-divider"></div>
-        <div class="context-menu-item" @click="onAddSubMenu">
-          <span class="context-menu-icon">📁</span>
-          <span>添加子菜单</span>
-        </div>
+        <div class="context-menu-item" @click="emitContextAction('addSubMenu')"><span class="context-menu-icon">📁</span><span>添加子菜单</span></div>
       </template>
-      <template v-else-if="contextMenuType === 'subMenu'">
-        <div class="context-menu-item" @click="onEditSubMenu">
-          <span class="context-menu-icon">✏️</span>
-          <span>编辑子菜单</span>
-        </div>
-        <div class="context-menu-item" @click="onDeleteSubMenu">
-          <span class="context-menu-icon">🗑️</span>
-          <span>删除子菜单</span>
-        </div>
-        <div class="context-menu-divider"></div>
-        <div class="context-menu-item" @click="onMoveSubMenuUp" :class="{ disabled: !canMoveUp }">
-          <span class="context-menu-icon">⬆️</span>
-          <span>上移</span>
-        </div>
-        <div class="context-menu-item" @click="onMoveSubMenuDown" :class="{ disabled: !canMoveDown }">
-          <span class="context-menu-icon">⬇️</span>
-          <span>下移</span>
-        </div>
+      <template v-else>
+        <div class="context-menu-item" @click="emitContextAction('editSubMenu')"><span class="context-menu-icon">✏️</span><span>编辑分类</span></div>
+        <div class="context-menu-item" @click="emitContextAction('deleteSubMenu')"><span class="context-menu-icon">🗑️</span><span>删除分类</span></div>
       </template>
     </div>
   </Teleport>
 </template>
 
 <script setup>
-import { ref, nextTick, onMounted, onUnmounted, computed } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue';
 
-const props = defineProps({ 
-  menus: Array, 
-  activeId: Number,
-  activeSubMenuId: Number
+const props = defineProps({
+  menus: { type: Array, default: () => [] },
+  activePathIds: { type: Array, default: () => [] }
 });
 
-const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSubMenu', 'editSubMenu', 'deleteSubMenu', 'menusReordered', 'moveSubMenuUp', 'moveSubMenuDown']);
+const emit = defineEmits(['select', 'addMenu', 'editMenu', 'deleteMenu', 'addSubMenu', 'editSubMenu', 'deleteSubMenu']);
 
-const hoveredMenuId = ref(null);
 const menuBarRef = ref(null);
+const hoveredMenuId = ref(null);
+const hoveredChildId = ref(null);
 const dropdownPosition = ref({ top: 0, left: 0 });
 let hideTimer = null;
 
@@ -113,222 +106,85 @@ const contextMenuX = ref(0);
 const contextMenuY = ref(0);
 const contextMenuType = ref('menu');
 const contextMenuData = ref(null);
-const contextParentMenu = ref(null);
+const contextParentNode = ref(null);
 
-const hoveredMenu = computed(() => {
-  if (!hoveredMenuId.value || !props.menus) return null;
-  return props.menus.find(m => m.id === hoveredMenuId.value);
-});
+const activePathSet = computed(() => new Set(props.activePathIds || []));
+const hoveredMenu = computed(() => props.menus.find(item => item.id === hoveredMenuId.value) || null);
+const dropdownStyle = computed(() => ({ position: 'fixed', top: `${dropdownPosition.value.top}px`, left: `${dropdownPosition.value.left}px`, zIndex: 10000 }));
 
-const dropdownStyle = computed(() => ({
-  position: 'fixed',
-  top: `${dropdownPosition.value.top}px`,
-  left: `${dropdownPosition.value.left}px`,
-  zIndex: 10000
-}));
+function getChildren(node) {
+  return node?.children || node?.subMenus || [];
+}
 
-const canMoveUp = computed(() => {
-  if (!contextMenuData.value || !contextParentMenu.value) return false;
-  const subs = contextParentMenu.value.subMenus || [];
-  const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
-  return idx > 0;
-});
-
-const canMoveDown = computed(() => {
-  if (!contextMenuData.value || !contextParentMenu.value) return false;
-  const subs = contextParentMenu.value.subMenus || [];
-  const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
-  return idx >= 0 && idx < subs.length - 1;
-});
-
-function handleMenuClick(menu) {
-  emit('select', menu);
+function handleNodeClick(node, parentNode = null, rootNode = null) {
+  emit('select', node, parentNode, rootNode);
 }
 
 function updateDropdownPosition(menuId) {
   const menuBtn = menuBarRef.value?.querySelector(`button[data-menu-id="${menuId}"]`);
-  if (menuBtn) {
-    const rect = menuBtn.getBoundingClientRect();
-    dropdownPosition.value = {
-      top: rect.bottom + 4,
-      left: rect.left + rect.width / 2
-    };
-  }
+  if (!menuBtn) return;
+  const rect = menuBtn.getBoundingClientRect();
+  dropdownPosition.value = { top: rect.bottom + 4, left: rect.left + rect.width / 2 };
 }
 
-function showSubMenu(menuId) {
-  if (hideTimer) {
-    clearTimeout(hideTimer);
-    hideTimer = null;
-  }
-  hoveredMenuId.value = menuId;
-  nextTick(() => updateDropdownPosition(menuId));
+function showMenu(menu) {
+  if (hideTimer) clearTimeout(hideTimer);
+  hoveredMenuId.value = menu.id;
+  hoveredChildId.value = null;
+  nextTick(() => updateDropdownPosition(menu.id));
 }
 
 function scheduleHideSubMenu(menuId) {
   hideTimer = setTimeout(() => {
     if (hoveredMenuId.value === menuId) {
       hoveredMenuId.value = null;
+      hoveredChildId.value = null;
     }
   }, 150);
 }
 
 function cancelHideSubMenu(menuId) {
-  if (hideTimer) {
-    clearTimeout(hideTimer);
-    hideTimer = null;
-  }
+  if (hideTimer) clearTimeout(hideTimer);
   hoveredMenuId.value = menuId;
 }
 
-async function handleMenuContextMenu(event, menu) {
-  contextMenuType.value = 'menu';
-  contextMenuData.value = menu;
-  contextParentMenu.value = null;
+async function openContextMenu(event, type, node, parentNode = null) {
+  contextMenuType.value = type;
+  contextMenuData.value = node;
+  contextParentNode.value = parentNode;
   contextMenuVisible.value = true;
-  
-  const x = event.clientX;
-  const y = event.clientY;
-  
+
   await nextTick();
-  
   const menuEl = document.querySelector('.menu-context-menu');
-  if (menuEl) {
-    const menuWidth = menuEl.offsetWidth;
-    const menuHeight = menuEl.offsetHeight;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    let finalX = x;
-    let finalY = y;
-    
-    if (x + menuWidth > viewportWidth) {
-      finalX = viewportWidth - menuWidth - 10;
-    }
-    if (y + menuHeight > viewportHeight) {
-      finalY = viewportHeight - menuHeight - 10;
-    }
-    
-    finalX = Math.max(10, finalX);
-    finalY = Math.max(10, finalY);
-    
-    contextMenuX.value = finalX;
-    contextMenuY.value = finalY;
-  } else {
-    contextMenuX.value = x;
-    contextMenuY.value = y;
-  }
+  const menuWidth = menuEl?.offsetWidth || 0;
+  const menuHeight = menuEl?.offsetHeight || 0;
+  contextMenuX.value = Math.max(10, Math.min(event.clientX, window.innerWidth - menuWidth - 10));
+  contextMenuY.value = Math.max(10, Math.min(event.clientY, window.innerHeight - menuHeight - 10));
 }
 
-async function handleSubMenuContextMenu(event, subMenu, parentMenu) {
-  contextMenuType.value = 'subMenu';
-  contextMenuData.value = subMenu;
-  contextParentMenu.value = parentMenu;
-  contextMenuVisible.value = true;
-  
-  const x = event.clientX;
-  const y = event.clientY;
-  
-  await nextTick();
-  
-  const menuEl = document.querySelector('.menu-context-menu');
-  if (menuEl) {
-    const menuWidth = menuEl.offsetWidth;
-    const menuHeight = menuEl.offsetHeight;
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    let finalX = x;
-    let finalY = y;
-    
-    if (x + menuWidth > viewportWidth) {
-      finalX = viewportWidth - menuWidth - 10;
-    }
-    if (y + menuHeight > viewportHeight) {
-      finalY = viewportHeight - menuHeight - 10;
-    }
-    
-    finalX = Math.max(10, finalX);
-    finalY = Math.max(10, finalY);
-    
-    contextMenuX.value = finalX;
-    contextMenuY.value = finalY;
-  } else {
-    contextMenuX.value = x;
-    contextMenuY.value = y;
-  }
+function handleMenuContextMenu(event, menu) {
+  openContextMenu(event, 'menu', menu, null);
+}
+
+function handleSubMenuContextMenu(event, node, parentNode) {
+  openContextMenu(event, 'subMenu', node, parentNode);
 }
 
 function closeContextMenu() {
   contextMenuVisible.value = false;
   contextMenuData.value = null;
-  contextParentMenu.value = null;
+  contextParentNode.value = null;
 }
 
-function onAddMenu() {
-  emit('addMenu', contextMenuData.value);
+function emitContextAction(action) {
+  if (!contextMenuData.value) return closeContextMenu();
+  if (action === 'editSubMenu' || action === 'deleteSubMenu') emit(action, contextMenuData.value, contextParentNode.value);
+  else emit(action, contextMenuData.value);
   closeContextMenu();
 }
 
-function onEditMenu() {
-  if (contextMenuData.value) {
-    emit('editMenu', contextMenuData.value);
-  }
-  closeContextMenu();
-}
-
-function onDeleteMenu() {
-  if (contextMenuData.value) {
-    emit('deleteMenu', contextMenuData.value);
-  }
-  closeContextMenu();
-}
-
-function onAddSubMenu() {
-  if (contextMenuData.value) {
-    emit('addSubMenu', contextMenuData.value);
-  }
-  closeContextMenu();
-}
-
-function onEditSubMenu() {
-  if (contextMenuData.value && contextParentMenu.value) {
-    emit('editSubMenu', contextMenuData.value, contextParentMenu.value);
-  }
-  closeContextMenu();
-}
-
-function onDeleteSubMenu() {
-  if (contextMenuData.value && contextParentMenu.value) {
-    emit('deleteSubMenu', contextMenuData.value, contextParentMenu.value);
-  }
-  closeContextMenu();
-}
-
-function onMoveSubMenuUp() {
-  if (!canMoveUp.value) return;
-  if (contextMenuData.value && contextParentMenu.value) {
-    const subs = contextParentMenu.value.subMenus || [];
-    const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
-    emit('moveSubMenuUp', contextMenuData.value, contextParentMenu.value, idx);
-  }
-  closeContextMenu();
-}
-
-function onMoveSubMenuDown() {
-  if (!canMoveDown.value) return;
-  if (contextMenuData.value && contextParentMenu.value) {
-    const subs = contextParentMenu.value.subMenus || [];
-    const idx = subs.findIndex(s => s.id === contextMenuData.value.id);
-    emit('moveSubMenuDown', contextMenuData.value, contextParentMenu.value, idx);
-  }
-  closeContextMenu();
-}
-
-function handleClickOutside(event) {
-  if (contextMenuVisible.value) {
-    closeContextMenu();
-  }
+function handleClickOutside() {
+  if (contextMenuVisible.value) closeContextMenu();
 }
 
 onMounted(() => {
@@ -344,20 +200,8 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-.menu-bar {
-  display: flex;
-  justify-content: center;
-  flex-wrap: wrap;
-  padding: 0 1rem;
-  position: relative;
-  gap: 4px;
-  pointer-events: auto;
-}
-
-.menu-item {
-  position: relative;
-}
-
+.menu-bar { display: flex; justify-content: center; flex-wrap: wrap; padding: 0 1rem; gap: 4px; }
+.menu-item { position: relative; }
 .menu-bar button {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -366,101 +210,23 @@ onUnmounted(() => {
   font-weight: 500;
   padding: 0.6rem 1.2rem;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   text-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   border-radius: 12px;
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.02em;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
 }
-
-.menu-bar button::before {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 3px;
-  background: linear-gradient(90deg, #40a9ff, #1890ff);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(-50%);
-  border-radius: 3px 3px 0 0;
-}
-
-.menu-bar button:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.15);
-  border-color: rgba(255, 255, 255, 0.3);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
-}
-
-.menu-bar button:focus,
-.menu-bar button:focus-visible {
-  outline: none;
-  box-shadow: none;
-}
-
-.menu-bar button.active {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-  font-weight: 600;
-}
-
-.menu-bar button.active::before {
-  width: 60%;
-}
+.menu-bar button.active { color: #fff; background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.4); font-weight: 600; }
 
 @media (max-width: 768px) {
-  .menu-bar {
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    gap: 4px;
-    padding: 0 0.75rem;
-    margin: 0 auto;
-    max-width: 100vw;
-  }
-  
-  .menu-bar::-webkit-scrollbar {
-    display: none;
-  }
-  
-  .menu-bar button {
-    font-size: 14px;
-    padding: 0.5rem 1rem;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-}
-
-@media (max-width: 480px) {
-  .menu-bar {
-    gap: 3px;
-    padding: 0 0.5rem;
-  }
-  
-  .menu-bar button {
-    font-size: 13px;
-    padding: 0.45rem 0.85rem;
-  }
+  .menu-bar { flex-wrap: nowrap; justify-content: flex-start; overflow-x: auto; padding: 0 0.75rem; }
+  .menu-bar button { white-space: nowrap; flex-shrink: 0; }
 }
 </style>
 
 <style>
-.sub-menu-portal {
+.sub-menu-portal,
+.third-menu-flyout {
   background: rgba(255, 255, 255, 0.98);
   border-radius: 10px;
   min-width: max-content;
@@ -468,133 +234,39 @@ onUnmounted(() => {
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12);
   border: 1px solid rgba(0, 0, 0, 0.06);
   padding: 6px 0;
-  transform: translateX(-50%);
-  animation: dropdownFadeIn 0.15s ease;
 }
 
-@keyframes dropdownFadeIn {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
-}
-
-.sub-menu-portal .sub-menu-row {
+.sub-menu-portal { transform: translateX(-50%); position: fixed; }
+.sub-menu-row { position: relative; }
+.sub-menu-item,
+.third-menu-item {
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 10px 18px;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 4px;
+  gap: 12px;
 }
+.sub-menu-item.active,
+.third-menu-item.active { background: rgba(24, 144, 255, 0.1); color: #1890ff; }
+.third-menu-flyout { position: absolute; left: calc(100% + 4px); top: 0; }
+.sub-menu-arrow { color: #94a3b8; }
 
-.sub-menu-portal .sub-menu-item {
-  flex: 1;
-  display: block;
-  text-align: left;
-  padding: 0.4rem 0.8rem;
-  border: none;
-  background: transparent;
-  color: #333;
-  font-size: 14px;
-  font-weight: 400;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border-radius: 4px;
-  line-height: 1.5;
-  white-space: nowrap;
-  -webkit-touch-callout: none;
-  user-select: none;
-  -webkit-user-select: none;
+.menu-context-menu {
+  position: fixed;
+  z-index: 11000;
+  min-width: 180px;
+  background: rgba(255,255,255,0.98);
+  border: 1px solid rgba(0,0,0,0.08);
+  border-radius: 12px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.18);
+  padding: 6px;
 }
-
-.sub-menu-portal .sub-menu-item:hover {
-  background: rgba(24, 144, 255, 0.08);
-  color: #1890ff;
-}
-
-.sub-menu-portal .sub-menu-item:focus {
-  outline: none;
-}
-
-.sub-menu-portal .sub-menu-item.active {
-  background: rgba(24, 144, 255, 0.12);
-  color: #1890ff;
-  font-weight: 500;
-}
-
-  .menu-context-menu {
-    position: fixed;
-    background: rgba(255, 255, 255, 0.98);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: 12px;
-    border: 1px solid rgba(0, 0, 0, 0.08);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-    padding: 6px 0;
-    min-width: 160px;
-    max-width: calc(100vw - 20px);
-    max-height: calc(100vh - 20px);
-    overflow-y: auto;
-    z-index: 99999;
-    animation: contextMenuFadeIn 0.15s ease;
-  }
-
-@keyframes contextMenuFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.menu-context-menu .context-menu-item {
-  display: flex;
-  align-items: center;
-  padding: 10px 16px;
-  cursor: pointer;
-  color: #333;
-  font-size: 14px;
-  transition: background 0.15s ease;
-}
-
-.menu-context-menu .context-menu-item:hover {
-  background: rgba(24, 144, 255, 0.08);
-}
-
-.menu-context-menu .context-menu-item.disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.menu-context-menu .context-menu-item.disabled:hover {
-  background: transparent;
-}
-
-.menu-context-menu .context-menu-icon {
-  margin-right: 10px;
-  font-size: 14px;
-}
-
-.menu-context-menu .context-menu-divider {
-  height: 1px;
-  background: rgba(0, 0, 0, 0.06);
-  margin: 4px 0;
-}
-
-@media (max-width: 768px) {
-  .sub-menu-portal {
-    min-width: max-content;
-  }
-  
-  .sub-menu-portal .sub-menu-item {
-    font-size: 12px;
-    padding: 0.35rem 0.7rem;
-  }
-}
+.context-menu-item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; cursor: pointer; border-radius: 8px; }
+.context-menu-item:hover { background: rgba(24, 144, 255, 0.08); }
+.context-menu-divider { height: 1px; background: rgba(0,0,0,0.08); margin: 6px 0; }
 </style>

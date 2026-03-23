@@ -8,6 +8,30 @@ const { triggerDebouncedBackup } = require('../utils/autoBackup');
 const { autoGenerateForCards } = require('./ai');
 const router = express.Router();
 
+async function resolveBatchLocation(payload = {}) {
+  if (payload.category_id) {
+    const legacyLocation = await db.getLegacyLocationByCategoryId(payload.category_id);
+    if (!legacyLocation) {
+      const error = new Error('分类不存在');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    return {
+      category_id: payload.category_id,
+      menu_id: legacyLocation.menu_id,
+      sub_menu_id: legacyLocation.sub_menu_id
+    };
+  }
+
+  const category = await db.getCategoryByLegacy(payload.menu_id || null, payload.sub_menu_id || null);
+  return {
+    category_id: category?.id || null,
+    menu_id: payload.menu_id || null,
+    sub_menu_id: payload.sub_menu_id || null
+  };
+}
+
 // 批量解析网址信息
 router.post('/parse', auth, async (req, res) => {
   const { urls } = req.body;
@@ -199,12 +223,14 @@ router.post('/check-urls', auth, async (req, res) => {
 
 // 批量添加卡片
 router.post('/add', auth, (req, res) => {
-  const { menu_id, sub_menu_id, cards } = req.body;
+  const { cards } = req.body;
   const clientId = req.headers['x-client-id'];
 
-  if (!menu_id || !cards || !Array.isArray(cards) || cards.length === 0) {
+  if (!cards || !Array.isArray(cards) || cards.length === 0) {
     return res.status(400).json({ error: '请提供有效的菜单ID和卡片列表' });
   }
+
+  resolveBatchLocation(req.body).then(location => {
 
   // 先获取所有现有卡片，用于去重检测
   db.all('SELECT * FROM cards', [], (err, existingCards) => {
@@ -276,11 +302,11 @@ router.post('/add', auth, (req, res) => {
     }
 
     // 获取当前最大的 order 值
-    const orderQuery = sub_menu_id 
+    const orderQuery = location.sub_menu_id 
       ? 'SELECT MAX("order") as max_order FROM cards WHERE sub_menu_id = ?'
       : 'SELECT MAX("order") as max_order FROM cards WHERE menu_id = ? AND sub_menu_id IS NULL';
     
-    const orderParams = sub_menu_id ? [sub_menu_id] : [menu_id];
+    const orderParams = location.sub_menu_id ? [location.sub_menu_id] : [location.menu_id];
 
     db.get(orderQuery, orderParams, (err, row) => {
       if (err) {
@@ -298,8 +324,8 @@ router.post('/add', auth, (req, res) => {
         const order = nextOrder + index;
 
       db.run(
-        'INSERT INTO cards (menu_id, sub_menu_id, title, url, logo_url, desc, "order") VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [menu_id, sub_menu_id || null, title, url, logo, description, order],
+        'INSERT INTO cards (menu_id, sub_menu_id, category_id, title, url, logo_url, desc, "order") VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [location.menu_id, location.sub_menu_id || null, location.category_id, title, url, logo, description, order],
         function(err) {
           if (err && !hasError) {
             hasError = true;
@@ -357,9 +383,12 @@ router.post('/add', auth, (req, res) => {
           }
         }
       );
-      });
     });
   });
+  }).catch(err => {
+    res.status(err.statusCode || 500).json({ error: err.message });
+  });
+});
 });
 
 module.exports = router;

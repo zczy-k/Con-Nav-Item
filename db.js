@@ -64,6 +64,154 @@ const dbAll = (sql, params = []) => {
   });
 };
 
+async function upsertLegacyCategoryNode({ name, parentId = null, sortOrder = 0, level = 1, legacyMenuId = null, legacySubMenuId = null }) {
+  let existing = null;
+
+  if (legacySubMenuId !== null) {
+    existing = await dbGet('SELECT id FROM categories WHERE legacy_sub_menu_id = ?', [legacySubMenuId]);
+  } else if (legacyMenuId !== null) {
+    existing = await dbGet('SELECT id FROM categories WHERE legacy_menu_id = ?', [legacyMenuId]);
+  }
+
+  if (existing) {
+    await dbRun(
+      `UPDATE categories
+       SET name = ?, parent_id = ?, sort_order = ?, level = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [name, parentId, sortOrder, level, existing.id]
+    );
+    return existing.id;
+  }
+
+  const result = await dbRun(
+    `INSERT INTO categories (name, parent_id, sort_order, level, legacy_menu_id, legacy_sub_menu_id)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [name, parentId, sortOrder, level, legacyMenuId, legacySubMenuId]
+  );
+
+  return result.lastID;
+}
+
+async function migrateLegacyCategories() {
+  const menus = await dbAll('SELECT id, name, "order" FROM menus ORDER BY "order", id');
+  const menuToCategoryMap = new Map();
+
+  for (const menu of menus) {
+    const categoryId = await upsertLegacyCategoryNode({
+      name: menu.name,
+      parentId: null,
+      sortOrder: menu.order || 0,
+      level: 1,
+      legacyMenuId: menu.id
+    });
+    menuToCategoryMap.set(menu.id, categoryId);
+  }
+
+  const subMenus = await dbAll('SELECT id, parent_id, name, "order" FROM sub_menus ORDER BY parent_id, "order", id');
+  for (const subMenu of subMenus) {
+    const parentCategoryId = menuToCategoryMap.get(subMenu.parent_id);
+    if (!parentCategoryId) continue;
+
+    await upsertLegacyCategoryNode({
+      name: subMenu.name,
+      parentId: parentCategoryId,
+      sortOrder: subMenu.order || 0,
+      level: 2,
+      legacySubMenuId: subMenu.id
+    });
+  }
+}
+
+async function syncCardsCategoryIds() {
+  await dbRun(
+    `UPDATE cards
+     SET category_id = (
+       SELECT id FROM categories WHERE legacy_sub_menu_id = cards.sub_menu_id
+     )
+     WHERE sub_menu_id IS NOT NULL`
+  );
+
+  await dbRun(
+    `UPDATE cards
+     SET category_id = (
+       SELECT id FROM categories WHERE legacy_menu_id = cards.menu_id
+     )
+     WHERE sub_menu_id IS NULL AND menu_id IS NOT NULL`
+  );
+}
+
+async function getCategoryByLegacy(menuId = null, subMenuId = null) {
+  if (subMenuId !== null && subMenuId !== undefined) {
+    return await dbGet('SELECT * FROM categories WHERE legacy_sub_menu_id = ?', [subMenuId]);
+  }
+
+  if (menuId !== null && menuId !== undefined) {
+    return await dbGet('SELECT * FROM categories WHERE legacy_menu_id = ?', [menuId]);
+  }
+
+  return null;
+}
+
+async function getLegacyLocationByCategoryId(categoryId) {
+  const category = await dbGet(
+    `SELECT c.id, c.level, c.legacy_menu_id, c.legacy_sub_menu_id,
+            p.legacy_menu_id AS parent_legacy_menu_id
+     FROM categories c
+     LEFT JOIN categories p ON c.parent_id = p.id
+     WHERE c.id = ?`,
+    [categoryId]
+  );
+
+  if (!category) return null;
+
+  if (category.legacy_sub_menu_id) {
+    return {
+      menu_id: category.parent_legacy_menu_id || null,
+      sub_menu_id: category.legacy_sub_menu_id
+    };
+  }
+
+  if (category.legacy_menu_id) {
+    return {
+      menu_id: category.legacy_menu_id,
+      sub_menu_id: null
+    };
+  }
+
+  return {
+    menu_id: null,
+    sub_menu_id: null
+  };
+}
+
+async function getCategoryTree() {
+  const rows = await dbAll(
+    `SELECT id, name, parent_id, sort_order, level, legacy_menu_id, legacy_sub_menu_id, created_at, updated_at
+     FROM categories
+     ORDER BY level, parent_id, sort_order, id`
+  );
+
+  const byId = new Map();
+  const roots = [];
+
+  rows.forEach(row => {
+    byId.set(row.id, { ...row, children: [] });
+  });
+
+  rows.forEach(row => {
+    const node = byId.get(row.id);
+    if (row.parent_id) {
+      const parent = byId.get(row.parent_id);
+      if (parent) parent.children.push(node);
+      else roots.push(node);
+    } else {
+      roots.push(node);
+    }
+  });
+
+  return roots;
+}
+
 // 初始化数据库
 async function initializeDatabase() {
   try {
@@ -85,10 +233,27 @@ async function initializeDatabase() {
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_sub_menus_parent_id ON sub_menus(parent_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_sub_menus_order ON sub_menus("order")`);
 
+    await dbRun(`CREATE TABLE IF NOT EXISTS categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      parent_id INTEGER,
+      sort_order INTEGER DEFAULT 0,
+      level INTEGER DEFAULT 1,
+      legacy_menu_id INTEGER UNIQUE,
+      legacy_sub_menu_id INTEGER UNIQUE,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(parent_id) REFERENCES categories(id) ON DELETE CASCADE
+    )`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_categories_parent_id ON categories(parent_id)`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_categories_sort_order ON categories(sort_order)`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_categories_level ON categories(level)`);
+
     await dbRun(`CREATE TABLE IF NOT EXISTS cards (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       menu_id INTEGER,
       sub_menu_id INTEGER,
+      category_id INTEGER,
       title TEXT NOT NULL,
       url TEXT NOT NULL,
       logo_url TEXT,
@@ -98,10 +263,12 @@ async function initializeDatabase() {
       click_count INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(menu_id) REFERENCES menus(id) ON DELETE CASCADE,
-      FOREIGN KEY(sub_menu_id) REFERENCES sub_menus(id) ON DELETE CASCADE
+      FOREIGN KEY(sub_menu_id) REFERENCES sub_menus(id) ON DELETE CASCADE,
+      FOREIGN KEY(category_id) REFERENCES categories(id) ON DELETE SET NULL
     )`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_menu_id ON cards(menu_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_sub_menu_id ON cards(sub_menu_id)`);
+    await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_category_id ON cards(category_id)`);
     await dbRun(`CREATE INDEX IF NOT EXISTS idx_cards_order ON cards("order")`);
 
     await dbRun(`CREATE TABLE IF NOT EXISTS users (
@@ -181,10 +348,16 @@ async function initializeDatabase() {
     try {
       await dbRun(`ALTER TABLE cards ADD COLUMN created_at TEXT DEFAULT CURRENT_TIMESTAMP`);
     } catch (e) { }
+    try {
+      await dbRun(`ALTER TABLE cards ADD COLUMN category_id INTEGER`);
+    } catch (e) { }
     // 为旧卡片设置默认创建时间
     try {
       await dbRun(`UPDATE cards SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL`);
     } catch (e) { }
+
+    await migrateLegacyCategories();
+    await syncCardsCategoryIds();
 
     // 数据版本号表（用于前端缓存同步）
     await dbRun(`CREATE TABLE IF NOT EXISTS data_version (
@@ -928,7 +1101,12 @@ const dbWrapper = {
   updateCardName,
   updateCardNameAndDescription,
   updateCardTags,
-  filterCardsForAI
+  filterCardsForAI,
+  getCategoryByLegacy,
+  getLegacyLocationByCategoryId,
+  getCategoryTree,
+  migrateLegacyCategories,
+  syncCardsCategoryIds
 };
 
 module.exports = dbWrapper;

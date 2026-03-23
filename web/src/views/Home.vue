@@ -13,18 +13,15 @@
     <MobileDrawer
       :visible="mobileDrawerVisible"
       :menus="menus"
-      :activeMenuId="activeMenu?.id"
-      :activeSubMenuId="activeSubMenu?.id"
+      :activePathIds="activePathIds"
       @close="mobileDrawerVisible = false"
-      @selectMenu="handleDrawerMenuSelect"
-      @selectSubMenu="handleDrawerSubMenuSelect"
+      @select="handleDrawerNodeSelect"
     />
     
     <div class="menu-bar-fixed">
       <MenuBar 
         :menus="menus" 
-        :activeId="activeMenu?.id" 
-        :activeSubMenuId="activeSubMenu?.id"
+        :activePathIds="activePathIds"
         @select="selectMenu"
         @addMenu="handleAddMenu"
         @editMenu="handleEditMenu"
@@ -235,7 +232,7 @@
                 <template v-if="groupedCards.length > 0">
                   <div v-for="group in groupedCards" :key="group.key" class="group-select-item" @click="selectGroupCards(group)">
                     <span>{{ group.name || activeMenu?.name }}</span>
-                    <span class="group-select-count">{{ sortAndFilterCards(group.cards, group.subMenuId).length }}</span>
+                    <span class="group-select-count">{{ sortAndFilterCards(group.cards, group.categoryId).length }}</span>
                   </div>
                 </template>
               </div>
@@ -264,25 +261,18 @@
         <button @click="cancelMove" class="cancel-move-btn">×</button>
       </div>
       <div class="move-target-list">
-        <div v-for="menu in menus" :key="menu.id" class="target-menu-group">
+        <div v-for="target in flattenedCategoryTargets" :key="target.id" class="target-menu-group">
           <button 
-            @click="moveCardToCategory(menu.id, null)" 
+            @click="moveCardToCategory(target.id)" 
             class="target-menu-btn"
-            :class="{ 'active': targetMenuId === menu.id && targetSubMenuId === null }"
+            :class="{ 'active': targetCategoryId === target.id, 'is-child': target.depth > 0 }"
+            :style="{ paddingLeft: `${16 + target.depth * 22}px` }"
           >
-            {{ menu.name }}
+            <span class="target-node-label">
+              <span v-if="target.depth > 0" class="target-branch">⤷</span>
+              {{ target.name }}
+            </span>
           </button>
-          <div v-if="menu.subMenus && menu.subMenus.length" class="target-submenu-list">
-            <button 
-              v-for="subMenu in menu.subMenus" 
-              :key="subMenu.id"
-              @click="moveCardToCategory(menu.id, subMenu.id)" 
-              class="target-submenu-btn"
-              :class="{ 'active': targetMenuId === menu.id && targetSubMenuId === subMenu.id }"
-            >
-              ⤷ {{ subMenu.name }}
-            </button>
-          </div>
         </div>
       </div>
     </div>
@@ -290,7 +280,7 @@
     <!-- 卡片按分类分组显示 -->
     <div class="cards-grouped-container" v-if="!activeSubMenu && activeMenu && groupedCards.length > 0">
       <template v-for="(group, index) in groupedCards" :key="group.key">
-        <div v-if="sortAndFilterCards(group.cards, group.subMenuId).length > 0" class="card-group">
+        <div v-if="sortAndFilterCards(group.cards, group.categoryId).length > 0" class="card-group">
           <div class="card-group-header" @click="toggleGroupCollapse(group.key)">
             <div class="group-header-left">
               <button class="collapse-btn" :class="{ collapsed: isGroupCollapsed(group.key) }">
@@ -300,17 +290,17 @@
               </button>
               <span v-if="group.name" class="group-name">{{ group.name }}</span>
               <span v-else class="group-name main-category-name">{{ activeMenu.name }}</span>
-              <span class="group-count">{{ sortAndFilterCards(group.cards, group.subMenuId).length }}</span>
+              <span class="group-count">{{ sortAndFilterCards(group.cards, group.categoryId).length }}</span>
             </div>
           </div>
 <transition name="group-collapse">
                 <CardGrid
                   v-if="!isGroupCollapsed(group.key)"
-                  :cards="sortAndFilterCards(group.cards, group.subMenuId)" 
+                  :cards="sortAndFilterCards(group.cards, group.categoryId)" 
                   :selectedCards="selectedCards"
                   :selectionMode="selectedCards.length > 0"
-                  :categoryId="activeMenu?.id"
-                  :subCategoryId="group.subMenuId"
+                  :categoryId="group.categoryId"
+                  :subCategoryId="null"
                   @contextEdit="handleContextEdit"
                   @contextDelete="handleContextDelete"
                   @toggleCardSelection="handleToggleCardSelection"
@@ -673,7 +663,7 @@
     <div v-if="showMenuModal" class="modal-overlay">
       <div class="modal-content menu-modal" @click.stop>
         <div class="modal-header">
-          <h3>{{ menuModalMode === 'add' ? '添加' : '编辑' }}{{ menuModalType === 'menu' ? '菜单' : '子菜单' }}</h3>
+          <h3>{{ menuModalTitle }}</h3>
           <button @click="showMenuModal = false" class="close-btn">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
@@ -686,7 +676,7 @@
             <input 
               v-model="editingMenuData.name" 
               type="text" 
-              :placeholder="menuModalType === 'menu' ? '请输入菜单名称' : '请输入子菜单名称'"
+              :placeholder="menuModalPlaceholder"
               class="batch-input"
               @keyup.enter="saveMenuModal"
               maxlength="20"
@@ -975,7 +965,7 @@
 
 <script setup>
 import { ref, onMounted, computed, defineAsyncComponent, onUnmounted, nextTick } from 'vue';
-import { getMenus, getCards, getAllCards, getPromos, getFriends, verifyPassword, verifyToken, batchParseUrls, batchAddCards, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags, getDataVersion, addMenu, updateMenu, deleteMenu, addSubMenu, updateSubMenu, deleteSubMenu, getClientId } from '../api';
+import { getMenus, getCards, getAllCards, getCardsByCategory, getAllCardsByCategory, getPromos, getFriends, verifyPassword, verifyToken, batchParseUrls, batchAddCards, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags, getDataVersion, addMenu, updateMenu, deleteMenu, addSubMenu, updateSubMenu, deleteSubMenu, getClientId } from '../api';
 import axios from 'axios';
 
 // AI API 辅助函数
@@ -999,6 +989,25 @@ const collapsedGroups = ref(new Set());
 const menus = ref([]);
 const activeMenu = ref(null);
 const activeSubMenu = ref(null);
+const activeCategory = computed(() => activeSubMenu.value || activeMenu.value || null);
+const activePathIds = computed(() => {
+  const ids = [];
+  if (activeMenu.value?.id) ids.push(activeMenu.value.id);
+  if (activeSubMenu.value?.id) ids.push(activeSubMenu.value.id);
+  return ids;
+});
+const flattenedCategoryTargets = computed(() => {
+  const result = [];
+  const walk = (nodes, depth = 0) => {
+    nodes.forEach(node => {
+      result.push({ id: node.id, name: node.name, depth });
+      const children = getNodeChildren(node);
+      if (children.length) walk(children, depth + 1);
+    });
+  };
+  walk(menus.value || []);
+  return result;
+});
 const cards = ref([]);
 const allCards = ref([]); // 存储所有菜单的卡片，用于搜索
 const searchQuery = ref('');
@@ -1063,7 +1072,7 @@ function applySorting(cardList) {
 }
 
 // 用于分组显示时的排序和过滤
-function sortAndFilterCards(cardList, subMenuId) {
+function sortAndFilterCards(cardList, categoryId) {
   if (!cardList) return [];
   
   let result = [...cardList];
@@ -1135,8 +1144,7 @@ const aiConfigured = ref(false); // AI 是否已配置
 // 批量移动相关状态
 const selectedCards = ref([]);
 const showMovePanel = ref(false);
-const targetMenuId = ref(null);
-const targetSubMenuId = ref(null);
+const targetCategoryId = ref(null);
 const showGroupSelectMenu = ref(false);
 
 // Toast 提示状态
@@ -1634,54 +1642,44 @@ async function initGlobalSort() {
 // 分组显示的卡片（主菜单下的卡片 + 各子菜单下的卡片）
 // 重新设计：基于 cards.value 进行分组，而不是依赖 cardsCache
 const groupedCards = computed(() => {
-  if (!activeMenu.value || activeSubMenu.value || searchQuery.value) {
+  if (!activeCategory.value || activeSubMenu.value || searchQuery.value) {
     return [];
   }
   
   const groups = [];
-  const subMenus = activeMenu.value.subMenus || [];
+  const childNodes = getNodeChildren(activeCategory.value);
   const currentCards = cards.value || [];
+  const cardsByChild = new Map();
+  cardsByChild.set(activeCategory.value.id, []);
+  childNodes.forEach(node => cardsByChild.set(node.id, []));
   
-  // 创建子菜单ID到子菜单的映射
-  const subMenuMap = new Map();
-  subMenus.forEach(sub => subMenuMap.set(sub.id, sub));
-  
-  // 按子菜单ID分组卡片
-  const cardsBySubMenu = new Map();
-  cardsBySubMenu.set(null, []); // 主菜单下的卡片（没有子菜单的）
-  subMenus.forEach(sub => cardsBySubMenu.set(sub.id, []));
-  
-  // 将卡片分配到对应的分组
-    currentCards.forEach(card => {
-      const subMenuId = card.sub_menu_id || null;
-    if (cardsBySubMenu.has(subMenuId)) {
-      cardsBySubMenu.get(subMenuId).push(card);
+  currentCards.forEach(card => {
+    const categoryId = card.category_id || activeCategory.value.id;
+    if (cardsByChild.has(categoryId)) {
+      cardsByChild.get(categoryId).push(card);
     } else {
-      // 如果子菜单不存在，放到主菜单下
-      cardsBySubMenu.get(null).push(card);
+      cardsByChild.get(activeCategory.value.id).push(card);
     }
   });
   
-  // 1. 首先添加直接在主菜单下的卡片（没有子菜单的）
-  const mainCards = cardsBySubMenu.get(null) || [];
+  const mainCards = cardsByChild.get(activeCategory.value.id) || [];
   if (mainCards.length > 0) {
     groups.push({
       key: 'main',
-      name: null, // 主菜单下的卡片不显示标题
-      subMenuId: null,
+      name: null,
+      categoryId: activeCategory.value.id,
       cards: mainCards
     });
   }
   
-  // 2. 按子菜单顺序添加各子菜单的卡片
-  for (const subMenu of subMenus) {
-    const subCards = cardsBySubMenu.get(subMenu.id) || [];
-    if (subCards.length > 0) {
+  for (const childNode of childNodes) {
+    const childCards = cardsByChild.get(childNode.id) || [];
+    if (childCards.length > 0) {
       groups.push({
-        key: `sub_${subMenu.id}`,
-        name: subMenu.name,
-        subMenuId: subMenu.id,
-        cards: subCards
+        key: `sub_${childNode.id}`,
+        name: childNode.name,
+        categoryId: childNode.id,
+        cards: childCards
       });
     }
   }
@@ -2294,16 +2292,13 @@ async function selectMenu(menu, parentMenu = null) {
   preloadAdjacentCategories();
 }
 
-function handleDrawerMenuSelect(menu) {
-  activeMenu.value = menu;
-  activeSubMenu.value = null;
-  loadCards();
-}
-
-function handleDrawerSubMenuSelect(subMenu, parentMenu) {
-  activeMenu.value = parentMenu;
-  activeSubMenu.value = subMenu;
-  loadCards();
+function handleDrawerNodeSelect(node) {
+  const parentMenu = menus.value.find(menu => (menu.subMenus || []).some(sub => sub.id === node.id));
+  if (parentMenu) {
+    selectMenu(node, parentMenu);
+    return;
+  }
+  selectMenu(node);
 }
 
 function toggleGroupCollapse(groupKey) {
@@ -2332,33 +2327,31 @@ function preloadAdjacentCategories() {
     const idx = currentIndex + offset;
     if (idx >= 0 && idx < menus.value.length) {
       const menu = menus.value[idx];
-      const key = getCardsCacheKey(menu.id, null);
+      const key = getCardsCacheKey(menu.id);
       if (!cardsCache.value[key]) {
-        toPreload.push({ menuId: menu.id, subMenuId: null, key });
+        toPreload.push({ categoryId: menu.id, key });
       }
-      // 预加载子菜单
-      if (menu.subMenus?.length > 0) {
-        const subKey = getCardsCacheKey(menu.id, menu.subMenus[0].id);
+      if (getNodeChildren(menu).length > 0) {
+        const firstChild = getNodeChildren(menu)[0];
+        const subKey = getCardsCacheKey(firstChild.id);
         if (!cardsCache.value[subKey]) {
-          toPreload.push({ menuId: menu.id, subMenuId: menu.subMenus[0].id, key: subKey });
+          toPreload.push({ categoryId: firstChild.id, key: subKey });
         }
       }
     }
   });
   
-  // 当前菜单的子菜单也预加载
-  if (activeMenu.value.subMenus?.length > 0) {
-    activeMenu.value.subMenus.forEach(sub => {
-      const key = getCardsCacheKey(activeMenu.value.id, sub.id);
+  if (getNodeChildren(activeMenu.value).length > 0) {
+    getNodeChildren(activeMenu.value).forEach(sub => {
+      const key = getCardsCacheKey(sub.id);
       if (!cardsCache.value[key]) {
-        toPreload.push({ menuId: activeMenu.value.id, subMenuId: sub.id, key });
+        toPreload.push({ categoryId: sub.id, key });
       }
     });
   }
   
-  // 后台静默预加载（不阻塞UI）
-  toPreload.forEach(({ menuId, subMenuId, key }) => {
-    getCards(menuId, subMenuId)
+  toPreload.forEach(({ categoryId, key }) => {
+    getCardsByCategory(categoryId)
       .then(res => {
         cardsCache.value[key] = res.data;
         saveCardsCache();
@@ -2376,8 +2369,12 @@ const CARDS_CACHE_KEY = 'nav_cards_cache';
 const CARDS_CACHE_TTL = 5 * 60 * 1000;
 
 // 获取缓存key
-function getCardsCacheKey(menuId, subMenuId) {
-  return `${menuId}_${subMenuId || 'null'}`;
+function getNodeChildren(node) {
+  return node?.children || node?.subMenus || [];
+}
+
+function getCardsCacheKey(categoryId) {
+  return String(categoryId);
 }
 
 // 保存卡片缓存到localStorage
@@ -2393,150 +2390,66 @@ function saveCardsCache() {
 }
 
 async function loadCards(forceRefresh = false) {
-  if (!activeMenu.value) return;
-  
-  // 如果选择了子菜单，只加载该子菜单的卡片
-  if (activeSubMenu.value) {
-    const cacheKey = getCardsCacheKey(activeMenu.value.id, activeSubMenu.value.id);
-    
-    // 如果有缓存直接使用，不请求后端
-    if (!forceRefresh && cardsCache.value[cacheKey]) {
-      cards.value = cardsCache.value[cacheKey];
-      return;
-    }
-    
-    // 优先显示缓存（如果有）
-    if (!forceRefresh && cardsCache.value[cacheKey]) {
-      cards.value = cardsCache.value[cacheKey];
-    }
-    
-    // 从服务器获取最新数据（始终绕过浏览器HTTP缓存）
-    try {
-      const res = await getCards(activeMenu.value.id, activeSubMenu.value.id, true);
-      cards.value = res.data;
-      cardsCache.value[cacheKey] = res.data;
-      saveCardsCache();
-    } catch (error) {
-      console.error('加载卡片失败:', error);
-      if (!cardsCache.value[cacheKey]) {
-        cards.value = [];
-      }
-    }
-  } else {
-    // 选择主菜单时，加载该主菜单下所有卡片（包括直接挂在主菜单下的和所有子菜单的）
-    const subMenus = activeMenu.value.subMenus || [];
-    const mainCacheKey = getCardsCacheKey(activeMenu.value.id, null);
-    
-      // 检查是否所有分类都有缓存
-      if (!forceRefresh) {
-        const cachedCards = [];
-        let allCached = true;
-        
-        // 检查主菜单缓存
-        if (cardsCache.value.hasOwnProperty(mainCacheKey)) {
-          cachedCards.push(...(cardsCache.value[mainCacheKey] || []));
-        } else {
-          allCached = false;
-        }
-        
-        // 检查子菜单缓存
-        for (const subMenu of subMenus) {
-          const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
-          if (cardsCache.value.hasOwnProperty(subCacheKey)) {
-            cachedCards.push(...(cardsCache.value[subCacheKey] || []));
-          } else {
-            allCached = false;
-          }
-        }
-        
-        // 如果所有分类都有缓存，直接使用缓存（包括空数组）
-        if (allCached) {
-          cards.value = cachedCards;
-          return;
-        }
-      }
-      
-      // 1. 先立即显示所有缓存的卡片
-      if (!forceRefresh) {
-        const cachedCards = [];
-        if (cardsCache.value[mainCacheKey]) {
-          cachedCards.push(...cardsCache.value[mainCacheKey]);
-        }
-        subMenus.forEach(subMenu => {
-          const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
-          if (cardsCache.value[subCacheKey]) {
-            cachedCards.push(...cardsCache.value[subCacheKey]);
-          }
-        });
-        cards.value = cachedCards;
-      }
-    
-      // 2. 后台并行加载所有数据，每个请求返回后立即更新显示
-      const allPromises = [];
-      const allKeys = [];
-      const currentMenuId = activeMenu.value.id;
-      
-      // 实时更新卡片显示的函数
-      const updateCardsDisplay = () => {
-        if (activeMenu.value?.id !== currentMenuId) return;
-        const allCardsInMenu = [];
-        if (cardsCache.value[mainCacheKey]) {
-          allCardsInMenu.push(...cardsCache.value[mainCacheKey]);
-        }
-        subMenus.forEach(subMenu => {
-          const subCacheKey = getCardsCacheKey(currentMenuId, subMenu.id);
-          if (cardsCache.value[subCacheKey]) {
-            allCardsInMenu.push(...cardsCache.value[subCacheKey]);
-          }
-        });
-        if (allCardsInMenu.length > 0) {
-          cards.value = allCardsInMenu;
-        }
-      };
-      
-      // 主菜单请求（直接挂在主菜单下的卡片）
-      allKeys.push(mainCacheKey);
-      allPromises.push(
-        getCards(activeMenu.value.id, null, true)
-          .then(res => {
-            cardsCache.value[mainCacheKey] = res.data;
-            updateCardsDisplay();
-            return res.data;
-          })
-          .catch(error => {
-            console.error('加载主菜单卡片失败:', error);
-            return cardsCache.value[mainCacheKey] || [];
-          })
-      );
-      
-      // 所有子菜单请求（并行），每个请求返回后立即更新显示
-      subMenus.forEach(subMenu => {
-        const subCacheKey = getCardsCacheKey(activeMenu.value.id, subMenu.id);
-        allKeys.push(subCacheKey);
-        allPromises.push(
-          getCards(activeMenu.value.id, subMenu.id, true)
-            .then(res => {
-              cardsCache.value[subCacheKey] = res.data;
-              updateCardsDisplay();
-              return res.data;
-            })
-            .catch(error => {
-              console.error(`加载子菜单 ${subMenu.name} 卡片失败:`, error);
-              return cardsCache.value[subCacheKey] || [];
-            })
-      );
-    });
-      
-      // 等待所有请求完成，保存缓存
-      await Promise.all(allPromises);
-      saveCardsCache();
+  if (!activeCategory.value) return;
+
+  const selectedCategory = activeCategory.value;
+  const childNodes = activeSubMenu.value ? [] : getNodeChildren(selectedCategory);
+  const categoryIdsToLoad = [selectedCategory.id, ...childNodes.map(node => node.id)];
+  const cachedCards = [];
+  let allCached = true;
+
+  for (const categoryId of categoryIdsToLoad) {
+    const cacheKey = getCardsCacheKey(categoryId);
+    if (cardsCache.value.hasOwnProperty(cacheKey)) {
+      cachedCards.push(...(cardsCache.value[cacheKey] || []));
+    } else {
+      allCached = false;
     }
   }
+
+  if (!forceRefresh && allCached) {
+    cards.value = cachedCards;
+    return;
+  }
+
+  if (!forceRefresh && cachedCards.length > 0) {
+    cards.value = cachedCards;
+  }
+
+  const updateCardsDisplay = () => {
+    if (activeCategory.value?.id !== selectedCategory.id) return;
+    const mergedCards = [];
+    categoryIdsToLoad.forEach(categoryId => {
+      const cacheKey = getCardsCacheKey(categoryId);
+      if (cardsCache.value[cacheKey]) {
+        mergedCards.push(...cardsCache.value[cacheKey]);
+      }
+    });
+    cards.value = mergedCards;
+  };
+
+  const requests = categoryIdsToLoad.map(categoryId => {
+    const cacheKey = getCardsCacheKey(categoryId);
+    return getCardsByCategory(categoryId, true)
+      .then(res => {
+        cardsCache.value[cacheKey] = res.data;
+        updateCardsDisplay();
+        return res.data;
+      })
+      .catch(error => {
+        console.error(`加载分类 ${categoryId} 卡片失败:`, error);
+        return cardsCache.value[cacheKey] || [];
+      });
+  });
+
+  await Promise.all(requests);
+  saveCardsCache();
+}
 
 // 加载所有卡片用于搜索（优化版：单次请求获取所有数据）
 async function loadAllCardsForSearch() {
   try {
-    const res = await getAllCards();
+    const res = await getAllCardsByCategory();
     const { cardsByCategory } = res.data;
     
     // 更新缓存
@@ -2552,20 +2465,20 @@ async function loadAllCardsForSearch() {
     const keys = [];
     
     for (const menu of menus.value) {
-      const key = getCardsCacheKey(menu.id, null);
+      const key = getCardsCacheKey(menu.id);
       keys.push(key);
       promises.push(
-        getCards(menu.id, null)
+        getCardsByCategory(menu.id)
           .then(res => res.data)
           .catch(() => cardsCache.value[key] || [])
       );
       
-      if (menu.subMenus && menu.subMenus.length) {
-        for (const subMenu of menu.subMenus) {
-          const subKey = getCardsCacheKey(menu.id, subMenu.id);
+      if (getNodeChildren(menu).length) {
+        for (const subMenu of getNodeChildren(menu)) {
+          const subKey = getCardsCacheKey(subMenu.id);
           keys.push(subKey);
           promises.push(
-            getCards(menu.id, subMenu.id)
+            getCardsByCategory(subMenu.id)
               .then(res => res.data)
               .catch(() => cardsCache.value[subKey] || [])
           );
@@ -2590,21 +2503,20 @@ async function loadAllCards() {
   const keys = [];
   
   for (const menu of menus.value) {
-    const key = `${menu.id}_null`;
+    const key = getCardsCacheKey(menu.id);
     keys.push(key);
     promises.push(
-      getCards(menu.id, null)
+      getCardsByCategory(menu.id)
         .then(res => res.data)
         .catch(() => [])
     );
     
-    // 并行加载子分类
-    if (menu.subMenus && menu.subMenus.length) {
-      for (const subMenu of menu.subMenus) {
-        const subKey = `${menu.id}_${subMenu.id}`;
+    if (getNodeChildren(menu).length) {
+      for (const subMenu of getNodeChildren(menu)) {
+        const subKey = getCardsCacheKey(subMenu.id);
         keys.push(subKey);
         promises.push(
-          getCards(menu.id, subMenu.id)
+          getCardsByCategory(subMenu.id)
             .then(res => res.data)
             .catch(() => [])
         );
@@ -2620,9 +2532,8 @@ async function loadAllCards() {
   allCategoryCards.value = tempCards;
 }
 
-// 根据分类ID获取卡片
-function getCategoryCards(menuId, subMenuId) {
-  const key = `${menuId}_${subMenuId}`;
+function getCategoryCards(categoryId) {
+  const key = getCardsCacheKey(categoryId);
   return allCategoryCards.value[key] || [];
 }
 
@@ -2632,7 +2543,7 @@ async function handleSearch() {
     // 站内搜索：遍历所有菜单，查找所有卡片
     let found = false;
     for (const menu of menus.value) {
-      const res = await getCards(menu.id);
+        const res = await getCardsByCategory(menu.id);
       const match = res.data.find(card =>
         card.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
         card.url.toLowerCase().includes(searchQuery.value.toLowerCase())
@@ -2911,7 +2822,7 @@ async function parseUrls() {
     const response = await batchParseUrls(urls);
     
     // 2. 获取所有现有卡片，用于重复检测
-    const existingCardsRes = await getCards(activeMenu.value.id, activeSubMenu.value?.id);
+    const existingCardsRes = await getCardsByCategory(activeCategory.value.id);
     const existingCards = existingCardsRes.data;
     
     // 3. 检测重复并标记
@@ -3002,7 +2913,8 @@ async function addSelectedCards() {
     const response = await batchAddCards(
       activeMenu.value.id,
       activeSubMenu.value?.id || null,
-      cardsToAdd
+      cardsToAdd,
+      activeCategory.value?.id || null
     );
     
     // 构建结果消息
@@ -3312,8 +3224,7 @@ function handleToggleCardSelection(card) {
 function openMovePanel() {
   requireAuth(() => {
     showMovePanel.value = true;
-    targetMenuId.value = activeMenu.value?.id || null;
-    targetSubMenuId.value = activeSubMenu.value?.id || null;
+    targetCategoryId.value = activeCategory.value?.id || null;
   });
 }
 
@@ -3355,29 +3266,43 @@ async function batchDeleteSelected() {
 // ========== 菜单管理（带权限验证）==========
 const showMenuModal = ref(false);
 const menuModalMode = ref('add');
-const menuModalType = ref('menu');
-const editingMenuData = ref({ id: null, name: '', parentId: null, afterId: null, afterSubMenuId: null });
+const menuModalType = ref('root');
+const editingMenuData = ref({ id: null, name: '', parentId: null, afterId: null, afterSubMenuId: null, anchorName: '' });
 const menuModalLoading = ref(false);
 
+const menuModalTitle = computed(() => {
+  if (menuModalMode.value === 'edit') return '编辑分类';
+  if (menuModalType.value === 'child') return '添加下级分类';
+  return '添加分类';
+});
+
+const menuModalPlaceholder = computed(() => {
+  if (menuModalType.value === 'child') return '请输入下级分类名称';
+  return '请输入分类名称';
+});
+
 const menuInsertHint = computed(() => {
-  if (menuModalType.value === 'menu') {
+  if (menuModalType.value === 'root') {
     if (editingMenuData.value.afterId) {
       const targetMenu = menus.value.find(m => m.id === editingMenuData.value.afterId);
       return targetMenu
-        ? `新主菜单会插入到「${targetMenu.name}」后面`
-        : '未选中主菜单时，默认追加到末尾';
+        ? `新一级分类会插入到「${targetMenu.name}」后面`
+        : '未选中一级分类时，默认追加到末尾';
     }
-    return '未选中主菜单时，默认追加到末尾';
+    return '未选中一级分类时，默认追加到末尾';
   }
 
   const parentMenu = menus.value.find(m => m.id === editingMenuData.value.parentId);
   if (editingMenuData.value.afterSubMenuId && parentMenu?.subMenus) {
     const targetSubMenu = parentMenu.subMenus.find(s => s.id === editingMenuData.value.afterSubMenuId);
     return targetSubMenu
-      ? `新子菜单会插入到「${targetSubMenu.name}」后面`
-      : '未选中子菜单时，默认追加到当前主菜单末尾';
+      ? `新下级分类会插入到「${targetSubMenu.name}」后面`
+      : '未选中同级项时，默认追加到当前分类末尾';
   }
-  return '未选中子菜单时，默认追加到当前主菜单末尾';
+  if (parentMenu) {
+    return `新下级分类会添加到「${parentMenu.name}」下`;
+  }
+  return '新下级分类会添加到当前分类下';
 });
 
 function refreshActiveMenuState() {
@@ -3452,41 +3377,43 @@ function handleDeleteSubMenuWithAuth(subMenu, parentMenu) {
 function openAddMenuModal(referenceMenu = null) {
   const targetMenu = referenceMenu || activeMenu.value || null;
   menuModalMode.value = 'add';
-  menuModalType.value = 'menu';
+  menuModalType.value = 'root';
   editingMenuData.value = {
     id: null,
     name: '',
     parentId: null,
     afterId: targetMenu?.id || null,
-    afterSubMenuId: null
+    afterSubMenuId: null,
+    anchorName: targetMenu?.name || ''
   };
   showMenuModal.value = true;
 }
 
 function openEditMenuModal(menu) {
   menuModalMode.value = 'edit';
-  menuModalType.value = 'menu';
-  editingMenuData.value = { id: menu.id, name: menu.name, parentId: null, afterId: null, afterSubMenuId: null };
+  menuModalType.value = 'root';
+  editingMenuData.value = { id: menu.id, name: menu.name, parentId: null, afterId: null, afterSubMenuId: null, anchorName: menu.name };
   showMenuModal.value = true;
 }
 
 function openAddSubMenuModal(parentMenu) {
   menuModalMode.value = 'add';
-  menuModalType.value = 'subMenu';
+  menuModalType.value = 'child';
   editingMenuData.value = {
     id: null,
     name: '',
     parentId: parentMenu.id,
     afterId: null,
-    afterSubMenuId: activeMenu.value?.id === parentMenu.id ? activeSubMenu.value?.id || null : null
+    afterSubMenuId: activeMenu.value?.id === parentMenu.id ? activeSubMenu.value?.id || null : null,
+    anchorName: parentMenu.name
   };
   showMenuModal.value = true;
 }
 
 function openEditSubMenuModal(subMenu, parentMenu) {
   menuModalMode.value = 'edit';
-  menuModalType.value = 'subMenu';
-  editingMenuData.value = { id: subMenu.id, name: subMenu.name, parentId: parentMenu.id, afterId: null, afterSubMenuId: null };
+  menuModalType.value = 'child';
+  editingMenuData.value = { id: subMenu.id, name: subMenu.name, parentId: parentMenu.id, afterId: null, afterSubMenuId: null, anchorName: subMenu.name };
   showMenuModal.value = true;
 }
 
@@ -3527,7 +3454,7 @@ async function saveMenuModal() {
     let newMenuId = null;
     let newSubMenuId = null;
     
-    if (type === 'menu') {
+    if (type === 'root') {
       if (mode === 'add') {
         const res = await addMenu(buildMenuCreatePayload(name, afterId));
         newMenuId = res.data?.id;
@@ -3550,11 +3477,11 @@ async function saveMenuModal() {
     
     // 初始化新分类的缓存
     if (newMenuId) {
-      const cacheKey = getCardsCacheKey(newMenuId, null);
+      const cacheKey = getCardsCacheKey(newMenuId);
       cardsCache.value[cacheKey] = [];
     }
     if (newSubMenuId) {
-      const cacheKey = getCardsCacheKey(parentId, newSubMenuId);
+      const cacheKey = getCardsCacheKey(newSubMenuId);
       cardsCache.value[cacheKey] = [];
     }
     selectInsertedMenuItem(newMenuId, parentId, newSubMenuId);
@@ -3794,8 +3721,7 @@ async function handleMoveSubMenuDown(subMenu, parentMenu, index) {
 // 取消移动
 function cancelMove() {
   showMovePanel.value = false;
-  targetMenuId.value = null;
-  targetSubMenuId.value = null;
+  targetCategoryId.value = null;
 }
 
 // 切换卡片选中状态
@@ -3912,18 +3838,15 @@ const needForceRefresh = ref(false);
 // 移动卡片到指定分类
 const isMovingCards = ref(false);
 
-async function moveCardToCategory(menuId, subMenuId) {
+async function moveCardToCategory(categoryId) {
   if (selectedCards.value.length === 0) return;
   if (isMovingCards.value) return;
   
   isMovingCards.value = true;
+  targetCategoryId.value = categoryId;
   
-  // 过滤掉已经在目标分类中的卡片
   const cardsToMove = selectedCards.value.filter(card => {
-    const cardMenuId = card.menu_id;
-    const cardSubMenuId = card.sub_menu_id || null;
-    const targetSubId = subMenuId || null;
-    return !(cardMenuId === menuId && cardSubMenuId === targetSubId);
+    return card.category_id !== categoryId;
   });
   
   const skippedCount = selectedCards.value.length - cardsToMove.length;
@@ -3949,8 +3872,7 @@ async function moveCardToCategory(menuId, subMenuId) {
     
     for (const card of cardsToMove) {
       const updateData = {
-        menu_id: menuId,
-        sub_menu_id: subMenuId,
+        category_id: categoryId,
         title: card.title,
         url: card.url,
         logo_url: card.logo_url,
@@ -3971,8 +3893,7 @@ async function moveCardToCategory(menuId, subMenuId) {
         // 验证后端返回的数据是否正确
         if (data.success && data.card) {
           const returnedCard = data.card;
-          const isCorrect = returnedCard.menu_id === menuId && 
-            (returnedCard.sub_menu_id === subMenuId || (returnedCard.sub_menu_id === null && subMenuId === null));
+          const isCorrect = returnedCard.category_id === categoryId;
           
           if (isCorrect) {
             successfulMoves.push({ cardId: card.id, newData: returnedCard });
@@ -7147,11 +7068,10 @@ async function saveCardEdit() {
 }
 
 .target-menu-group {
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
-.target-menu-btn,
-.target-submenu-btn {
+.target-menu-btn {
   width: 100%;
   text-align: left;
   padding: 12px 15px;
@@ -7166,28 +7086,31 @@ async function saveCardEdit() {
   margin-bottom: 5px;
 }
 
-.target-menu-btn:hover,
-.target-submenu-btn:hover {
+.target-menu-btn:hover {
   background: #e5e7eb;
   border-color: #1890ff;
 }
 
-.target-menu-btn.active,
-.target-submenu-btn.active {
+.target-menu-btn.active {
   background: linear-gradient(135deg, #1890ff 0%, #69c0ff 100%);
   color: white;
   border-color: #1890ff;
 }
 
-.target-submenu-list {
-  margin-left: 15px;
-  margin-top: 5px;
+.target-menu-btn.is-child {
+  background: #ffffff;
+  font-size: 13px;
 }
 
-.target-submenu-btn {
-  font-size: 13px;
-  padding: 10px 12px;
-  background: #ffffff;
+.target-node-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.target-branch {
+  color: #94a3b8;
+  font-size: 12px;
 }
 
 @media (max-width: 768px) {

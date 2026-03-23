@@ -4,6 +4,7 @@
 // 缓存的菜单数据
 let cachedMenus = [];
 let lastMenuFetchTime = 0;
+let cachedCategoryTree = [];
 const MENU_CACHE_MS = 5 * 60 * 1000; // 5分钟缓存
 let isLoadingMenus = false; // 防止并发请求
 let menuRetryTimer = null; // 菜单获取重试定时器
@@ -181,9 +182,8 @@ async function loadAndCreateCategoryMenus() {
         
         const navServerUrl = config.navUrl.replace(/\/$/, '');
         
-        // 检查缓存
-        if (cachedMenus.length > 0 && Date.now() - lastMenuFetchTime < MENU_CACHE_MS) {
-            createCategorySubMenus(cachedMenus);
+        if (cachedCategoryTree.length > 0 && Date.now() - lastMenuFetchTime < MENU_CACHE_MS) {
+            createCategoryTreeMenus(cachedCategoryTree);
             return;
         }
         
@@ -200,7 +200,7 @@ async function loadAndCreateCategoryMenus() {
         
         try {
             // 添加时间戳参数绕过浏览器缓存
-            const response = await fetch(`${navServerUrl}/api/menus?_t=${Date.now()}`, {
+            const response = await fetch(`${navServerUrl}/api/categories/tree?_t=${Date.now()}`, {
                 signal: controller.signal,
                 cache: 'no-store'
             });
@@ -210,14 +210,13 @@ async function loadAndCreateCategoryMenus() {
                 throw new Error(`HTTP ${response.status}`);
             }
             
-            const menus = await response.json();
+            const categoryTree = await response.json();
             
-            // 验证数据格式
-            if (!Array.isArray(menus)) {
-                throw new Error('菜单数据格式错误');
+            if (!Array.isArray(categoryTree)) {
+                throw new Error('分类数据格式错误');
             }
             
-            cachedMenus = menus;
+            cachedCategoryTree = categoryTree;
             lastMenuFetchTime = Date.now();
             
             // 成功获取菜单后，停止重试定时器
@@ -229,21 +228,21 @@ async function loadAndCreateCategoryMenus() {
             
             // 持久化缓存到storage（离线可用）
             await chrome.storage.local.set({ 
-                cachedMenus: menus,
+                cachedCategoryTree: categoryTree,
                 lastMenuFetchTime: Date.now()
             });
             
-            createCategorySubMenus(menus);
+            createCategoryTreeMenus(categoryTree);
         } catch (fetchError) {
             clearTimeout(timeoutId);
             
             // 如果网络失败，尝试从storage加载缓存
-            if (cachedMenus.length === 0) {
-                const stored = await chrome.storage.local.get(['cachedMenus', 'lastMenuFetchTime']);
-                if (stored.cachedMenus && Array.isArray(stored.cachedMenus)) {
-                    cachedMenus = stored.cachedMenus;
+            if (cachedCategoryTree.length === 0) {
+                const stored = await chrome.storage.local.get(['cachedCategoryTree', 'lastMenuFetchTime']);
+                if (stored.cachedCategoryTree && Array.isArray(stored.cachedCategoryTree)) {
+                    cachedCategoryTree = stored.cachedCategoryTree;
                     lastMenuFetchTime = stored.lastMenuFetchTime || 0;
-                    createCategorySubMenus(cachedMenus);
+                    createCategoryTreeMenus(cachedCategoryTree);
                     return;
                 }
             }
@@ -320,6 +319,62 @@ function createCategorySubMenus(menus) {
     });
 }
 
+function createCategoryTreeMenus(categories, parentId = 'nav_category_parent', depth = 0) {
+    if (!Array.isArray(categories) || categories.length === 0) return;
+
+    const maxItems = depth === 0 ? 12 : 8;
+    categories.slice(0, maxItems).forEach(category => {
+        const children = category.children || [];
+        const hasChildren = children.length > 0;
+
+        try {
+            if (hasChildren) {
+                const branchId = `nav_category_branch_${category.id}`;
+                chrome.contextMenus.create({
+                    id: branchId,
+                    parentId,
+                    title: category.name || '未命名分类',
+                    contexts: ['page', 'link']
+                });
+
+                chrome.contextMenus.create({
+                    id: `nav_category_${category.id}`,
+                    parentId: branchId,
+                    title: `📁 ${category.name}（当前分类）`,
+                    contexts: ['page', 'link']
+                });
+
+                chrome.contextMenus.create({
+                    id: `nav_category_sep_${category.id}`,
+                    parentId: branchId,
+                    type: 'separator',
+                    contexts: ['page', 'link']
+                });
+
+                createCategoryTreeMenus(children, branchId, depth + 1);
+            } else {
+                chrome.contextMenus.create({
+                    id: `nav_category_${category.id}`,
+                    parentId,
+                    title: category.name || '未命名分类',
+                    contexts: ['page', 'link']
+                });
+            }
+        } catch (e) {
+            console.error(`创建分类菜单失败 (${category.name}):`, e.message);
+        }
+    });
+}
+
+function normalizeCategoryTreeToMenus(categories = []) {
+    return (categories || []).map(category => ({
+        id: category.id,
+        name: category.name,
+        order: category.sort_order || 0,
+        subMenus: normalizeCategoryTreeToMenus(category.children || [])
+    }));
+}
+
 // 刷新分类菜单
 async function refreshCategoryMenus() {
     try {
@@ -329,7 +384,8 @@ async function refreshCategoryMenus() {
         // 强制清空所有缓存
         lastMenuFetchTime = 0;
         cachedMenus = [];
-        await chrome.storage.local.remove(['cachedMenus', 'lastMenuFetchTime']);
+        cachedCategoryTree = [];
+        await chrome.storage.local.remove(['cachedMenus', 'cachedCategoryTree', 'lastMenuFetchTime']);
         
         // 重新注册所有菜单（会自动获取最新数据）
         await registerContextMenus();
@@ -388,6 +444,11 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
             }
             return;
         }
+
+        if (String(info.menuItemId).startsWith('nav_category_') || String(info.menuItemId).startsWith('nav_menu_') || String(info.menuItemId).startsWith('nav_submenu_')) {
+            await addToSpecificCategory(String(info.menuItemId), url, title, tabId);
+            return;
+        }
     } catch (e) {
         console.error('处理右键菜单失败:', e);
         showNotification('操作失败', e.message || '请稍后重试');
@@ -397,15 +458,17 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 // 添加到指定分类
 async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
     try {
-        let menuId, subMenuId = null;
-        
-        if (menuItemId.startsWith('nav_submenu_')) {
-            // nav_submenu_menuId_subMenuId
+        let categoryId = null;
+        let menuId = null;
+        let subMenuId = null;
+
+        if (menuItemId.startsWith('nav_category_')) {
+            categoryId = parseInt(menuItemId.replace('nav_category_', ''));
+        } else if (menuItemId.startsWith('nav_submenu_')) {
             const parts = menuItemId.replace('nav_submenu_', '').split('_');
             menuId = parseInt(parts[0]);
             subMenuId = parseInt(parts[1]);
         } else {
-            // nav_menu_menuId
             menuId = parseInt(menuItemId.replace('nav_menu_', ''));
         }
         
@@ -432,6 +495,7 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
+                category_id: categoryId,
                 menu_id: menuId,
                 sub_menu_id: subMenuId,
                 cards: [card]
@@ -449,7 +513,11 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
         const result = await response.json();
         
         // 保存为上次使用的分类
-        await chrome.storage.sync.set({ lastMenuId: menuId.toString(), lastSubMenuId: subMenuId?.toString() || '' });
+        await chrome.storage.sync.set({
+            lastCategoryId: categoryId?.toString() || '',
+            lastMenuId: menuId?.toString() || '',
+            lastSubMenuId: subMenuId?.toString() || ''
+        });
         
       if (result.added > 0) {
           showNotification('添加成功', `已添加到导航页`);
@@ -473,10 +541,10 @@ async function addToSpecificCategory(menuItemId, url, title, tabId = null) {
 // 快速添加（使用上次分类）
 async function quickAddToNav(url, title, tabId = null) {
     try {
-        const config = await chrome.storage.sync.get(['navUrl', 'lastMenuId', 'lastSubMenuId']);
+        const config = await chrome.storage.sync.get(['navUrl', 'lastCategoryId', 'lastMenuId', 'lastSubMenuId']);
         const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
         
-        if (!config.navUrl || !config.lastMenuId) {
+        if (!config.navUrl || (!config.lastCategoryId && !config.lastMenuId)) {
             throw { needAuth: false, error: '请先添加一次书签以设置默认分类' };
         }
         
@@ -496,6 +564,7 @@ async function quickAddToNav(url, title, tabId = null) {
                 'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
+                category_id: config.lastCategoryId ? parseInt(config.lastCategoryId) : null,
                 menu_id: parseInt(config.lastMenuId),
                 sub_menu_id: config.lastSubMenuId ? parseInt(config.lastSubMenuId) : null,
                 cards: [card]
@@ -898,9 +967,11 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     }
     
     if (request.action === 'addToCategory') {
-        const menuItemId = request.subMenuId 
-            ? `nav_submenu_${request.menuId}_${request.subMenuId}`
-            : `nav_menu_${request.menuId}`;
+        const menuItemId = request.categoryId
+            ? `nav_category_${request.categoryId}`
+            : (request.subMenuId 
+                ? `nav_submenu_${request.menuId}_${request.subMenuId}`
+                : `nav_menu_${request.menuId}`);
         addToSpecificCategory(menuItemId, request.url, request.title || document.title, null)
             .then(result => sendResponse({ success: true, ...result }))
             .catch(e => {
@@ -940,13 +1011,15 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 }
                 
                 // 添加时间戳参数绕过浏览器缓存
-                const response = await fetch(`${navServerUrl}/api/menus?_t=${Date.now()}`, {
+                const response = await fetch(`${navServerUrl}/api/categories/tree?_t=${Date.now()}`, {
                     cache: 'no-store'
                 });
                 if (!response.ok) throw new Error('获取失败');
                 
-                const menus = await response.json();
+                const categoryTree = await response.json();
+                const menus = normalizeCategoryTreeToMenus(categoryTree);
                 cachedMenus = menus;
+                cachedCategoryTree = categoryTree;
                 lastMenuFetchTime = Date.now();
                 sendResponse({ success: true, menus });
             } catch (e) {
@@ -977,7 +1050,7 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
     
     if (request.action === 'getConfig') {
         (async () => {
-            const config = await chrome.storage.sync.get(['navUrl', 'lastMenuId', 'lastSubMenuId']);
+            const config = await chrome.storage.sync.get(['navUrl', 'lastCategoryId', 'lastMenuId', 'lastSubMenuId']);
             const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
             sendResponse({ ...config, hasToken: !!token });
         })();

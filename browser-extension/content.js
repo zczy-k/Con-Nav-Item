@@ -1135,21 +1135,13 @@
             if (!selectedMenuId) return;
             
             try {
-                // 找到选中的分类名称
-                const menu = allMenus.find(m => m.id === selectedMenuId);
-                let categoryName = menu ? menu.name : '';
-                let subMenuName = '';
-                
-                if (selectedSubMenuId && menu && menu.subMenus) {
-                    const subMenu = menu.subMenus.find(s => s.id === selectedSubMenuId);
-                    if (subMenu) {
-                        subMenuName = subMenu.name;
-                        categoryName += ' / ' + subMenuName;
-                    }
-                }
+                const menu = findNodeById(allMenus, selectedMenuId);
+                const categoryName = buildCategoryPath(selectedMenuId, selectedSubMenuId || selectedMenuId);
+                const subMenuName = selectedSubMenuId ? (findNodeById(getNodeChildren(menu), selectedSubMenuId)?.name || '') : '';
                 
                 // 保存为默认分类
                 await chrome.storage.sync.set({
+                    lastCategoryId: selectedSubMenuId || selectedMenuId,
                     defaultMenuId: selectedMenuId,
                     defaultSubMenuId: selectedSubMenuId || null,
                     defaultMenuName: menu?.name || '',
@@ -1159,6 +1151,7 @@
                 });
                 
                 // 更新本地变量
+                lastCategoryId = String(selectedCategoryId || selectedSubMenuId || selectedMenuId);
                 lastMenuId = selectedMenuId.toString();
                 lastSubMenuId = selectedSubMenuId?.toString() || null;
                 
@@ -1222,7 +1215,11 @@
               // 快速添加也进入确认步骤
               const menuId = parseInt(lastMenuId);
               const subMenuId = lastSubMenuId ? parseInt(lastSubMenuId) : null;
-              selectCategory(menuId, subMenuId);
+              if (lastCategoryId) {
+                  syncLegacySelectionFromCategory(parseInt(lastCategoryId));
+              } else {
+                  selectCategory(menuId, subMenuId);
+              }
               toggleStep('confirmation');
           });
           
@@ -1249,12 +1246,7 @@
                   
                   // 更新确认信息
                   const customTitle = dialogShadowRoot.getElementById('customTitle').value;
-                  const menu = allMenus.find(m => m.id === selectedMenuId);
-                  let categoryPath = menu ? menu.name : '';
-                  if (selectedSubMenuId && menu && menu.subMenus) {
-                      const subMenu = menu.subMenus.find(s => s.id === selectedSubMenuId);
-                      if (subMenu) categoryPath += ' / ' + subMenu.name;
-                  }
+                  const categoryPath = buildCategoryPath(selectedMenuId, selectedSubMenuId || selectedMenuId);
                   
                   dialogShadowRoot.getElementById('confirmTitleText').textContent = customTitle;
                   dialogShadowRoot.getElementById('confirmCategoryText').textContent = categoryPath;
@@ -1316,6 +1308,7 @@
           isAddingSubCategory = null;
           isReorderMode = false;
           reorderInFlight = false;
+          selectedCategoryId = null;
           selectedMenuId = null;
           selectedSubMenuId = null;
           currentStep = 'selection';
@@ -1330,8 +1323,10 @@
     
     // 存储分类数据
     let allMenus = [];
+    let selectedCategoryId = null;
     let selectedMenuId = null;
     let selectedSubMenuId = null;
+    let lastCategoryId = null;
     let lastMenuId = null;
     let lastSubMenuId = null;
       let isAuthenticated = false;
@@ -1359,6 +1354,63 @@
             return selectedSubMenuId;
         }
         return null;
+    }
+
+    function getNodeChildren(node) {
+        return node?.subMenus || node?.children || [];
+    }
+
+    function findNodeById(nodes, targetId) {
+        for (const node of nodes || []) {
+            if (node.id === targetId) return node;
+            const found = findNodeById(getNodeChildren(node), targetId);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function buildCategoryPath(menuId, categoryId = null) {
+        const root = findNodeById(allMenus, menuId);
+        if (!root) return '';
+        if (!categoryId || categoryId === menuId) return root.name || '';
+
+        const names = [root.name || ''];
+        let found = false;
+        const walk = (nodes) => {
+            for (const node of nodes || []) {
+                names.push(node.name || '');
+                if (node.id === categoryId) {
+                    found = true;
+                    return;
+                }
+                walk(getNodeChildren(node));
+                if (found) return;
+                names.pop();
+            }
+        };
+        walk(getNodeChildren(root));
+        return names.filter(Boolean).join(' / ');
+    }
+
+    function syncLegacySelectionFromCategory(categoryId) {
+        selectedCategoryId = categoryId || null;
+        selectedMenuId = null;
+        selectedSubMenuId = null;
+
+        if (!categoryId) return;
+
+        for (const root of allMenus) {
+            if (root.id === categoryId) {
+                selectedMenuId = root.id;
+                return;
+            }
+            const child = findNodeById(getNodeChildren(root), categoryId);
+            if (child) {
+                selectedMenuId = root.id;
+                selectedSubMenuId = child.id;
+                return;
+            }
+        }
     }
 
     function scrollToSelectedCategory() {
@@ -1473,6 +1525,7 @@
         try {
             // 先检查是否已有 token
             const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
+            lastCategoryId = config.lastCategoryId;
             lastMenuId = config.lastMenuId;
             lastSubMenuId = config.lastSubMenuId;
             
@@ -1527,11 +1580,7 @@
             if (lastMenuId) {
                 const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
                 if (lastMenu) {
-                    let categoryName = lastMenu.name;
-                    if (lastSubMenuId && lastMenu.subMenus) {
-                        const lastSubMenu = lastMenu.subMenus.find(s => s.id.toString() === lastSubMenuId);
-                        if (lastSubMenu) categoryName += ' / ' + lastSubMenu.name;
-                    }
+                    const categoryName = buildCategoryPath(lastMenu.id, lastSubMenuId ? parseInt(lastSubMenuId) : lastMenu.id);
                     
                     const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
                     const quickAddText = dialogShadowRoot.getElementById('quickAddText');
@@ -1555,6 +1604,7 @@
     async function loadCategoriesAfterAuth(url, title) {
         try {
             const config = await chrome.runtime.sendMessage({ action: 'getConfig' });
+            lastCategoryId = config.lastCategoryId;
             lastMenuId = config.lastMenuId;
             lastSubMenuId = config.lastSubMenuId;
             
@@ -1572,11 +1622,7 @@
             if (lastMenuId) {
                 const lastMenu = allMenus.find(m => m.id.toString() === lastMenuId);
                 if (lastMenu) {
-                    let categoryName = lastMenu.name;
-                    if (lastSubMenuId && lastMenu.subMenus) {
-                        const lastSubMenu = lastMenu.subMenus.find(s => s.id.toString() === lastSubMenuId);
-                        if (lastSubMenu) categoryName += ' / ' + lastSubMenu.name;
-                    }
+                    const categoryName = buildCategoryPath(lastMenu.id, lastSubMenuId ? parseInt(lastSubMenuId) : lastMenu.id);
                     
                     const quickAddSection = dialogShadowRoot.getElementById('quickAddSection');
                     const quickAddText = dialogShadowRoot.getElementById('quickAddText');
@@ -1727,81 +1773,70 @@ if (response.success) {
             return;
         }
         
-        menus.forEach(menu => {
-            const menuMatch = !term || menu.name.toLowerCase().includes(term);
-            const subMatches = (menu.subMenus || []).filter(sub => 
-                !term || sub.name.toLowerCase().includes(term)
-            );
-            
-            if (menuMatch || subMatches.length > 0) {
-                const isSelected = selectedMenuId === menu.id && !selectedSubMenuId;
-                const hasChildren = menu.subMenus && menu.subMenus.length > 0;
-                const childCount = menu.subMenus?.length || 0;
-                const menuIndex = menus.findIndex(item => item.id === menu.id);
-                const canMoveMenuUp = menuIndex > 0;
-                const canMoveMenuDown = menuIndex < menus.length - 1;
-                // 搜索时自动展开，否则保持用户的展开状态
-                const shouldExpand = term ? true : expandedMenus.has(menu.id);
-                
-                html += `<div class="category-group">`;
-                html += `
-                    <div class="category-item parent ${isSelected ? 'selected' : ''}" 
-                         data-menu-id="${menu.id}"
-                         data-has-children="${hasChildren}">
-                        <span class="icon">📁</span>
-                        <span class="name">${escapeHtml(menu.name)}</span>
-                        ${hasChildren ? `<span class="count">${childCount}</span>` : ''}
-                        <div class="category-actions">
-                            ${isReorderMode ? `
-                                <button class="reorder-btn" data-reorder-type="menu-up" data-menu-id="${menu.id}" ${canMoveMenuUp ? '' : 'disabled'} title="上移">↑</button>
-                                <button class="reorder-btn" data-reorder-type="menu-down" data-menu-id="${menu.id}" ${canMoveMenuDown ? '' : 'disabled'} title="下移">↓</button>
-                            ` : ''}
-                            <button class="add-sub-btn" data-parent-id="${menu.id}" title="添加子分类">➕</button>
-                        </div>
-                        ${hasChildren ? `<span class="category-toggle ${shouldExpand ? 'expanded' : ''}">▶</span>` : ''}
+        const matchesNode = node => {
+            if (!term) return true;
+            if ((node.name || '').toLowerCase().includes(term)) return true;
+            return getNodeChildren(node).some(child => matchesNode(child));
+        };
+
+        const renderNode = (node, rootId, depth, siblings) => {
+            if (!matchesNode(node)) return '';
+
+            const isRoot = depth === 0;
+            const children = getNodeChildren(node).filter(child => matchesNode(child));
+            const hasChildren = children.length > 0;
+            const isSelected = isRoot
+                ? selectedMenuId === node.id && !selectedSubMenuId
+                : selectedMenuId === rootId && selectedSubMenuId === node.id;
+            const shouldExpand = term ? true : expandedMenus.has(node.id) || expandedMenus.has(rootId);
+            const nodeIndex = siblings.findIndex(item => item.id === node.id);
+            const canMoveUp = nodeIndex > 0;
+            const canMoveDown = nodeIndex < siblings.length - 1;
+
+            let nodeHtml = isRoot ? `<div class="category-group">` : '';
+            nodeHtml += `
+                <div class="category-item ${isRoot ? 'parent' : 'child'} ${isSelected ? 'selected' : ''} ${isReorderMode ? 'reordering' : ''}"
+                     data-menu-id="${rootId}"
+                     ${isRoot ? '' : `data-submenu-id="${node.id}"`}
+                     data-has-children="${hasChildren}"
+                     style="padding-left:${isRoot ? 16 : 16 + depth * 18}px">
+                    ${isRoot ? '<span class="icon">📁</span>' : ''}
+                    <span class="name">${escapeHtml(node.name)}</span>
+                    ${hasChildren ? `<span class="count">${children.length}</span>` : ''}
+                    <div class="category-actions">
+                        ${isReorderMode && depth <= 1 ? `
+                            <button class="reorder-btn" data-reorder-type="${depth === 0 ? 'menu' : 'sub'}-up" data-menu-id="${rootId}" ${!isRoot ? `data-submenu-id="${node.id}"` : ''} ${canMoveUp ? '' : 'disabled'} title="上移">↑</button>
+                            <button class="reorder-btn" data-reorder-type="${depth === 0 ? 'menu' : 'sub'}-down" data-menu-id="${rootId}" ${!isRoot ? `data-submenu-id="${node.id}"` : ''} ${canMoveDown ? '' : 'disabled'} title="下移">↓</button>
+                        ` : ''}
+                        ${depth === 0 ? `<button class="add-sub-btn" data-parent-id="${node.id}" title="添加子分类">➕</button>` : ''}
                     </div>
-                `;
-                
-                // 子分类区域
-                const showSubContainer = hasChildren || isAddingSubCategory === menu.id;
-                if (showSubContainer) {
-                    html += `<div class="sub-categories ${shouldExpand || isAddingSubCategory === menu.id ? 'show' : ''}" data-parent="${menu.id}">`;
-                    
-                    // 新建子分类的输入框
-                    if (isAddingSubCategory === menu.id && !term) {
-                        html += `
-                            <div class="inline-input-wrapper sub" id="newSubCategoryWrapper">
-                                <input type="text" class="inline-input" id="newSubCategoryInput" placeholder="输入子分类名称..." maxlength="20" autofocus>
-                                <button class="inline-btn confirm" id="confirmNewSubCategory" data-parent-id="${menu.id}">确定</button>
-                                <button class="inline-btn cancel" id="cancelNewSubCategory">取消</button>
-                            </div>
-                        `;
-                    }
-                    
-                    const subsToShow = term ? subMatches : (menu.subMenus || []);
-                    subsToShow.forEach((sub, subIndex) => {
-                        const isSubSelected = selectedMenuId === menu.id && selectedSubMenuId === sub.id;
-                        const canMoveSubUp = subIndex > 0;
-                        const canMoveSubDown = subIndex < subsToShow.length - 1;
-                        html += `
-                            <div class="category-item child ${isSubSelected ? 'selected' : ''} ${isReorderMode ? 'reordering' : ''}" 
-                                 data-menu-id="${menu.id}"
-                                 data-submenu-id="${sub.id}">
-                                <span class="name">${escapeHtml(sub.name)}</span>
-                                ${isReorderMode ? `
-                                    <div class="category-actions">
-                                        <button class="reorder-btn" data-reorder-type="sub-up" data-menu-id="${menu.id}" data-submenu-id="${sub.id}" ${canMoveSubUp ? '' : 'disabled'} title="上移">↑</button>
-                                        <button class="reorder-btn" data-reorder-type="sub-down" data-menu-id="${menu.id}" data-submenu-id="${sub.id}" ${canMoveSubDown ? '' : 'disabled'} title="下移">↓</button>
-                                    </div>
-                                ` : ''}
-                            </div>
-                        `;
-                    });
-                    
-                    html += '</div>';
+                    ${hasChildren ? `<span class="category-toggle ${shouldExpand ? 'expanded' : ''}">▶</span>` : ''}
+                </div>
+            `;
+
+            if (hasChildren || (isAddingSubCategory === node.id && depth === 0)) {
+                nodeHtml += `<div class="sub-categories ${shouldExpand || isAddingSubCategory === node.id ? 'show' : ''}" data-parent="${node.id}">`;
+                if (isAddingSubCategory === node.id && depth === 0 && !term) {
+                    nodeHtml += `
+                        <div class="inline-input-wrapper sub" id="newSubCategoryWrapper">
+                            <input type="text" class="inline-input" id="newSubCategoryInput" placeholder="输入子分类名称..." maxlength="20" autofocus>
+                            <button class="inline-btn confirm" id="confirmNewSubCategory" data-parent-id="${node.id}">确定</button>
+                            <button class="inline-btn cancel" id="cancelNewSubCategory">取消</button>
+                        </div>
+                    `;
                 }
-                html += `</div>`;
+                children.forEach(child => {
+                    nodeHtml += renderNode(child, rootId, depth + 1, children);
+                });
+                nodeHtml += `</div>`;
             }
+
+            if (isRoot) nodeHtml += `</div>`;
+            return nodeHtml;
+        };
+
+        menus.forEach(menu => {
+            html += renderNode(menu, menu.id, 0, menus);
         });
         
         // 没有匹配项时的提示
@@ -2113,8 +2148,7 @@ if (response.success) {
     
     // 选中分类
     function selectCategory(menuId, subMenuId) {
-        selectedMenuId = menuId;
-        selectedSubMenuId = subMenuId;
+        syncLegacySelectionFromCategory(subMenuId || menuId);
         
         // 更新选中状态
         const categoryList = dialogShadowRoot.getElementById('categoryList');
@@ -2154,7 +2188,7 @@ if (response.success) {
     
     // 快速添加到上次分类
     async function quickAddToLast(url) {
-        if (!lastMenuId) return;
+        if (!lastCategoryId && !lastMenuId) return;
         
         const quickAddBtn = dialogShadowRoot.getElementById('quickAddBtn');
         quickAddBtn.disabled = true;
@@ -2166,6 +2200,7 @@ if (response.success) {
             
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
+                categoryId: lastCategoryId || lastSubMenuId || lastMenuId,
                 menuId: lastMenuId,
                 subMenuId: lastSubMenuId,
                 url: url,
@@ -2211,6 +2246,7 @@ if (response.success) {
             
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',
+                categoryId: selectedCategoryId || selectedSubMenuId || selectedMenuId,
                 menuId: selectedMenuId.toString(),
                 subMenuId: selectedSubMenuId?.toString(),
                 url: url,
