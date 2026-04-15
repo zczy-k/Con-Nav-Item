@@ -4212,6 +4212,53 @@ async function createQuickTag() {
   }
 }
 
+function getFriendlyAIErrorMessage(err) {
+  const status = err.response?.status;
+  const serverMessage = err.response?.data?.message || err.response?.data?.error || '';
+  const rawMessage = String(serverMessage || err.message || '').trim();
+  const lowerMessage = rawMessage.toLowerCase();
+
+  if (!err.response) {
+    if (lowerMessage.includes('no such host') || lowerMessage.includes('enotfound') || lowerMessage.includes('lookup')) {
+      return 'AI 服务地址无法解析，请检查后台配置的 API 域名是否正确。';
+    }
+    if (lowerMessage.includes('econnrefused') || lowerMessage.includes('connection refused')) {
+      return 'AI 服务连接被拒绝，请检查后台配置的服务地址和端口是否可用。';
+    }
+    if (lowerMessage.includes('timeout') || lowerMessage.includes('aborted') || lowerMessage.includes('econnaborted')) {
+      return 'AI 服务响应超时，请稍后重试，或在后台调整请求超时时间。';
+    }
+    return '无法连接到 AI 服务，请检查网络或后台 AI 配置。';
+  }
+
+  if (status === 400) {
+    return serverMessage || 'AI 请求参数有误，请检查卡片网址和后台 AI 配置。';
+  }
+  if (status === 401) {
+    return 'AI 配置已过期，请重新输入管理密码后再试。';
+  }
+  if (status === 403) {
+    return serverMessage || 'AI 服务拒绝了本次请求，请检查 API Key 或权限配置。';
+  }
+  if (status === 404) {
+    return 'AI 接口地址不存在，请检查后台配置的 Base URL 是否正确。';
+  }
+  if (status === 429) {
+    return 'AI 请求过于频繁或额度已用尽，请稍后再试。';
+  }
+  if (status >= 500) {
+    if (lowerMessage.includes('no such host') || lowerMessage.includes('lookup')) {
+      return 'AI 服务地址无法解析，请检查后台配置的 API 域名是否正确。';
+    }
+    if (lowerMessage.includes('api request failed (500)')) {
+      return 'AI 服务调用失败，请检查后台配置的模型、接口地址或服务商状态。';
+    }
+    return serverMessage || 'AI 服务暂时不可用，请稍后重试或检查后台配置。';
+  }
+
+  return serverMessage || 'AI 服务不可用，请先在后台检查 AI 配置。';
+}
+
 // AI 生成名称
 async function generateAIName() {
   if (!cardEditForm.value.url) {
@@ -4246,8 +4293,7 @@ async function generateAIName() {
       showPasswordModal.value = true;
       authError.value = '登录已过期，请重新输入密码';
     } else {
-      const msg = err.response?.data?.message || 'AI 服务不可用，请先在后台配置';
-      showToastMessage(msg, 'error');
+      showToastMessage(getFriendlyAIErrorMessage(err), 'error');
     }
   } finally {
     aiGeneratingName.value = false;
@@ -4288,8 +4334,7 @@ async function generateAIDescription() {
       showPasswordModal.value = true;
       authError.value = '登录已过期，请重新输入密码';
     } else {
-      const msg = err.response?.data?.message || 'AI 服务不可用，请先在后台配置';
-      showToastMessage(msg, 'error');
+      showToastMessage(getFriendlyAIErrorMessage(err), 'error');
     }
   } finally {
     aiGenerating.value = false;
@@ -4362,8 +4407,7 @@ async function generateAITags() {
       showPasswordModal.value = true;
       authError.value = '登录已过期，请重新输入密码';
     } else {
-      const msg = err.response?.data?.message || 'AI 服务不可用，请先在后台配置';
-      showToastMessage(msg, 'error');
+      showToastMessage(getFriendlyAIErrorMessage(err), 'error');
     }
   } finally {
     aiGeneratingTags.value = false;
