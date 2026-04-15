@@ -105,11 +105,8 @@ do_install() {
     cd "$INSTALL_DIR"
     
     yellow "  → 安装依赖与构建..."
-    npm install --silent 2>/dev/null
-    cd web
-    npm install --silent 2>/dev/null
+    npm run install:all >/dev/null 2>&1
     npm run build >/dev/null 2>&1
-    cd ..
     green "  ✔ 项目安装与构建完成"
     
     # 配置环境
@@ -137,6 +134,7 @@ do_install() {
     read -p "设置运行端口 [3000]: " PORT
     PORT=${PORT:-3000}
     JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
+    CRYPTO_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('base64'))")
     
     cat > "$INSTALL_DIR/.env" <<EOF
 PORT=${PORT}
@@ -144,6 +142,7 @@ ADMIN_USERNAME=${ADMIN_USER}
 ADMIN_PASSWORD=${ADMIN_PASS}
 NODE_ENV=production
 JWT_SECRET=${JWT_SECRET}
+CRYPTO_SECRET=${CRYPTO_SECRET}
 EOF
     chmod 600 "$INSTALL_DIR/.env"
     green "✓ 配置文件已生成"

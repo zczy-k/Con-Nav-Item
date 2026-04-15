@@ -1,5 +1,3 @@
-version: '3'
-
 services:
   Con-Nav-Item:
     image: ghcr.io/zczy-k/con-nav-item:latest
@@ -12,6 +10,7 @@ services:
       - ADMIN_USERNAME=admin           # 后台用户名
       - ADMIN_PASSWORD=123456          # 后台密码
       - JWT_SECRET=change-this-secret  # JWT密钥（必须修改！）
+      - CRYPTO_SECRET=change-this-too  # 敏感配置加密密钥（必须修改并持久保存）
     volumes:
       - ./database:/app/database       # 持久化数据库文件
       - ./backups:/app/backups         # 持久化本地备份文件

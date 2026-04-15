@@ -114,17 +114,19 @@ do_install() {
     
     # 依赖安装
     yellow "  [4/5] 安装依赖（可能需要几分钟）..."
-    npm install --silent 2>/dev/null || npm install
+    npm run install:all >/dev/null 2>&1 || npm run install:all
     
     # 生成配置
     yellow "  [5/5] 生成配置文件..."
     if [ ! -f ".env" ]; then
         JWT_SECRET=$(node -e "console.log(require('crypto').randomBytes(64).toString('base64'))")
+        CRYPTO_SECRET=$(node -e "console.log(require('crypto').randomBytes(48).toString('base64'))")
         cat > ".env" <<EOF
 ADMIN_USERNAME=admin
 ADMIN_PASSWORD=123456
 NODE_ENV=production
 JWT_SECRET=${JWT_SECRET}
+CRYPTO_SECRET=${CRYPTO_SECRET}
 EOF
         chmod 600 ".env"
         green "      ✔ 新配置文件已生成"
