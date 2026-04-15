@@ -8,7 +8,10 @@
 
     <!-- 头部添加区域 -->
     <div class="promo-header">
-      <h2 class="page-title">宣传管理</h2>
+      <div>
+        <h2 class="page-title">宣传位管理</h2>
+        <p class="page-desc">配置首页宣传内容与展示位置，属于站点运营内容维护。</p>
+      </div>
       <div class="promo-form">
         <input v-model="form.img" placeholder="宣传图片链接" class="input" />
         <input v-model="form.url" placeholder="宣传跳转链接" class="input" />

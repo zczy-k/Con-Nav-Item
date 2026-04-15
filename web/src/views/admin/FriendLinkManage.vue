@@ -1,6 +1,11 @@
-﻿<template>
+<template>
   <div class="friend-manage">
-    <div class="friend-header"></div>
+    <div class="friend-header">
+      <div class="header-content">
+        <h2 class="page-title">友情链接管理</h2>
+        <p class="page-desc">管理首页友情链接的名称、地址与展示信息。</p>
+      </div>
+    </div>
     <div class="friend-add">
       <input v-model="newTitle" placeholder="网站名" class="input" />
       <input v-model="newUrl" placeholder="网站链接" class="input" />

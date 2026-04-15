@@ -1,6 +1,10 @@
 ﻿<template>
   <div class="user-manage">
     <div class="user-header">
+      <div class="header-content">
+        <h2 class="page-title">用户与权限</h2>
+        <p class="page-desc">管理后台登录账号、用户名和密码，确保系统访问安全。</p>
+      </div>
     </div>
     
     <div class="user-card">

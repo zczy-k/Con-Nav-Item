@@ -8,8 +8,6 @@
     <link rel="icon" type="image/png" href="/icons/icon-192x192.png" />
     <meta name="description" content="个人导航页面，提供常用网站链接和工具集合，让您快速访问常用资源" />
     <meta name="keywords" content="导航,常用网站,工具集合,个人导航,快速访问" />
-    <!-- PWA Manifest -->
-    <link rel="manifest" href="/manifest.json" />
       <meta name="theme-color" content="#1a1a1a" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -22,29 +20,5 @@
   <body style="margin:0;padding:0;background:#1a1a1a;">
     <div id="app" style="min-height:100vh;background:#1a1a1a;"></div>
     <script type="module" src="/src/main.js"></script>
-    <!-- PWA Service Worker 注册 -->
-    <script>
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js')
-            .then(registration => {
-              // 检查更新
-              registration.addEventListener('updatefound', () => {
-                const newWorker = registration.installing;
-                newWorker.addEventListener('statechange', () => {
-                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                    // 可选：提示用户刷新
-                    if (confirm('发现新版本，是否立即更新？')) {
-                      newWorker.postMessage({ type: 'SKIP_WAITING' });
-                      window.location.reload();
-                    }
-                  }
-                });
-              });
-            })
-            .catch(() => {});
-        });
-      }
-    </script>
   </body>
 </html>

@@ -7,8 +7,7 @@ let selectedBookmarks = new Set();
 let editingItem = null;
 let draggedBookmark = null;
 let bookmarkUsageCache = new Map(); // 使用频率缓存
-let currentSortOrder = 'smart'; // 当前排序方式
-let autoSortInterval = null; // 自动排序定时器
+let currentSortOrder = 'recent'; // 当前排序方式
 let bookmarkTags = new Map(); // 书签标签映射 {bookmarkId: [tags]}
 let allTags = new Set(); // 所有标签集合
 let currentTagFilters = []; // 当前标签筛选（支持多标签）
@@ -68,6 +67,7 @@ function setupDropdowns() {
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+    currentSortOrder = normalizeSortOrder(currentSortOrder);
     await loadUsageData();
     await loadTags();
     await loadNotes();
@@ -75,6 +75,10 @@ async function init() {
     await loadBookmarks();
     setupDropdowns();
     bindEvents();
+    const sortOrderSelect = document.getElementById('sortOrder');
+    if (sortOrderSelect) {
+        sortOrderSelect.value = currentSortOrder;
+    }
     renderTagCloud();
     updateViewModeButtons();
     // 预加载导航页配置
@@ -93,7 +97,6 @@ function handleUrlParams() {
     const addToNav = urlParams.get('addToNav');
     const url = urlParams.get('url');
     const title = urlParams.get('title');
-    const openCloudBackup = urlParams.get('openCloudBackup');
     const menuId = urlParams.get('menuId');
     const subMenuId = urlParams.get('subMenuId');
     
@@ -112,17 +115,6 @@ function handleUrlParams() {
         // 延迟显示弹窗，等待页面完全加载
         setTimeout(() => {
             showAddToNavModalDirect();
-        }, 500);
-        
-        // 清除URL参数
-        window.history.replaceState({}, document.title, window.location.pathname);
-    }
-    
-    // 处理打开云备份设置的请求
-    if (openCloudBackup === 'true') {
-        // 延迟显示云备份弹窗，等待页面完全加载
-        setTimeout(() => {
-            showCloudBackupModal();
         }, 500);
         
         // 清除URL参数
@@ -186,59 +178,6 @@ async function loadUsageData() {
     }
 }
 
-// 保存使用频率数据
-async function saveUsageData() {
-    try {
-        const obj = Object.fromEntries(bookmarkUsageCache);
-        await chrome.storage.local.set({ bookmarkUsage: obj });
-    } catch (e) {
-        console.error('保存使用数据失败:', e);
-    }
-}
-
-// ==================== 标签管理功能 ====================
-
-// 按文件夹为书签打标签
-async function tagBookmarksByFolder() {
-    const allBookmarksList = [];
-    collectAllBookmarks(allBookmarks, allBookmarksList);
-    
-    let taggedCount = 0;
-    for (const bookmark of allBookmarksList) {
-        const folderTags = extractTagsFromFolderPath(bookmark);
-        if (folderTags.length > 0) {
-            const currentTags = bookmarkTags.get(bookmark.id) || [];
-            const newTags = [...new Set([...currentTags, ...folderTags])];
-            bookmarkTags.set(bookmark.id, newTags);
-            folderTags.forEach(t => allTags.add(t));
-            taggedCount++;
-        }
-    }
-    
-    if (taggedCount > 0) {
-        await saveTags();
-        renderTagCloud();
-        renderBookmarkList();
-        alert(`成功根据文件夹为 ${taggedCount} 个书签添加了标签`);
-    }
-}
-
-// 重新生成所有标签
-async function regenerateAllTags() {
-    if (!confirm('确定要清除现有标签并重新生成吗？\n这将根据书签的文件夹、标题和内容自动生成新标签。')) return;
-    await executeAutoTag(true);
-}
-
-// 清除所有标签
-async function clearAllTags() {
-    if (!confirm('确定要清除所有书签的标签吗？此操作无法撤销。')) return;
-    bookmarkTags.clear();
-    allTags.clear();
-    await saveTags();
-    renderTagCloud();
-    renderBookmarkList();
-    alert('已清除所有标签');
-}
 // 加载标签数据
 async function loadTags() {
     try {
@@ -1341,10 +1280,9 @@ function updateStats() {
 const FAVORITES_FOLDER_NAME = '⭐ 常用';
 const RECENT_FOLDER_NAME = '🕐 最近使用';
 const UNUSED_FOLDER_NAME = '📦 长期未使用';
-const HOT_FOLDER_NAME = '🔥 热门书签';
 
 // 特殊文件夹名称列表（用于判断是否为快捷方式文件夹，查找重复时会排除）
-const SHORTCUT_FOLDER_NAMES = [FAVORITES_FOLDER_NAME, RECENT_FOLDER_NAME, HOT_FOLDER_NAME];
+const SHORTCUT_FOLDER_NAMES = [FAVORITES_FOLDER_NAME, RECENT_FOLDER_NAME];
 
 // ==================== 文件夹树渲染 ====================
 function renderFolderTree() {
@@ -2117,7 +2055,6 @@ function updateSelectionUI() {
     const deleteBtn = document.getElementById('btnDeleteSelected');
     const moveBtn = document.getElementById('btnBatchMove');
     const renameBtn = document.getElementById('btnBatchRename');
-    const batchTagBtn = document.getElementById('btnBatchTag');
     const addToNavBtn = document.getElementById('btnAddToNav');
     const quickAddBtn = document.getElementById('btnQuickAddToNav');
     const selectAllCheckbox = document.getElementById('selectAllBookmarks');
@@ -2127,18 +2064,15 @@ function updateSelectionUI() {
         deleteBtn.style.display = 'block';
         moveBtn.style.display = 'block';
         renameBtn.style.display = 'block';
-        batchTagBtn.style.display = 'block';
         addToNavBtn.style.display = 'block';
         quickAddBtn.style.display = 'block';
         deleteBtn.textContent = `删除 (${selectedBookmarks.size})`;
-        batchTagBtn.textContent = `🏷️ 批量标签 (${selectedBookmarks.size})`;
         addToNavBtn.textContent = `🚀 选择分类 (${selectedBookmarks.size})`;
         quickAddBtn.textContent = `⚡ 快速添加 (${selectedBookmarks.size})`;
     } else {
         deleteBtn.style.display = 'none';
         moveBtn.style.display = 'none';
         renameBtn.style.display = 'none';
-        batchTagBtn.style.display = 'none';
         addToNavBtn.style.display = 'none';
         quickAddBtn.style.display = 'none';
     }
@@ -2186,13 +2120,6 @@ function bindEvents() {
     // 时间线筛选
     document.getElementById('timelineFilter').addEventListener('change', handleTimelineFilter);
     
-    // 批量标签
-    document.getElementById('btnBatchTag').addEventListener('click', showBatchTagModal);
-    document.getElementById('batchTagClose').addEventListener('click', closeBatchTagModal);
-    document.getElementById('btnCancelBatchTag').addEventListener('click', closeBatchTagModal);
-    document.getElementById('btnConfirmBatchTag').addEventListener('click', confirmBatchTag);
-    document.getElementById('batchTagMode').addEventListener('change', updateBatchTagUI);
-    
     // 标签管理
     document.getElementById('btnRegenerateTags').addEventListener('click', regenerateAllTags);
     document.getElementById('btnClearAllTags').addEventListener('click', clearAllTags);
@@ -2210,9 +2137,6 @@ function bindEvents() {
     
     // 合并文件夹
     document.getElementById('btnMergeFolders').addEventListener('click', showMergeFoldersModal);
-    
-    // 更新热门书签
-    document.getElementById('btnUpdateHotBookmarks').addEventListener('click', updateHotBookmarks);
     
     // 云备份
     document.getElementById('btnCloudBackup').addEventListener('click', showCloudBackupModal);
@@ -2259,7 +2183,8 @@ function bindEvents() {
     
     // 排序选择
     document.getElementById('sortOrder').addEventListener('change', (e) => {
-        currentSortOrder = e.target.value;
+        currentSortOrder = normalizeSortOrder(e.target.value);
+        e.target.value = currentSortOrder;
         renderBookmarkList();
     });
     
@@ -2305,6 +2230,10 @@ function bindEvents() {
             hideContextMenu();
         }
     });
+}
+
+function normalizeSortOrder(sortOrder) {
+    return ['recent', 'name', 'date'].includes(sortOrder) ? sortOrder : 'recent';
 }
 
 function debounce(fn, delay) {
@@ -2357,12 +2286,6 @@ function bindContextMenu() {
         showBatchRenameModal();
     });
     
-    document.getElementById('ctxBatchTag').addEventListener('click', (e) => {
-        e.stopPropagation();
-        hideContextMenu();
-        showBatchTagModal();
-    });
-    
     document.getElementById('ctxBatchDelete').addEventListener('click', (e) => {
         e.stopPropagation();
         hideContextMenu();
@@ -2377,7 +2300,6 @@ function showContextMenu(x, y) {
     // 更新菜单文本显示选中数量
     document.querySelector('#ctxBatchMove span:last-child').textContent = `批量移动 (${count})`;
     document.querySelector('#ctxBatchRename span:last-child').textContent = `批量重命名 (${count})`;
-    document.querySelector('#ctxBatchTag span:last-child').textContent = `批量标签 (${count})`;
     document.querySelector('#ctxBatchDelete span:last-child').textContent = `批量删除 (${count})`;
     
     // 显示菜单
@@ -4747,127 +4669,8 @@ function bindEmptyFolderActions(emptyFolders) {
     });
 }
 
-// ==================== 自动排序书签栏 ====================
-function loadAutoSortSetting() {
-    chrome.storage.local.get(['autoSortEnabled'], (result) => {
-        const enabled = result.autoSortEnabled || false;
-        document.getElementById('autoSortEnabled').checked = enabled;
-        if (enabled) {
-            startAutoSort();
-        }
-    });
-}
-
-function toggleAutoSort(enabled) {
-    chrome.storage.local.set({ autoSortEnabled: enabled });
-    
-    if (enabled) {
-        startAutoSort();
-        // 立即执行一次
-        autoSortBookmarkBar();
-    } else {
-        stopAutoSort();
-    }
-}
-
-function startAutoSort() {
-    if (autoSortInterval) return;
-    
-    // 每15分钟执行一次
-    autoSortInterval = setInterval(autoSortBookmarkBar, 15 * 60 * 1000);
-}
-
-function stopAutoSort() {
-    if (autoSortInterval) {
-        clearInterval(autoSortInterval);
-        autoSortInterval = null;
-    }
-}
-
 // 长期未使用阈值（365天）
 const UNUSED_DAYS_THRESHOLD = 365;
-
-async function autoSortBookmarkBar() {
-    try {
-        // 1. 对书签栏根目录排序
-        await sortFolderByUsage('1');
-        
-        // 2. 对所有子文件夹排序
-        await sortAllFolders();
-        
-        // 注：已移除自动创建"常用"和"最近使用"文件夹的功能
-        
-        // 保存使用数据
-        await saveUsageData();
-        
-        // 刷新书签数据
-        const tree = await chrome.bookmarks.getTree();
-        allBookmarks = tree;
-    } catch (error) {
-        console.error('自动排序失败:', error);
-    }
-}
-
-// 对指定文件夹内的书签按使用频率排序
-async function sortFolderByUsage(folderId) {
-    try {
-        const children = await chrome.bookmarks.getChildren(folderId);
-        const bookmarks = children.filter(c => c.url && !isSeparatorBookmark(c.url));
-        
-        if (bookmarks.length < 2) return;
-        
-        // 获取使用频率
-        const withUsage = await Promise.all(bookmarks.map(async (b) => {
-            const usage = await getBookmarkUsage(b.url);
-            return { bookmark: b, usage, originalIndex: b.index };
-        }));
-        
-        // 按使用频率排序
-        withUsage.sort((a, b) => b.usage - a.usage);
-        
-        // 计算需要移动的书签
-        const moves = [];
-        for (let i = 0; i < withUsage.length; i++) {
-            const item = withUsage[i];
-            if (item.originalIndex !== i && item.usage > 0) {
-                moves.push({ id: item.bookmark.id, targetIndex: i });
-            }
-        }
-        
-        if (moves.length === 0) return;
-        
-        // 执行移动
-        moves.sort((a, b) => b.targetIndex - a.targetIndex);
-        for (const move of moves) {
-            try {
-                await chrome.bookmarks.move(move.id, { parentId: folderId, index: move.targetIndex });
-            } catch (e) {}
-        }
-    } catch (e) {
-        console.error(`排序文件夹 ${folderId} 失败:`, e);
-    }
-}
-
-// 对所有文件夹排序
-async function sortAllFolders() {
-    const folders = [];
-    collectAllFolders(allBookmarks, folders);
-    
-    for (const folder of folders) {
-        if (folder.id && folder.id !== '0') {
-            await sortFolderByUsage(folder.id);
-        }
-    }
-}
-
-function collectAllFolders(nodes, folders) {
-    for (const node of nodes) {
-        if (node.children) {
-            folders.push(node);
-            collectAllFolders(node.children, folders);
-        }
-    }
-}
 
 // ==================== 检测长期未使用书签 ====================
 async function findUnusedBookmarks() {
@@ -6996,150 +6799,6 @@ async function loadViewModeSetting() {
         }
     } catch (e) {
         console.error('加载视图模式设置失败:', e);
-    }
-}
-
-
-// ==================== 自动更新热门书签功能 ====================
-
-// 更新热门书签（根据智能排序选取TOP N，使用副本模式）
-async function updateHotBookmarks() {
-    const TOP_N = 20; // 热门书签数量
-    
-    // 收集所有书签（排除快捷方式文件夹中的）
-    const allBookmarksList = [];
-    collectAllBookmarks(allBookmarks, allBookmarksList);
-    const normalBookmarks = allBookmarksList.filter(b => !isInShortcutFolder(b));
-    
-    if (normalBookmarks.length === 0) {
-        alert('没有找到书签');
-        return;
-    }
-    
-    // 显示确认
-    const confirmed = confirm(
-        `🔥 更新热门书签\n\n` +
-        `将根据使用频率和最近访问时间，自动选取 TOP ${TOP_N} 热门书签。\n\n` +
-        `• 热门书签是副本，不会影响原书签位置\n` +
-        `• 查找重复时会自动排除热门文件夹\n` +
-        `• 每次更新会清空旧的热门书签\n\n` +
-        `是否继续？`
-    );
-    
-    if (!confirmed) return;
-    
-    try {
-        // 计算每个书签的热度分数
-        const now = Date.now();
-        const dayMs = 24 * 60 * 60 * 1000;
-        
-        const scorePromises = normalBookmarks.map(async (b) => {
-            const usage = await getBookmarkUsage(b.url);
-            const lastVisit = await getLastVisitTime(b.url);
-            
-            // 频率分数
-            const frequencyScore = Math.min(usage * 10, 100);
-            
-            // 时间分数
-            let recencyScore = 0;
-            if (lastVisit > 0) {
-                const daysAgo = (now - lastVisit) / dayMs;
-                if (daysAgo < 1) recencyScore = 100;
-                else if (daysAgo < 3) recencyScore = 80;
-                else if (daysAgo < 7) recencyScore = 60;
-                else if (daysAgo < 30) recencyScore = 40;
-                else if (daysAgo < 90) recencyScore = 20;
-                else recencyScore = 10;
-            }
-            
-            const totalScore = frequencyScore * 0.6 + recencyScore * 0.4;
-            return { bookmark: b, score: totalScore };
-        });
-        
-        const withScores = await Promise.all(scorePromises);
-        
-        // 按分数排序，取TOP N
-        withScores.sort((a, b) => b.score - a.score);
-        const topBookmarks = withScores.slice(0, TOP_N).filter(item => item.score > 0);
-        
-        if (topBookmarks.length === 0) {
-            alert('没有找到有访问记录的书签，无法生成热门列表');
-            return;
-        }
-        
-        // 获取或创建热门书签文件夹
-        const bookmarkBar = allBookmarks[0]?.children?.[0];
-        if (!bookmarkBar) {
-            alert('无法找到书签栏');
-            return;
-        }
-        
-        let hotFolder = bookmarkBar.children?.find(c => c.title === HOT_FOLDER_NAME);
-        
-        if (hotFolder) {
-            // 清空现有热门书签
-            if (hotFolder.children) {
-                for (const child of hotFolder.children) {
-                    try {
-                        await chrome.bookmarks.remove(child.id);
-                    } catch (e) {}
-                }
-            }
-        } else {
-            // 创建热门书签文件夹
-            hotFolder = await chrome.bookmarks.create({
-                parentId: bookmarkBar.id,
-                title: HOT_FOLDER_NAME,
-                index: 0
-            });
-        }
-        
-        // 添加TOP N书签的副本
-        for (const item of topBookmarks) {
-            await chrome.bookmarks.create({
-                parentId: hotFolder.id,
-                title: item.bookmark.title,
-                url: item.bookmark.url
-            });
-        }
-        
-        await loadBookmarks();
-        
-        alert(
-            `🔥 热门书签已更新！\n\n` +
-            `• 已添加 ${topBookmarks.length} 个热门书签\n` +
-            `• 这些是副本，原书签位置不变\n` +
-            `• 查找重复时会自动排除热门文件夹`
-        );
-        
-    } catch (error) {
-        alert('更新失败: ' + error.message);
-    }
-}
-
-
-// ==================== 自动更新热门书签设置 ====================
-
-// 加载自动更新热门设置
-async function loadAutoUpdateHotSetting() {
-    try {
-        const result = await chrome.storage.local.get('autoUpdateHotBookmarks');
-        const enabled = result.autoUpdateHotBookmarks !== false; // 默认启用
-        document.getElementById('autoUpdateHotEnabled').checked = enabled;
-    } catch (e) {
-        console.error('加载自动更新热门设置失败:', e);
-    }
-}
-
-// 切换自动更新热门
-async function toggleAutoUpdateHot(e) {
-    const enabled = e.target.checked;
-    try {
-        await chrome.storage.local.set({ autoUpdateHotBookmarks: enabled });
-        // 通知background.js
-        chrome.runtime.sendMessage({ action: 'setAutoUpdateHotBookmarks', enabled });
-    } catch (e) {
-        console.error('保存自动更新热门设置失败:', e);
     }
 }
 

@@ -1,5 +1,31 @@
 import { pinyin } from 'pinyin-pro';
 
+const PINYIN_CACHE_LIMIT = 2000;
+const pinyinInfoCache = new Map();
+
+function normalizeCacheKey(text) {
+  return typeof text === 'string' ? text.trim().toLowerCase() : '';
+}
+
+function rememberPinyinInfo(key, value) {
+  if (!key) return value;
+
+  if (pinyinInfoCache.has(key)) {
+    pinyinInfoCache.delete(key);
+  }
+
+  pinyinInfoCache.set(key, value);
+
+  if (pinyinInfoCache.size > PINYIN_CACHE_LIMIT) {
+    const oldestKey = pinyinInfoCache.keys().next().value;
+    if (oldestKey) {
+      pinyinInfoCache.delete(oldestKey);
+    }
+  }
+
+  return value;
+}
+
 /**
  * 拼音搜索匹配工具
  * 支持：中文直接匹配、完整拼音匹配、拼音首字母匹配
@@ -13,6 +39,11 @@ import { pinyin } from 'pinyin-pro';
 export function getPinyinInfo(text) {
   if (!text || typeof text !== 'string') {
     return { full: '', first: '' };
+  }
+
+  const cacheKey = normalizeCacheKey(text);
+  if (cacheKey && pinyinInfoCache.has(cacheKey)) {
+    return pinyinInfoCache.get(cacheKey);
   }
   
   try {
@@ -29,12 +60,12 @@ export function getPinyinInfo(text) {
       toneType: 'none'
     }).replace(/\s+/g, '').toLowerCase();
     
-    return {
+    return rememberPinyinInfo(cacheKey, {
       full: fullPinyin,
       first: firstLetters
-    };
+    });
   } catch (error) {
-    return { full: '', first: '' };
+    return rememberPinyinInfo(cacheKey, { full: '', first: '' });
   }
 }
 

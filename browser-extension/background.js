@@ -7,7 +7,9 @@ let lastMenuFetchTime = 0;
 const MENU_CACHE_MS = 5 * 60 * 1000; // 5分钟缓存
 let isLoadingMenus = false; // 防止并发请求
 let menuRetryTimer = null; // 菜单获取重试定时器
-const MENU_RETRY_INTERVAL = 30 * 1000; // 30秒重试间隔
+let menuRetryAttempts = 0;
+const MENU_RETRY_INTERVAL = 60 * 1000; // 1分钟重试间隔
+const MAX_MENU_RETRY_ATTEMPTS = 3;
 
 // 强制刷新限频机制（每分钟最多15次）
 let forceRefreshCount = 0;
@@ -32,14 +34,15 @@ function canForceRefresh() {
 // 数据同步相关（混合策略：Alarms 定期轮询 + 用户交互时立即检查）
 let lastDataVersion = 0;
 const DATA_SYNC_ALARM = 'nav_data_sync_check';
-const DATA_SYNC_INTERVAL_MINUTES = 1; // 1分钟定期检查（作为兜底）
+const DATA_SYNC_INTERVAL_MINUTES = 5; // 5分钟定期检查（作为兜底）
+let lastInteractionSyncCheck = 0;
+const INTERACTION_SYNC_DEBOUNCE_MS = 30 * 1000;
 
 // 扩展安装/更新时初始化
 chrome.runtime.onInstalled.addListener(async () => {
     await registerContextMenus();
     startMenuRetryIfNeeded();
     initDataSyncPolling();
-    initHotBookmarksAutoUpdate();
     const config = await loadAutoBackupConfig();
     if (config.enabled) {
         initScheduledBackupTimer();
@@ -51,7 +54,6 @@ chrome.runtime.onStartup.addListener(async () => {
     await registerContextMenus();
     startMenuRetryIfNeeded();
     initDataSyncPolling();
-    initHotBookmarksAutoUpdate();
     const config = await loadAutoBackupConfig();
     if (config.enabled) {
         initScheduledBackupTimer();
@@ -66,11 +68,11 @@ async function initDataSyncPolling() {
         
         // 创建新的定期 alarm（作为兜底机制）
         chrome.alarms.create(DATA_SYNC_ALARM, {
-            delayInMinutes: 0.1, // 6秒后首次检查
-            periodInMinutes: DATA_SYNC_INTERVAL_MINUTES // 每1分钟检查一次
+            delayInMinutes: 1,
+            periodInMinutes: DATA_SYNC_INTERVAL_MINUTES
         });
         
-        console.log('[导航站扩展] 已启动数据同步轮询（每1分钟检查一次）');
+        console.log('[导航站扩展] 已启动数据同步轮询（每5分钟检查一次）');
     } catch (e) {
         console.error('[导航站扩展] 初始化数据同步失败:', e);
     }
@@ -78,6 +80,11 @@ async function initDataSyncPolling() {
 
 // 当用户展示右键菜单时，立即检查版本更新（关键：用户交互时触发）
 chrome.contextMenus.onShown?.addListener(async (info, tab) => {
+    const now = Date.now();
+    if (now - lastInteractionSyncCheck < INTERACTION_SYNC_DEBOUNCE_MS) {
+        return;
+    }
+    lastInteractionSyncCheck = now;
     await checkDataVersionAndSync();
 });
 
@@ -134,22 +141,25 @@ function startMenuRetryIfNeeded() {
     if (menuRetryTimer) return;
     
     // 如果缓存不为空，不需要重试
-    if (cachedMenus.length > 0) return;
+    if (cachedMenus.length > 0 || menuRetryAttempts >= MAX_MENU_RETRY_ATTEMPTS) return;
     
     console.log('[导航站扩展] 菜单缓存为空，启动定期重试...');
     
-    menuRetryTimer = setInterval(async () => {
-        // 如果已获取到菜单，停止重试
+    menuRetryTimer = setTimeout(async () => {
+        menuRetryTimer = null;
+
         if (cachedMenus.length > 0) {
-            clearInterval(menuRetryTimer);
-            menuRetryTimer = null;
             console.log('[导航站扩展] 菜单获取成功，停止重试');
             return;
         }
-        
-        // 尝试刷新菜单
-        console.log('[导航站扩展] 尝试获取菜单数据...');
+
+        menuRetryAttempts++;
+        console.log(`[导航站扩展] 第 ${menuRetryAttempts} 次尝试获取菜单数据...`);
         await refreshCategoryMenus();
+
+        if (cachedMenus.length === 0) {
+            startMenuRetryIfNeeded();
+        }
     }, MENU_RETRY_INTERVAL);
 }
 
@@ -219,10 +229,11 @@ async function loadAndCreateCategoryMenus() {
             
             cachedMenus = menus;
             lastMenuFetchTime = Date.now();
+            menuRetryAttempts = 0;
             
             // 成功获取菜单后，停止重试定时器
             if (menuRetryTimer) {
-                clearInterval(menuRetryTimer);
+                clearTimeout(menuRetryTimer);
                 menuRetryTimer = null;
                 console.log('[导航站扩展] 菜单获取成功，已停止重试');
             }
@@ -243,6 +254,7 @@ async function loadAndCreateCategoryMenus() {
                 if (stored.cachedMenus && Array.isArray(stored.cachedMenus)) {
                     cachedMenus = stored.cachedMenus;
                     lastMenuFetchTime = stored.lastMenuFetchTime || 0;
+                    menuRetryAttempts = 0;
                     createCategorySubMenus(cachedMenus);
                     return;
                 }
@@ -1304,199 +1316,8 @@ if (data.success && data.token) {
 });
 
 
-// ==================== 自动更新热门书签 ====================
-
-const HOT_FOLDER_NAME = '🔥 热门书签';
-const HOT_UPDATE_INTERVAL = 5 * 60 * 1000; // 5分钟
-const HOT_BOOKMARKS_COUNT = 20; // 热门书签数量
-
-// 特殊文件夹名称（这些文件夹中的书签不参与热门计算）
-const SHORTCUT_FOLDER_NAMES = ['🔥 热门书签', '⭐ 常用', '🕐 最近使用'];
-
-// 启动时设置定时器
-let hotBookmarksTimer = null;
-
-// 初始化热门书签自动更新
-async function initHotBookmarksAutoUpdate() {
-    // 检查是否启用自动更新
-    const settings = await chrome.storage.local.get(['autoUpdateHotBookmarks']);
-    if (settings.autoUpdateHotBookmarks === false) {
-        return;
-    }
-    
-    // 启动时先更新一次
-    setTimeout(() => {
-        autoUpdateHotBookmarks();
-    }, 30000); // 延迟30秒，等待浏览器完全启动
-    
-    // 设置定时器
-    if (hotBookmarksTimer) {
-        clearInterval(hotBookmarksTimer);
-    }
-    hotBookmarksTimer = setInterval(autoUpdateHotBookmarks, HOT_UPDATE_INTERVAL);
-}
-
-// 自动更新热门书签
-async function autoUpdateHotBookmarks() {
-    try {
-        // 获取所有书签
-        const tree = await chrome.bookmarks.getTree();
-        const allBookmarks = [];
-        collectBookmarks(tree, allBookmarks);
-        
-        // 过滤掉特殊文件夹中的书签
-        const normalBookmarks = allBookmarks.filter(b => !isInSpecialFolder(b, tree));
-        
-        if (normalBookmarks.length === 0) {
-            return;
-        }
-        
-        // 计算每个书签的热度分数
-        const now = Date.now();
-        const dayMs = 24 * 60 * 60 * 1000;
-        
-        const scoredBookmarks = [];
-        for (const bookmark of normalBookmarks) {
-            try {
-                const visits = await chrome.history.getVisits({ url: bookmark.url });
-                const usage = visits.length;
-                const lastVisit = visits.length > 0 ? Math.max(...visits.map(v => v.visitTime || 0)) : 0;
-                
-                // 频率分数
-                const frequencyScore = Math.min(usage * 10, 100);
-                
-                // 时间分数
-                let recencyScore = 0;
-                if (lastVisit > 0) {
-                    const daysAgo = (now - lastVisit) / dayMs;
-                    if (daysAgo < 1) recencyScore = 100;
-                    else if (daysAgo < 3) recencyScore = 80;
-                    else if (daysAgo < 7) recencyScore = 60;
-                    else if (daysAgo < 30) recencyScore = 40;
-                    else if (daysAgo < 90) recencyScore = 20;
-                    else recencyScore = 10;
-                }
-                
-                const totalScore = frequencyScore * 0.6 + recencyScore * 0.4;
-                
-                if (totalScore > 0) {
-                    scoredBookmarks.push({ bookmark, score: totalScore });
-                }
-            } catch (e) {
-                // 忽略单个书签的错误
-            }
-        }
-        
-        // 按分数排序，取TOP N
-        scoredBookmarks.sort((a, b) => b.score - a.score);
-        const topBookmarks = scoredBookmarks.slice(0, HOT_BOOKMARKS_COUNT);
-        
-        if (topBookmarks.length === 0) {
-            return;
-        }
-        
-        // 获取或创建热门书签文件夹
-        const bookmarkBar = tree[0]?.children?.[0];
-        if (!bookmarkBar) {
-            return;
-        }
-        
-        let hotFolder = bookmarkBar.children?.find(c => c.title === HOT_FOLDER_NAME);
-        
-        if (hotFolder) {
-            // 获取最新的文件夹内容
-            const [updatedFolder] = await chrome.bookmarks.getSubTree(hotFolder.id);
-            
-            // 清空现有热门书签
-            if (updatedFolder.children) {
-                for (const child of updatedFolder.children) {
-                    try {
-                        await chrome.bookmarks.remove(child.id);
-                    } catch (e) {}
-                }
-            }
-        } else {
-            // 创建热门书签文件夹
-            hotFolder = await chrome.bookmarks.create({
-                parentId: bookmarkBar.id,
-                title: HOT_FOLDER_NAME,
-                index: 0
-            });
-        }
-        
-        // 添加TOP N书签的副本
-        for (const item of topBookmarks) {
-            await chrome.bookmarks.create({
-                parentId: hotFolder.id,
-                title: item.bookmark.title,
-                url: item.bookmark.url
-            });
-        }
-        
-        // 记录更新时间
-        await chrome.storage.local.set({ lastHotBookmarksUpdate: Date.now() });
-        
-    } catch (error) {
-        console.error('自动更新热门书签失败:', error);
-    }
-}
-
-// 收集所有书签
-function collectBookmarks(nodes, bookmarks) {
-    for (const node of nodes) {
-        if (node.children) {
-            collectBookmarks(node.children, bookmarks);
-        } else if (node.url) {
-            bookmarks.push(node);
-        }
-    }
-}
-
-// 检查书签是否在特殊文件夹中
-function isInSpecialFolder(bookmark, tree) {
-    let parentId = bookmark.parentId;
-    
-    while (parentId && parentId !== '0') {
-        const parent = findNodeById(tree, parentId);
-        if (!parent) break;
-        
-        if (SHORTCUT_FOLDER_NAMES.includes(parent.title)) {
-            return true;
-        }
-        
-        parentId = parent.parentId;
-    }
-    
-    return false;
-}
-
-// 在书签树中查找节点
-function findNodeById(nodes, id) {
-    for (const node of nodes) {
-        if (node.id === id) return node;
-        if (node.children) {
-            const found = findNodeById(node.children, id);
-            if (found) return found;
-        }
-    }
-    return null;
-}
-
 // 监听设置变化
 chrome.storage.onChanged.addListener((changes, area) => {
-    if (area === 'local' && changes.autoUpdateHotBookmarks) {
-        if (changes.autoUpdateHotBookmarks.newValue === false) {
-            // 禁用自动更新
-            if (hotBookmarksTimer) {
-                clearInterval(hotBookmarksTimer);
-                hotBookmarksTimer = null;
-            }
-        } else {
-            // 启用自动更新
-            initHotBookmarksAutoUpdate();
-        }
-    }
-    
     // 监听导航站地址变化，自动刷新右键菜单分类
     if (area === 'sync' && changes.navUrl) {
         console.log('[导航站扩展] 检测到导航站地址变化，正在刷新右键菜单...');
@@ -1510,20 +1331,6 @@ chrome.storage.onChanged.addListener((changes, area) => {
 
 // 监听手动触发更新的消息
 chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
-    if (request.action === 'updateHotBookmarks') {
-        autoUpdateHotBookmarks()
-            .then(() => sendResponse({ success: true }))
-            .catch(e => sendResponse({ success: false, error: e.message }));
-        return true;
-    }
-    
-    if (request.action === 'setAutoUpdateHotBookmarks') {
-        chrome.storage.local.set({ autoUpdateHotBookmarks: request.enabled })
-            .then(() => sendResponse({ success: true }))
-            .catch(e => sendResponse({ success: false, error: e.message }));
-        return true;
-    }
-    
     // 手动触发书签备份（用于测试）
     if (request.action === 'testBookmarkBackup') {
         performAutoBackup('manual')

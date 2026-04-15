@@ -37,15 +37,15 @@
     <aside class="admin-sider" :class="{ open: siderOpen }" @click.self="closeSider">
       <div class="logo clickable" @click="page='welcome'; closeSider()">Admin</div>
       <ul class="menu-list">
-        <li :class="{active: page==='menu'}" @click="page='menu'; closeSider()">栏目管理</li>
-        <li :class="{active: page==='card'}" @click="page='card'; closeSider()">卡片管理</li>
-        <li :class="{active: page==='duplicate'}" @click="page='duplicate'; closeSider()">去重管理</li>
-        <li :class="{active: page==='tag'}" @click="page='tag'; closeSider()">标签管理</li>
-        <li :class="{active: page==='promo'}" @click="page='promo'; closeSider()">宣传管理</li>
-        <li :class="{active: page==='friend'}" @click="page='friend'; closeSider()">友链管理</li>
-        <li :class="{active: page==='user'}" @click="page='user'; closeSider()">用户管理</li>
-        <li :class="{active: page==='backup'}" @click="page='backup'; closeSider()">备份管理</li>
-        <li :class="{active: page==='ai'}" @click="page='ai'; closeSider()">AI 设置</li>
+        <li :class="{active: page==='menu'}" @click="page='menu'; closeSider()">结构管理</li>
+        <li :class="{active: page==='card'}" @click="page='card'; closeSider()">卡片治理</li>
+        <li :class="{active: page==='duplicate'}" @click="page='duplicate'; closeSider()">重复清理</li>
+        <li :class="{active: page==='tag'}" @click="page='tag'; closeSider()">标签治理</li>
+        <li :class="{active: page==='promo'}" @click="page='promo'; closeSider()">宣传位管理</li>
+        <li :class="{active: page==='friend'}" @click="page='friend'; closeSider()">友情链接管理</li>
+        <li :class="{active: page==='user'}" @click="page='user'; closeSider()">用户与权限</li>
+        <li :class="{active: page==='backup'}" @click="page='backup'; closeSider()">备份与恢复</li>
+        <li :class="{active: page==='ai'}" @click="page='ai'; closeSider()">AI 配置</li>
       </ul>
     </aside>
     <main class="admin-main">
@@ -199,19 +199,19 @@ const showPassword = ref(false);
 const siderOpen = ref(false);
 
 const pageTitle = computed(() => {
-  switch (page.value) {
-    case 'menu': return '栏目管理';
-    case 'card': return '卡片管理';
-    case 'duplicate': return '去重管理';
-    case 'tag': return '标签管理';
-    case 'promo': return '宣传管理';
-    case 'friend': return '友链管理';
-    case 'user': return '用户管理';
-    case 'backup': return '备份管理';
-    case 'ai': return 'AI 设置';
-    default: return '';
-  }
-});
+    switch (page.value) {
+      case 'menu': return '结构管理';
+      case 'card': return '卡片治理';
+      case 'duplicate': return '重复清理';
+      case 'tag': return '标签治理';
+      case 'promo': return '宣传位管理';
+      case 'friend': return '友情链接管理';
+      case 'user': return '用户与权限';
+      case 'backup': return '备份与恢复';
+      case 'ai': return 'AI 配置';
+      default: return '';
+    }
+  });
 
 onMounted(async () => {
   // 检查是否已超时

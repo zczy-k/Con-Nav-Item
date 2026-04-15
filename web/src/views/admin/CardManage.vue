@@ -2,7 +2,8 @@
   <div class="card-manage">
     <div class="card-header">
       <div class="header-content">
-        <h2 class="page-title">管理网站导航卡片，支持主菜单和子菜单分类</h2>
+        <h2 class="page-title">卡片治理</h2>
+        <p class="page-desc">用于批量筛查、集中维护和治理导航卡片数据；前台更适合快速就地编辑。</p>
       </div>
       <div class="card-add">
         <select v-model="selectedMenuId" class="input narrow" @change="onMenuChange">
@@ -248,12 +249,7 @@ const currentSubMenus = computed(() => {
 });
 
 onMounted(async () => {
-  const res = await getMenus();
-  menus.value = res.data;
-  if (menus.value.length) {
-    selectedMenuId.value = menus.value[0].id;
-    selectedSubMenuId.value = '';
-  }
+  await loadMenus();
   
   // 加载标签
   const tagsRes = await getTags();
@@ -270,7 +266,6 @@ watch(selectedSubMenuId, loadCards);
 useDataSync('CardManage', ({ isSelfChange }) => {
   if (!isSelfChange) {
     loadMenus();
-    loadCards();
   }
 });
 
@@ -286,6 +281,31 @@ async function loadCards() {
   if (!selectedMenuId.value) return;
   const res = await getCards(selectedMenuId.value, selectedSubMenuId.value || null);
   cards.value = res.data;
+}
+
+async function loadMenus() {
+  const res = await getMenus(true);
+  const previousMenuId = selectedMenuId.value;
+  const previousSubMenuId = selectedSubMenuId.value;
+
+  menus.value = res.data;
+
+  if (!menus.value.length) {
+    selectedMenuId.value = undefined;
+    selectedSubMenuId.value = '';
+    cards.value = [];
+    return;
+  }
+
+  const activeMenu = menus.value.find(menu => menu.id === previousMenuId) || menus.value[0];
+  selectedMenuId.value = activeMenu.id;
+
+  const activeSubMenu = previousSubMenuId
+    ? activeMenu.subMenus?.find(subMenu => subMenu.id === previousSubMenuId)
+    : null;
+  selectedSubMenuId.value = activeSubMenu ? activeSubMenu.id : '';
+
+  await loadCards();
 }
 
 async function addCard() {
@@ -342,7 +362,7 @@ async function updateCard(card) {
     order: card.order,
     tagIds: card.tags ? card.tags.map(t => t.id) : []
   });
-  loadCards();
+  await loadCards();
 }
 
 async function deleteCard(id) {
@@ -399,7 +419,7 @@ async function saveCardTags() {
   });
   
   closeTagSelector();
-  loadCards();
+  await loadCards();
 }
 
 // 执行添加卡片操作
@@ -408,7 +428,7 @@ async function performAddCard(cardData) {
   newCardTitle.value = '';
   newCardUrl.value = '';
   newCardLogo.value = '';
-  loadCards();
+  await loadCards();
 }
 
 // 关闭重复对话框

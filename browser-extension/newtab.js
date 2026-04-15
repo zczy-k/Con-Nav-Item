@@ -1,5 +1,5 @@
 // 检查配置
-chrome.storage.sync.get(['navUrl', 'offlineHtml'], function(result) {
+chrome.storage.sync.get(['navUrl'], function(result) {
     const navFrame = document.getElementById('navFrame');
     const setupContainer = document.getElementById('setupContainer');
     const loadingScreen = document.getElementById('loadingScreen');
@@ -20,12 +20,12 @@ chrome.storage.sync.get(['navUrl', 'offlineHtml'], function(result) {
         };
         
         navFrame.onerror = function() {
-            loadOfflineVersion(result.offlineHtml);
+            showLoadError();
         };
         
         setTimeout(function() {
             if (loadingScreen.classList.contains('show')) {
-                loadOfflineVersion(result.offlineHtml);
+                showLoadError();
             }
         }, 10000);
         
@@ -34,21 +34,13 @@ chrome.storage.sync.get(['navUrl', 'offlineHtml'], function(result) {
     }
 });
 
-function loadOfflineVersion(offlineHtml) {
+function showLoadError() {
     const navFrame = document.getElementById('navFrame');
     const loadingScreen = document.getElementById('loadingScreen');
     
     loadingScreen.classList.remove('show');
-    
-    if (offlineHtml) {
-        navFrame.srcdoc = offlineHtml;
-        navFrame.style.display = 'block';
-        setTimeout(function() {
-            navFrame.classList.add('loaded');
-        }, 50);
-    } else {
-        document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-size:18px;">网络连接失败,且未缓存离线版本</div>';
-    }
+    navFrame.style.display = 'none';
+    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;color:white;font-size:18px;">导航页加载失败，请检查网络或导航站地址配置</div>';
 }
 
 document.getElementById('saveBtn').addEventListener('click', function() {
@@ -77,18 +69,9 @@ document.getElementById('saveBtn').addEventListener('click', function() {
     errorDiv.style.display = 'none';
     loadingDiv.style.display = 'block';
     
-    fetch(url)
-        .then(response => response.text())
-        .then(html => {
-            chrome.storage.sync.set({ navUrl: url, offlineHtml: html }, function() {
-                location.reload();
-            });
-        })
-        .catch(() => {
-            chrome.storage.sync.set({ navUrl: url }, function() {
-                location.reload();
-            });
-        });
+    chrome.storage.sync.set({ navUrl: url }, function() {
+        location.reload();
+    });
 });
 
 document.getElementById('navUrl').addEventListener('keypress', function(e) {

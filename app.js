@@ -145,16 +145,6 @@ const staticDir = fs.existsSync(path.join(__dirname, 'web/dist/index.html'))
 
 console.log(`✓ Using static files from: ${staticDir}`);
 
-// PWA 相关文件的 MIME 类型设置
-app.get('/manifest.json', (req, res) => {
-  res.type('application/manifest+json');
-  res.sendFile(path.join(staticDir, 'manifest.json'));
-});
-app.get('/sw.js', (req, res) => {
-  res.type('application/javascript');
-  res.sendFile(path.join(staticDir, 'sw.js'));
-});
-
 app.use(express.static(staticDir, {
   maxAge: '1d',
   etag: true,

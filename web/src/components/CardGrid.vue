@@ -22,6 +22,8 @@
               :src="placeholderIcon"
               :data-url="card.url"
               alt="" 
+              loading="lazy"
+              decoding="async"
               draggable="false"
               @error="onImgError($event, card)"
               @contextmenu.prevent>
@@ -67,7 +69,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onUnmounted, watch } from 'vue';
 import { useIconLoader } from '../composables/useIconLoader';
 
 const props = defineProps({ 
@@ -259,6 +261,17 @@ function handleClickOutside(event) {
   }
 }
 
+watch(contextMenuVisible, (visible) => {
+  if (visible) {
+    document.addEventListener('click', handleClickOutside);
+    document.addEventListener('scroll', closeContextMenu, { passive: true });
+    return;
+  }
+
+  document.removeEventListener('click', handleClickOutside);
+  document.removeEventListener('scroll', closeContextMenu);
+}, { flush: 'post' });
+
 function handleCardClick(event, card) {
   if (event.ctrlKey || event.metaKey || props.selectionMode) {
     event.preventDefault();
@@ -281,11 +294,6 @@ function recordCardClick(cardId) {
   fetch(`/api/cards/${cardId}/click`, { method: 'POST' }).catch(() => {});
   emit('cardClicked', cardId);
 }
-
-onMounted(() => {
-  document.addEventListener('click', handleClickOutside);
-  document.addEventListener('scroll', closeContextMenu);
-});
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside);

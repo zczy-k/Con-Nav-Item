@@ -9,9 +9,10 @@ const listeners = new Map();
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
 const RECONNECT_DELAY = 3000;
+let reconnectTimer = null;
 
 function connect() {
-  if (sseConnection.value) {
+  if (sseConnection.value || document.visibilityState === 'hidden') {
     return;
   }
 
@@ -21,6 +22,10 @@ function connect() {
   eventSource.onopen = () => {
     isConnected.value = true;
     reconnectAttempts = 0;
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
   };
 
   eventSource.onmessage = (event) => {
@@ -58,9 +63,13 @@ function connect() {
     eventSource.close();
     sseConnection.value = null;
 
+    if (document.visibilityState === 'hidden') {
+      return;
+    }
+
     if (reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
       reconnectAttempts++;
-      setTimeout(connect, RECONNECT_DELAY * reconnectAttempts);
+      reconnectTimer = setTimeout(connect, RECONNECT_DELAY * reconnectAttempts);
     }
   };
 
@@ -68,6 +77,10 @@ function connect() {
 }
 
 function disconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
   if (sseConnection.value) {
     sseConnection.value.close();
     sseConnection.value = null;
@@ -83,6 +96,14 @@ function subscribe(key, callback) {
   }
 }
 
+function handleVisibilityChange() {
+  if (document.visibilityState === 'visible') {
+    connect();
+  } else {
+    disconnect();
+  }
+}
+
 function unsubscribe(key) {
   listeners.delete(key);
   
@@ -93,6 +114,7 @@ function unsubscribe(key) {
 
 export function useDataSync(componentKey, onDataChange) {
   onMounted(() => {
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     if (onDataChange) {
       subscribe(componentKey, onDataChange);
     }
@@ -100,6 +122,9 @@ export function useDataSync(componentKey, onDataChange) {
 
   onUnmounted(() => {
     unsubscribe(componentKey);
+    if (listeners.size === 0) {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }
   });
 
   return {

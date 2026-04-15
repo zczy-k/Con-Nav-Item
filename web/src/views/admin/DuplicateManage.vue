@@ -1,7 +1,10 @@
 ﻿<template>
   <div class="duplicate-manage">
     <div class="section-header">
-      <h3>卡片去重管理</h3>
+      <div>
+        <h3>重复清理</h3>
+        <p class="page-desc">扫描并清理重复卡片，保持导航内容唯一和整洁。</p>
+      </div>
       <button @click="handleDetectDuplicates" class="btn btn-primary" :disabled="detecting">
         {{ detecting ? '检测中...' : '🔍 一键检测重复' }}
       </button>

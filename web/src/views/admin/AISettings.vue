@@ -3,7 +3,8 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <div class="header-left">
-        <h2>🤖 AI 智能生成</h2>
+        <h2>🤖 AI 配置</h2>
+        <p class="page-desc">配置 AI 服务、模型参数与自动生成策略，用于卡片名称、描述和标签生成。</p>
         <div class="active-badge" v-if="activeProviderKey">
           <span class="label">当前使用:</span>
           <span class="value">{{ providers[activeProviderKey]?.name }}</span>

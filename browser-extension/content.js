@@ -2629,12 +2629,6 @@ if (response.success) {
         }, 500);
     }
     
-    if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', initFloatButton);
-    } else {
-        initFloatButton();
-    }
-    
     // 监听来自 background.js 的消息（打开快捷添加弹窗）
     chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         if (request.type === 'openQuickAddDialog') {

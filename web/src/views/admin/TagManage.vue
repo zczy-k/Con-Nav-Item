@@ -2,8 +2,8 @@
   <div class="tag-manage">
     <div class="tag-header">
       <div class="header-content">
-        <h2 class="page-title">管理标签</h2>
-        <p class="page-desc">为卡片创建多维度分类标签</p>
+        <h2 class="page-title">标签治理</h2>
+        <p class="page-desc">统一维护标签体系，清理冗余标签并优化前台筛选结构。</p>
       </div>
       <div class="tag-add">
         <input v-model="newTagName" placeholder="标签名称" class="input" maxlength="20" />

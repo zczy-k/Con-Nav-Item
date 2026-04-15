@@ -141,6 +141,10 @@
           </div>
         </div>
       </div>
+
+      <div class="management-hint">
+        前台适合快速编辑当前内容；批量治理、系统配置和备份恢复请前往后台。
+      </div>
       
       <div v-if="selectedTagIds.length > 0" class="active-filters">
         <span v-for="tagId in selectedTagIds" :key="tagId" class="filter-chip" :style="{ backgroundColor: getTagById(tagId)?.color }">
@@ -974,7 +978,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed, defineAsyncComponent, onUnmounted, nextTick } from 'vue';
+import { ref, onMounted, computed, defineAsyncComponent, onUnmounted, nextTick, watch } from 'vue';
 import { getMenus, getCards, getAllCards, getPromos, getFriends, verifyPassword, verifyToken, batchParseUrls, batchAddCards, batchUpdateCards, deleteCard, updateCard, getSearchEngines, parseSearchEngine, addSearchEngine, deleteSearchEngine, getTags, getDataVersion, addMenu, updateMenu, deleteMenu, addSubMenu, updateSubMenu, deleteSubMenu, getClientId } from '../api';
 import axios from 'axios';
 
@@ -1002,30 +1006,40 @@ const activeSubMenu = ref(null);
 const cards = ref([]);
 const allCards = ref([]); // 存储所有菜单的卡片，用于搜索
 const searchQuery = ref('');
+const debouncedSearchQuery = ref('');
+let searchDebounceTimer = null;
 
-// 排序和过滤后的卡片
-const sortedFilteredCards = computed(() => {
-  let result = [...cards.value];
-  
-  // 按标签过滤
+function filterCardsByActiveCriteria(cardList, keyword = debouncedSearchQuery.value.trim(), requireAllTags = false) {
+  let result = Array.isArray(cardList) ? [...cardList] : [];
+
   if (selectedTagIds.value.length > 0) {
     result = result.filter(card => {
       if (!card.tags || card.tags.length === 0) return false;
-      return selectedTagIds.value.some(tagId => 
-        card.tags.some(t => t.id === tagId)
-      );
+      const matcher = requireAllTags ? 'every' : 'some';
+      return selectedTagIds.value[matcher](tagId => card.tags.some(tag => tag.id === tagId));
     });
   }
-  
-  // 按搜索词过滤
-  if (searchQuery.value.trim()) {
-    result = filterCardsWithPinyin(result, searchQuery.value.trim());
+
+  if (keyword) {
+    result = filterCardsWithPinyin(result, keyword);
   }
-  
-  // 应用排序
-  result = applySorting(result);
-  
+
   return result;
+}
+
+watch(searchQuery, (value) => {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+
+  searchDebounceTimer = setTimeout(() => {
+    debouncedSearchQuery.value = value.trim();
+  }, 120);
+}, { immediate: true });
+
+// 排序和过滤后的卡片
+const sortedFilteredCards = computed(() => {
+  return applySorting(filterCardsByActiveCriteria(cards.value));
 });
 
 // 应用排序逻辑
@@ -1065,28 +1079,8 @@ function applySorting(cardList) {
 // 用于分组显示时的排序和过滤
 function sortAndFilterCards(cardList, subMenuId) {
   if (!cardList) return [];
-  
-  let result = [...cardList];
-  
-  // 按标签过滤
-  if (selectedTagIds.value.length > 0) {
-    result = result.filter(card => {
-      if (!card.tags || card.tags.length === 0) return false;
-      return selectedTagIds.value.some(tagId => 
-        card.tags.some(t => t.id === tagId)
-      );
-    });
-  }
-  
-  // 按搜索词过滤
-  if (searchQuery.value.trim()) {
-    result = filterCardsWithPinyin(result, searchQuery.value.trim());
-  }
-  
-  // 应用排序
-  result = applySorting(result);
-  
-  return result;
+
+  return applySorting(filterCardsByActiveCriteria(cardList));
 }
 const leftPromos = ref([]);
 const rightPromos = ref([]);
@@ -1540,21 +1534,8 @@ async function deleteCustomEngine(engine) {
 }
 
 const filteredCards = computed(() => {
-  let result = searchQuery.value ? allCards.value : cards.value;
-  
-  if (selectedTagIds.value.length > 0) {
-    result = result.filter(card => 
-      card.tags && selectedTagIds.value.every(tagId => 
-        card.tags.some(tag => tag.id === tagId)
-      )
-    );
-  }
-  
-  if (searchQuery.value) {
-    result = filterCardsWithPinyin(result, searchQuery.value);
-  }
-  
-  return result;
+  const sourceCards = debouncedSearchQuery.value ? allCards.value : cards.value;
+  return filterCardsByActiveCriteria(sourceCards, debouncedSearchQuery.value, true);
 });
 
 const globalSortType = ref('time_desc');
@@ -1821,14 +1802,10 @@ onMounted(async () => {
   }
   
   // ========== 后台加载最新数据 ==========
-  // 并行加载所有独立数据：菜单、宣传、友链、标签、自定义搜索引擎
-  const [menusRes, promosRes, friendsRes, tagsRes, enginesRes] = await Promise.allSettled([
-    getMenus(),
-    getPromos(),
-    getFriends(),
-    getTags(),
-    getSearchEngines()
-  ]);
+  const menusRes = await Promise.resolve(getMenus()).then(
+    value => ({ status: 'fulfilled', value }),
+    reason => ({ status: 'rejected', reason })
+  );
   
   // 准备缓存数据
   const cacheData = { menus: null, cards: null, tags: null, ads: null, friends: null, engines: null };
@@ -1843,65 +1820,16 @@ onMounted(async () => {
       }
       await loadCards();
       cacheData.cards = cards.value;
-      // 延迟 1 秒后加载搜索卡片，让首屏更快
-      setTimeout(() => {
-        loadAllCardsForSearch();
-      }, 1000);
+      deferredSearchTimer = setTimeout(() => {
+        if (document.visibilityState === 'visible') {
+          loadAllCardsForSearch();
+        }
+      }, 3000);
     }
   }
-  
-  // 处理宣传数据
-  if (promosRes.status === 'fulfilled') {
-    leftPromos.value = promosRes.value.data.filter(item => item.position === 'left');
-    rightPromos.value = promosRes.value.data.filter(item => item.position === 'right');
-    cacheData.promos = promosRes.value.data;
-  }
-  
-  // 处理友链数据
-  if (friendsRes.status === 'fulfilled') {
-    friendLinks.value = friendsRes.value.data;
-    cacheData.friends = friendsRes.value.data;
-  }
-  
-  // 处理标签数据
-  if (tagsRes.status === 'fulfilled') {
-    allTags.value = tagsRes.value.data;
-    cacheData.tags = tagsRes.value.data;
-  } else {
-    console.error('加载标签失败:', tagsRes.reason);
-  }
-  
-  // 处理自定义搜索引擎
-  if (enginesRes.status === 'fulfilled') {
-    const customEngines = enginesRes.value.data.map(engine => ({
-      name: 'custom_' + engine.id,
-      label: engine.name,
-      iconUrl: null,
-      iconFallback: '🔎',
-      placeholder: `${engine.name} 搜索...`,
-      url: q => engine.search_url.replace('{searchTerms}', encodeURIComponent(q)),
-      custom: true,
-      id: engine.id,
-      keyword: engine.keyword
-    }));
-    searchEngines.value = [...defaultEngines, ...customEngines];
-    cacheData.engines = enginesRes.value.data;
-  } else {
-    console.error('加载自定义搜索引擎失败:', enginesRes.reason);
-    searchEngines.value = [...defaultEngines];
-  }
-  
-  // ========== 保存缓存数据 ==========
-  try {
-    if (cacheData.menus) {
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        data: cacheData,
-        timestamp: Date.now()
-      }));
-    }
-  } catch (e) {
-    // 缓存保存失败，忽略（可能是存储空间不足）
-  }
+  deferredDataTimer = setTimeout(() => {
+    loadDeferredHomeData(cacheData).catch(() => {});
+  }, 800);
   
   // 获取并保存数据版本号
   try {
@@ -2016,6 +1944,65 @@ function saveDataVersion(version) {
 let sseConnection = null;
 let sseReconnectTimer = null;
 let isRefreshing = false;
+let deferredDataTimer = null;
+let deferredSearchTimer = null;
+
+async function loadDeferredHomeData(cacheData) {
+  const [promosRes, friendsRes, tagsRes, enginesRes] = await Promise.allSettled([
+    getPromos(),
+    getFriends(),
+    getTags(),
+    getSearchEngines()
+  ]);
+
+  if (promosRes.status === 'fulfilled') {
+    leftPromos.value = promosRes.value.data.filter(item => item.position === 'left');
+    rightPromos.value = promosRes.value.data.filter(item => item.position === 'right');
+    cacheData.promos = promosRes.value.data;
+  }
+
+  if (friendsRes.status === 'fulfilled') {
+    friendLinks.value = friendsRes.value.data;
+    cacheData.friends = friendsRes.value.data;
+  }
+
+  if (tagsRes.status === 'fulfilled') {
+    allTags.value = tagsRes.value.data;
+    cacheData.tags = tagsRes.value.data;
+  } else {
+    console.error('加载标签失败:', tagsRes.reason);
+  }
+
+  if (enginesRes.status === 'fulfilled') {
+    const customEngines = enginesRes.value.data.map(engine => ({
+      name: 'custom_' + engine.id,
+      label: engine.name,
+      iconUrl: null,
+      iconFallback: '🔎',
+      placeholder: `${engine.name} 搜索...`,
+      url: q => engine.search_url.replace('{searchTerms}', encodeURIComponent(q)),
+      custom: true,
+      id: engine.id,
+      keyword: engine.keyword
+    }));
+    searchEngines.value = [...defaultEngines, ...customEngines];
+    cacheData.engines = enginesRes.value.data;
+  } else {
+    console.error('加载自定义搜索引擎失败:', enginesRes.reason);
+    searchEngines.value = [...defaultEngines];
+  }
+
+  try {
+    if (cacheData.menus) {
+      localStorage.setItem(CACHE_KEY, JSON.stringify({
+        data: cacheData,
+        timestamp: Date.now()
+      }));
+    }
+  } catch (e) {
+    // 缓存保存失败，忽略（可能是存储空间不足）
+  }
+}
 
 // 处理数据版本变更
 async function handleVersionChange(newVersion, senderId = null) {
@@ -2087,6 +2074,10 @@ async function handleVersionChange(newVersion, senderId = null) {
 
 // 建立SSE连接
 function connectSSE() {
+  if (document.visibilityState === 'hidden') {
+    return;
+  }
+
   if (sseConnection) {
     sseConnection.close();
   }
@@ -2116,10 +2107,14 @@ function connectSSE() {
     sseConnection.onerror = () => {
       sseConnection?.close();
       sseConnection = null;
+
+      if (document.visibilityState === 'hidden') {
+        return;
+      }
       
       // 延迟重连
       if (sseReconnectTimer) clearTimeout(sseReconnectTimer);
-      sseReconnectTimer = setTimeout(connectSSE, 5000);
+      sseReconnectTimer = setTimeout(connectSSE, 15000);
     };
   } catch (e) {
     // SSE 连接失败，静默处理
@@ -2132,6 +2127,13 @@ function handleVisibilityChange() {
     // 页面可见时，如果SSE断开则重连
     if (!sseConnection || sseConnection.readyState === EventSource.CLOSED) {
       connectSSE();
+    }
+  } else if (sseConnection) {
+    sseConnection.close();
+    sseConnection = null;
+    if (sseReconnectTimer) {
+      clearTimeout(sseReconnectTimer);
+      sseReconnectTimer = null;
     }
   }
 }
@@ -2154,6 +2156,15 @@ onUnmounted(() => {
   }
   if (sseReconnectTimer) {
     clearTimeout(sseReconnectTimer);
+  }
+  if (deferredDataTimer) {
+    clearTimeout(deferredDataTimer);
+  }
+  if (deferredSearchTimer) {
+    clearTimeout(deferredSearchTimer);
+  }
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
   }
 });
 
@@ -2322,7 +2333,7 @@ function isGroupCollapsed(groupKey) {
 
 // 预加载相邻分类的卡片
 function preloadAdjacentCategories() {
-  if (!activeMenu.value || menus.value.length === 0) return;
+  if (!activeMenu.value || menus.value.length === 0 || document.visibilityState === 'hidden') return;
   
   const currentIndex = menus.value.findIndex(m => m.id === activeMenu.value.id);
   const toPreload = [];
@@ -2336,25 +2347,8 @@ function preloadAdjacentCategories() {
       if (!cardsCache.value[key]) {
         toPreload.push({ menuId: menu.id, subMenuId: null, key });
       }
-      // 预加载子菜单
-      if (menu.subMenus?.length > 0) {
-        const subKey = getCardsCacheKey(menu.id, menu.subMenus[0].id);
-        if (!cardsCache.value[subKey]) {
-          toPreload.push({ menuId: menu.id, subMenuId: menu.subMenus[0].id, key: subKey });
-        }
-      }
     }
   });
-  
-  // 当前菜单的子菜单也预加载
-  if (activeMenu.value.subMenus?.length > 0) {
-    activeMenu.value.subMenus.forEach(sub => {
-      const key = getCardsCacheKey(activeMenu.value.id, sub.id);
-      if (!cardsCache.value[key]) {
-        toPreload.push({ menuId: activeMenu.value.id, subMenuId: sub.id, key });
-      }
-    });
-  }
   
   // 后台静默预加载（不阻塞UI）
   toPreload.forEach(({ menuId, subMenuId, key }) => {
@@ -2629,26 +2623,35 @@ function getCategoryCards(menuId, subMenuId) {
 async function handleSearch() {
   if (!searchQuery.value.trim()) return;
   if (selectedEngine.value.name === 'site') {
-    // 站内搜索：遍历所有菜单，查找所有卡片
-    let found = false;
-    for (const menu of menus.value) {
-      const res = await getCards(menu.id);
-      const match = res.data.find(card =>
-        card.title.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-        card.url.toLowerCase().includes(searchQuery.value.toLowerCase())
-      );
-      if (match) {
-        activeMenu.value = menu;
-        cards.value = res.data;
-        setTimeout(() => {
-          const el = document.querySelector(`[data-card-id='${match.id}']`);
-          if (el) el.scrollIntoView({behavior: 'smooth', block: 'center'});
-        }, 100);
-        found = true;
-        break;
-      }
+    const keyword = searchQuery.value.toLowerCase().trim();
+
+    if (allCards.value.length === 0) {
+      await loadAllCardsForSearch();
     }
-    if (!found) {
+
+    const match = allCards.value.find(card =>
+      (card.title || '').toLowerCase().includes(keyword) ||
+      (card.url || '').toLowerCase().includes(keyword)
+    );
+
+    if (match) {
+      const targetMenu = menus.value.find(menu => menu.id === match.menu_id) || null;
+      const targetSubMenu = targetMenu?.subMenus?.find(subMenu => subMenu.id === match.sub_menu_id) || null;
+
+      if (targetMenu) {
+        activeMenu.value = targetMenu;
+        activeSubMenu.value = targetSubMenu;
+        await loadCards(false);
+      }
+
+      setTimeout(() => {
+        const el = document.querySelector(`[data-card-id='${match.id}']`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 100);
+      return;
+    }
+
+    if (!match) {
       alert('未找到相关内容');
     }
   } else {
@@ -4857,6 +4860,19 @@ async function saveCardEdit() {
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.management-hint {
+  margin-top: 12px;
+  padding: 10px 14px;
+  border-radius: 14px;
+  background: rgba(10, 18, 32, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.5;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
 }
 
 .toolbar-icon-btn {

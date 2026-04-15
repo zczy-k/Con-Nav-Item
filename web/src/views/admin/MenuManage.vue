@@ -7,7 +7,10 @@
     </div>
 
     <div class="menu-header">
-      <h2 class="page-title">栏目管理</h2>
+      <div>
+        <h2 class="page-title">结构管理</h2>
+        <p class="page-desc">集中维护主菜单与子菜单结构，适合整体调整导航层级与顺序。</p>
+      </div>
       <div class="menu-add">
         <input v-model="newMenuName" placeholder="输入主菜单名称" class="input" @keyup.enter="addMenu" />
         <button class="btn btn-primary" @click="addMenu" :disabled="loading || !newMenuName.trim()">

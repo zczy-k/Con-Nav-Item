@@ -1,6 +1,10 @@
 ﻿<template>
   <div class="backup-manage">
     <!-- Tabs -->
+    <div class="page-header">
+      <h2 class="page-title">备份与恢复</h2>
+      <p class="page-desc">管理本地备份、WebDAV 备份以及自动备份和数据恢复策略。</p>
+    </div>
     <div class="tabs">
       <button :class="['tab', { active: activeTab === 'local' }]" @click="activeTab = 'local'">
         📦 本地备份
