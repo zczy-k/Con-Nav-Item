@@ -4434,7 +4434,22 @@ async function saveCardEdit() {
       closeEditCardModal();
       handleTokenInvalid();
     } else {
-      editError.value = '修改失败：' + (error.response?.data?.error || error.message);
+      const status = error.response?.status;
+      const serverMessage = error.response?.data?.error || error.response?.data?.message;
+      let reason = serverMessage || error.message || '未知错误';
+
+      if (!error.response) {
+        reason = '无法连接到服务器，请检查网络连接或稍后重试';
+      } else if (status === 400) {
+        reason = serverMessage || '提交的数据无效，请检查卡片信息';
+      } else if (status === 404) {
+        reason = '该卡片可能已被删除或当前链接已失效，请刷新页面后重试';
+      } else if (status >= 500) {
+        reason = serverMessage || '服务器暂时无法处理这张卡片，请稍后重试';
+      }
+
+      editError.value = '';
+      alert(`保存失败：${reason}`);
     }
   } finally {
     editLoading.value = false;
