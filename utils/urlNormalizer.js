@@ -118,6 +118,7 @@ function getDuplicateMatch(card1, card2) {
 
 /**
  * 从卡片列表中检测重复项
+ * 仅检测硬重复：和前端添加卡片时保持一致，只按 exact 规则判定。
  * @param {Array} cards - 卡片列表
  * @returns {Array} 重复卡片分组 [{original: card, duplicates: [card1, card2]}]
  */
@@ -147,7 +148,8 @@ function detectDuplicates(cards) {
         continue;
       }
       
-      if (isDuplicateCard(card, otherCard)) {
+      const match = getDuplicateMatch(card, otherCard);
+      if (match && match.type === 'exact') {
         duplicates.push(otherCard);
         processedIds.add(otherCard.id);
       }
