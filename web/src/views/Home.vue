@@ -564,7 +564,7 @@
     </footer>
 
     <!-- 权限验证弹窗 -->
-    <div v-if="showPasswordModal" class="modal-overlay auth-modal-overlay" @click="closePasswordModal" @keydown.esc="closePasswordModal">
+    <div v-if="showPasswordModal" class="modal-overlay auth-modal-overlay" @click.self="closePasswordModal" @keydown.esc="closePasswordModal">
       <div class="modal-content auth-modal-content" @click.stop>
         <div class="modal-header">
           <h3>验证密码</h3>
@@ -589,7 +589,8 @@
             <button 
               type="button" 
               class="password-toggle-btn" 
-              @click="showAuthPasswordText = !showAuthPasswordText"
+              @mousedown.prevent
+              @click.stop="showAuthPasswordText = !showAuthPasswordText"
               :title="showAuthPasswordText ? '隐藏密码' : '显示密码'"
             >
               <svg v-if="showAuthPasswordText" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2002,8 +2003,8 @@ async function loadDeferredHomeData(cacheData) {
 
 // 处理数据版本变更
 async function handleVersionChange(newVersion, senderId = null) {
-  // 如果是当前客户端发起的变更，且我们已经本地更新了数据版本，则跳过完整刷新
-  if (senderId === getClientId() || newVersion === cachedDataVersion) {
+  // 如果只是相同版本，直接跳过
+  if (newVersion === cachedDataVersion) {
     if (newVersion !== cachedDataVersion) {
       saveDataVersion(newVersion);
     }
@@ -2656,6 +2657,69 @@ async function handleSearch() {
   }
 }
 
+function syncCurrentCardLists(mutator) {
+  cards.value = mutator(Array.isArray(cards.value) ? [...cards.value] : []);
+  allCards.value = mutator(Array.isArray(allCards.value) ? [...allCards.value] : []);
+
+  Object.keys(allCategoryCards.value).forEach(key => {
+    allCategoryCards.value[key] = mutator(Array.isArray(allCategoryCards.value[key]) ? [...allCategoryCards.value[key]] : []);
+  });
+
+  Object.keys(cardsCache.value).forEach(key => {
+    cardsCache.value[key] = mutator(Array.isArray(cardsCache.value[key]) ? [...cardsCache.value[key]] : []);
+  });
+
+  saveCardsCache();
+}
+
+function syncCardCollectionsAfterChange({ updatedCard = null, deletedCardId = null, addedCards = [], menuId = null, subMenuId = null }) {
+  const targetMenuId = menuId ?? activeMenu.value?.id ?? null;
+  const targetSubMenuId = subMenuId ?? activeSubMenu.value?.id ?? null;
+  const cacheKey = targetMenuId ? getCardsCacheKey(targetMenuId, targetSubMenuId) : null;
+
+  const applyCardUpdate = (list) => {
+    if (!Array.isArray(list)) return list;
+
+    let next = list;
+
+    if (deletedCardId !== null) {
+      next = next.filter(card => card.id !== deletedCardId);
+    }
+
+    if (updatedCard) {
+      next = next.map(card => card.id === updatedCard.id ? { ...card, ...updatedCard } : card);
+    }
+
+    if (addedCards.length > 0) {
+      const existingIds = new Set(next.map(card => card.id));
+      const newCards = addedCards.filter(card => !existingIds.has(card.id));
+      next = [...newCards, ...next];
+    }
+
+    return next;
+  };
+
+  cards.value = applyCardUpdate(cards.value);
+  allCards.value = applyCardUpdate(allCards.value);
+
+  Object.keys(allCategoryCards.value).forEach(key => {
+    allCategoryCards.value[key] = applyCardUpdate(allCategoryCards.value[key]);
+  });
+
+  if (cacheKey && cardsCache.value[cacheKey]) {
+    cardsCache.value[cacheKey] = applyCardUpdate(cardsCache.value[cacheKey]);
+  }
+
+  if (targetMenuId && !targetSubMenuId) {
+    const mainKey = getCardsCacheKey(targetMenuId, null);
+    if (cardsCache.value[mainKey]) {
+      cardsCache.value[mainKey] = applyCardUpdate(cardsCache.value[mainKey]);
+    }
+  }
+
+  saveCardsCache();
+}
+
 // 获取搜索引擎图标
 function getEngineIcon(engine) {
   if (engine.iconUrl) return engine.iconUrl;
@@ -3027,6 +3091,7 @@ async function addSelectedCards() {
     
     // 关闭弹窗并强制刷新卡片列表（不使用缓存）
     closeBatchAdd();
+    syncCurrentCardLists(list => list);
     await loadCards(true);
     
     // 如果有新添加的卡片，检查是否需要自动 AI 生成
@@ -3185,7 +3250,11 @@ function showAuthModal(action) {
   
   // 自动聚焦密码输入框
   nextTick(() => {
-    authPasswordInput.value?.focus();
+    if (authPasswordInput.value) {
+      authPasswordInput.value.focus();
+      const length = authPassword.value?.length || 0;
+      authPasswordInput.value.setSelectionRange?.(length, length);
+    }
   });
 }
 
@@ -4082,6 +4151,7 @@ async function handleDeleteCard(card) {
       saveDataVersion(res.data.dataVersion);
     }
     
+    syncCurrentCardLists(list => list.filter(item => item.id !== card.id));
     clearAllCardsCache();
     await loadCards(true);
     
@@ -4460,6 +4530,13 @@ async function saveCardEdit() {
             c.id === cardId ? { ...c, ...updatedData, tags: updatedTags } : c
           );
         }
+
+        const updatedTags = cardEditForm.value.tagIds.map(id => allTags.value.find(t => t.id === id)).filter(Boolean);
+        syncCurrentCardLists(list => list.map(c =>
+          c.id === cardId
+            ? { ...c, ...updatedData, tags: updatedTags }
+            : c
+        ));
         
         // 更新 selectedCards
         selectedCards.value = selectedCards.value.map(c => {
