@@ -101,9 +101,10 @@ function sanitizeObject(obj, skipFields = []) {
   if (!obj || typeof obj !== 'object') return obj;
   
   const sanitized = Array.isArray(obj) ? [] : {};
+  const hasOwn = Object.prototype.hasOwnProperty;
   
   for (const key in obj) {
-    if (obj.hasOwnProperty(key)) {
+    if (hasOwn.call(obj, key)) {
       const value = obj[key];
       // 跳过指定字段的清理
       if (skipFields.includes(key)) {
