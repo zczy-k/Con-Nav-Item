@@ -584,6 +584,12 @@
               placeholder="请输入管理员密码"
               class="batch-input password-input"
               :class="{ 'shake': authShake }"
+              autocomplete="current-password"
+              autocapitalize="off"
+              autocorrect="off"
+              spellcheck="false"
+              @keydown.stop
+              @keyup.stop
               @keyup.enter="verifyAuthPassword"
             />
             <button 
