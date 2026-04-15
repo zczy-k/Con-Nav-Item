@@ -136,9 +136,9 @@ DOMAIN=your-domain.com bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/
 ### 3. 初始化配置 (安装后必看)
 1.  **访问后台**：打开 `http://你的IP:3000/admin` (Serv00 请使用脚本分配的域名)。
 2.  **默认账号**：用户名 `admin`，密码 `123456`。
-3.  **安全修改**：进入 **[用户管理]** 菜单，第一时间修改管理员用户名和密码。
-4.  **配置 AI**：进入 **[AI 智能生成]**，填入你的 API Key（推荐 DeepSeek），测试通过后即可享受一键生成功能。
-5.  **配置 WebDAV（可选）**：进入 **[备份]** → WebDAV 配置，保存成功后可在不同设备/服务器间同步备份。
+3.  **安全修改**：进入 **[用户与权限]** 菜单，第一时间修改管理员用户名和密码。
+4.  **配置 AI**：进入 **[AI 配置]**，填入你的 API Key（推荐 DeepSeek），测试通过后即可享受一键生成功能。
+5.  **配置 WebDAV（可选）**：进入 **[备份与恢复]** → WebDAV 配置，保存成功后可在不同设备/服务器间同步备份。
 
 ### 4. 忘记密码？
 如果忘记了管理员密码，可以通过以下方式重置：
@@ -183,7 +183,7 @@ docker exec -it Con-Nav-Item node scripts/check-password.js interactive
 1.  前往 [Releases](https://github.com/zczy-k/Con-Nav-Item/releases) 下载最新 `browser-extension.zip`。
 2.  解压后，在 Chrome/Edge 浏览器进入 `chrome://extensions/`。
 3.  开启 **开发者模式**，选择 **加载已解压的扩展程序**。
-4.  在插件设置中填入你的导航站地址和密码，完成绑定。
+4.  在插件设置中填入你的导航站地址，完成绑定。
 
 ### 🤖 如何让 AI 帮我干活？
 1.  在后台添加一个只写了“URL”的卡片。
@@ -225,7 +225,7 @@ docker stop Con-Nav-Item && docker rm Con-Nav-Item
 ---
 
 ## 🛠️ 技术栈
-*   **前端**: Vue 3 + Vite + Tailwind CSS
+*   **前端**: Vue 3 + Vite
 *   **后端**: Node.js + Express
 *   **数据库**: SQLite3 (简单、快速、易迁移)
 *   **AI 引擎**: 多模型适配器 (OpenAI, DeepSeek, Claude, GLM, etc.)
