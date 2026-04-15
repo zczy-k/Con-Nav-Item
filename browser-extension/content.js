@@ -35,6 +35,46 @@
     
     let quickAddDialog = null;
     let dialogShadowRoot = null;
+    let dialogKeyInterceptor = null;
+
+    function shouldIsolateDialogKey(target) {
+        if (!dialogShadowRoot || !target) return false;
+
+        const activeElement = dialogShadowRoot.activeElement;
+        const element = activeElement || target;
+        if (!element) return false;
+
+        return element.tagName === 'INPUT' ||
+            element.tagName === 'TEXTAREA' ||
+            element.isContentEditable;
+    }
+
+    function attachDialogKeyInterceptor() {
+        if (dialogKeyInterceptor) return;
+
+        dialogKeyInterceptor = (event) => {
+            if (!quickAddDialog || !dialogShadowRoot) return;
+            if (!shouldIsolateDialogKey(event.target)) return;
+
+            event.stopPropagation();
+            if (typeof event.stopImmediatePropagation === 'function') {
+                event.stopImmediatePropagation();
+            }
+        };
+
+        document.addEventListener('keydown', dialogKeyInterceptor, true);
+        document.addEventListener('keyup', dialogKeyInterceptor, true);
+        document.addEventListener('keypress', dialogKeyInterceptor, true);
+    }
+
+    function detachDialogKeyInterceptor() {
+        if (!dialogKeyInterceptor) return;
+
+        document.removeEventListener('keydown', dialogKeyInterceptor, true);
+        document.removeEventListener('keyup', dialogKeyInterceptor, true);
+        document.removeEventListener('keypress', dialogKeyInterceptor, true);
+        dialogKeyInterceptor = null;
+    }
     
     // 打开快捷添加弹窗
     async function openQuickAddDialog(url, title) {
@@ -52,6 +92,7 @@
         document.body.appendChild(quickAddDialog);
         
         dialogShadowRoot = quickAddDialog.attachShadow({ mode: 'closed' });
+        attachDialogKeyInterceptor();
         
         // 获取页面图标
         let favicon = '';
@@ -1288,9 +1329,18 @@
         
         // 密码输入框回车
         authPassword.addEventListener('keydown', (e) => {
+            e.stopPropagation();
             if (e.key === 'Enter') {
                 verifyAdminPassword(url, title);
             }
+        });
+
+        authPassword.addEventListener('keyup', (e) => {
+            e.stopPropagation();
+        });
+
+        authPassword.addEventListener('keypress', (e) => {
+            e.stopPropagation();
         });
         
         // 密码输入时清除错误状态
@@ -1310,6 +1360,7 @@
             quickAddDialog = null;
             dialogShadowRoot = null;
         }
+        detachDialogKeyInterceptor();
         document.removeEventListener('keydown', handleEscape);
           // 重置状态
           isAddingCategory = false;
@@ -1947,6 +1998,7 @@ if (response.success) {
         }
         if (newCategoryInput) {
             newCategoryInput.addEventListener('keydown', (e) => {
+                e.stopPropagation();
                 if (e.key === 'Enter') createNewCategory();
                 if (e.key === 'Escape') {
                     isAddingCategory = false;
@@ -1991,6 +2043,7 @@ if (response.success) {
         }
         if (newSubCategoryInput) {
             newSubCategoryInput.addEventListener('keydown', (e) => {
+                e.stopPropagation();
                 if (e.key === 'Enter') {
                     const parentId = isAddingSubCategory;
                     if (parentId) createNewSubCategory(parentId);
