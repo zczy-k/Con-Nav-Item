@@ -142,10 +142,6 @@
         </div>
       </div>
 
-      <div class="management-hint">
-        前台适合快速编辑当前内容；批量治理、系统配置和备份恢复请前往后台。
-      </div>
-      
       <div v-if="selectedTagIds.length > 0" class="active-filters">
         <span v-for="tagId in selectedTagIds" :key="tagId" class="filter-chip" :style="{ backgroundColor: getTagById(tagId)?.color }">
           {{ getTagById(tagId)?.name }}
@@ -4860,19 +4856,6 @@ async function saveCardEdit() {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.management-hint {
-  margin-top: 12px;
-  padding: 10px 14px;
-  border-radius: 14px;
-  background: rgba(10, 18, 32, 0.22);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.82);
-  font-size: 13px;
-  line-height: 1.5;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 .toolbar-icon-btn {

@@ -94,12 +94,22 @@ async function deleteFriend(id) {
   text-align: center;
   font-size: 2rem;
   font-weight: bold;
-  margin: 32px 0 32px 0;
+  margin: 32px 0 8px 0;
   letter-spacing: 2px;
   color: #222;
 }
 .friend-header {
-  height: 32px;
+  width: 100%;
+  margin-bottom: 20px;
+}
+.header-content {
+  text-align: center;
+}
+.page-desc {
+  margin: 0;
+  color: #5f6b7a;
+  font-size: 0.98rem;
+  line-height: 1.6;
 }
 .friend-add {
   display: flex;
@@ -194,6 +204,16 @@ async function deleteFriend(id) {
     align-items: stretch;
     gap: 8px;
     width: 100%;
+  }
+  .friend-header {
+    margin-bottom: 16px;
+  }
+  .page-title {
+    margin: 24px 0 8px 0;
+    font-size: 1.6rem;
+  }
+  .page-desc {
+    font-size: 0.92rem;
   }
   .friend-card {
     width: 100%;
