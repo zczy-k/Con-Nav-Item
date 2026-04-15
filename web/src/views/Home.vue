@@ -6914,7 +6914,7 @@ async function saveCardEdit() {
   line-height: 1.4;
 }
 
-/* 批量标签选择器 */
+/* 批量编辑标签选择器 */
 .batch-tags-selector {
   flex: 1;
   display: flex;

@@ -8,7 +8,9 @@
   "main": "app.js",
   "overrides": {
     "@tootallnate/once": "^3.0.1",
+    "follow-redirects": "^1.15.12",
     "minimatch": "^9.0.7",
+    "brace-expansion": "^2.0.3",
     "qs": "^6.15.0",
     "tar": "^7.5.11",
     "fast-xml-parser": "^5.3.8"
@@ -26,7 +28,7 @@
   "dependencies": {
     "adm-zip": "^0.5.16",
     "archiver": "^7.0.1",
-    "axios": "^1.13.5",
+    "axios": "^1.15.0",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.2.0",
     "compression": "^1.8.1",
