@@ -1,4 +1,4 @@
-# Con-Nav-Item - 现代化个人导航站 v1.0.2
+# Con-Nav-Item - 现代化个人导航站 v1.0.4
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.0.2-brightgreen.svg)](https://github.com/zczy-k/Con-Nav-Item/releases)
