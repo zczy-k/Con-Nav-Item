@@ -1,52 +1,80 @@
 #!/bin/sh
-set -e
+set -eu
 
-echo "🚀 启动 Con-Nav-Item..."
+APP_ROOT="/app"
+DB_DIR="${APP_ROOT}/database"
+BACKUP_DIR="${APP_ROOT}/backups"
+CONFIG_DIR="${APP_ROOT}/config"
+DEFAULT_CONFIG_DIR="${APP_ROOT}/defaults/config"
+WEB_DIST_DIR="${APP_ROOT}/web/dist"
+DB_FILE="${DB_DIR}/nav.db"
 
-# 自动创建所有必需的目录
-echo "📁 创建必需的目录..."
-mkdir -p /app/database
-mkdir -p /app/backups
-mkdir -p /app/config
-mkdir -p /app/web/dist
+log() {
+    echo "[entrypoint] $*"
+}
 
-# 设置目录权限
-chmod 755 /app/database
-chmod 755 /app/backups
-chmod 755 /app/config
+ensure_dir() {
+    dir="$1"
+    mkdir -p "$dir"
+    chmod 755 "$dir" 2>/dev/null || true
+}
 
-echo "✅ 目录创建完成："
-echo "   - /app/database (数据库)"
-echo "   - /app/backups (备份文件)"
-echo "   - /app/config (配置文件)"
+ensure_writable() {
+    dir="$1"
+    probe="${dir}/.write-test.$$"
 
-# 检查是否为首次运行（数据库不存在）
-if [ ! -f "/app/database/nav.db" ]; then
-    echo "🔧 检测到首次运行，将使用环境变量初始化..."
-    
-    # 显示管理员账号信息
-    ADMIN_USER="${ADMIN_USERNAME:-admin}"
-    ADMIN_PASS="${ADMIN_PASSWORD:-123456}"
-    
-    echo "👤 管理员账号："
-    echo "   用户名: $ADMIN_USER"
-    if [ "$ADMIN_PASSWORD" = "123456" ]; then
-        echo "   ⚠️  密码: $ADMIN_PASS (默认密码，请登录后立即修改！)"
+    if touch "$probe" 2>/dev/null; then
+        rm -f "$probe"
+        log "Writable: $dir"
     else
-        echo "   密码: ******** (已自定义)"
+        log "ERROR: $dir is not writable. Check your volume mount or platform persistent storage settings."
+        exit 1
     fi
+}
+
+bootstrap_config() {
+    if [ ! -d "$DEFAULT_CONFIG_DIR" ]; then
+        return
+    fi
+
+    for file in "$DEFAULT_CONFIG_DIR"/*; do
+        [ -e "$file" ] || continue
+        base="$(basename "$file")"
+        target="${CONFIG_DIR}/${base}"
+        if [ ! -e "$target" ]; then
+            cp "$file" "$target"
+            log "Bootstrapped config file: ${target}"
+        fi
+    done
+}
+
+log "Starting Con-Nav-Item"
+
+ensure_dir "$DB_DIR"
+ensure_dir "$BACKUP_DIR"
+ensure_dir "$CONFIG_DIR"
+ensure_dir "$WEB_DIST_DIR"
+
+ensure_writable "$DB_DIR"
+ensure_writable "$BACKUP_DIR"
+ensure_writable "$CONFIG_DIR"
+
+bootstrap_config
+
+if [ -f "$DB_FILE" ]; then
+    log "Existing SQLite database found at $DB_FILE"
 else
-    echo "📦 检测到现有数据库，将继续使用..."
+    log "No SQLite database found at $DB_FILE"
+    log "A new database will be initialized on first start."
+    log "If you expected existing data, mount a persistent volume to /app/database."
 fi
 
-# 显示配置信息
-echo ""
-echo "🔧 应用配置："
-echo "   端口: ${PORT:-3000}"
-echo "   环境: ${NODE_ENV:-production}"
-echo "   数据目录: /app"
-echo ""
+log "Runtime configuration:"
+log "  PORT=${PORT:-3000}"
+log "  NODE_ENV=${NODE_ENV:-production}"
+log "  DATABASE_DIR=$DB_DIR"
+log "  BACKUPS_DIR=$BACKUP_DIR"
+log "  CONFIG_DIR=$CONFIG_DIR"
+log "  AUTO_BACKUP_ENABLED=${AUTO_BACKUP_ENABLED:-true}"
 
-# 执行传入的命令（通常是 node app.js 或 node start-with-https.js）
-echo "▶️  启动应用..."
 exec "$@"

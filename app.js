@@ -88,6 +88,28 @@ const CACHE_TTL = 60000; // 1分钟缓存
 
 const PORT = process.env.PORT || 3000;
 
+app.get('/healthz', (req, res) => {
+  res.status(200).json({ ok: true });
+});
+
+app.get('/readyz', (req, res) => {
+  const dbFile = path.join(__dirname, 'database', 'nav.db');
+  const ready = fs.existsSync(dbFile);
+
+  if (!ready) {
+    return res.status(503).json({
+      ok: false,
+      reason: 'database_not_initialized',
+      dbFile
+    });
+  }
+
+  return res.status(200).json({
+    ok: true,
+    dbFile
+  });
+});
+
 // 安全中间件
 app.use(helmetConfig);
 app.use(cors({

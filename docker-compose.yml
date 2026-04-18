@@ -5,14 +5,16 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - PORT=3000                      # 监听端口
-      - NODE_ENV=production            # 运行环境
-      - ADMIN_USERNAME=admin           # 后台用户名
-      - ADMIN_PASSWORD=123456          # 后台密码
-      - JWT_SECRET=change-this-secret  # JWT密钥（必须修改！）
-      - CRYPTO_SECRET=change-this-too  # 敏感配置加密密钥（必须修改并持久保存）
+      PORT: "3000"
+      NODE_ENV: production
+      ADMIN_USERNAME: admin
+      ADMIN_PASSWORD: 123456
+      JWT_SECRET: change-this-secret
+      CRYPTO_SECRET: change-this-too
+      # Set to false on low-resource platforms if backup jobs trigger restarts.
+      AUTO_BACKUP_ENABLED: "true"
     volumes:
-      - ./database:/app/database       # 持久化数据库文件
-      - ./backups:/app/backups         # 持久化本地备份文件
-      - ./config:/app/config           # 持久化配置文件 (含自动备份及WebDAV配置)
+      - ./database:/app/database
+      - ./backups:/app/backups
+      - ./config:/app/config
     restart: unless-stopped

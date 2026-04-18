@@ -36,6 +36,28 @@ const DEFAULT_CONFIG = {
 };
 
 // 加载配置
+function applyEnvOverrides(rawConfig) {
+  const config = JSON.parse(JSON.stringify(rawConfig));
+  const autoBackupEnabled = String(process.env.AUTO_BACKUP_ENABLED || '').toLowerCase();
+  const scheduledEnabled = String(process.env.AUTO_BACKUP_SCHEDULED_ENABLED || '').toLowerCase();
+  const debounceEnabled = String(process.env.AUTO_BACKUP_DEBOUNCE_ENABLED || '').toLowerCase();
+
+  if (['0', 'false', 'no', 'off'].includes(autoBackupEnabled)) {
+    config.debounce.enabled = false;
+    config.scheduled.enabled = false;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(scheduledEnabled)) {
+    config.scheduled.enabled = false;
+  }
+
+  if (['0', 'false', 'no', 'off'].includes(debounceEnabled)) {
+    config.debounce.enabled = false;
+  }
+
+  return config;
+}
+
 function loadConfig() {
   try {
     const configDir = path.dirname(CONFIG_PATH);
@@ -45,14 +67,14 @@ function loadConfig() {
     
     if (fs.existsSync(CONFIG_PATH)) {
       const data = fs.readFileSync(CONFIG_PATH, 'utf-8');
-      return { ...DEFAULT_CONFIG, ...JSON.parse(data) };
+      return applyEnvOverrides({ ...DEFAULT_CONFIG, ...JSON.parse(data) });
     }
     
     // 首次运行，保存默认配?
     saveConfig(DEFAULT_CONFIG);
-    return DEFAULT_CONFIG;
+    return applyEnvOverrides(DEFAULT_CONFIG);
   } catch (error) {
-    return DEFAULT_CONFIG;
+    return applyEnvOverrides(DEFAULT_CONFIG);
   }
 }
 

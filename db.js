@@ -12,6 +12,17 @@ if (!fs.existsSync(dbDir)) {
 const dbPath = path.join(dbDir, 'nav.db');
 let db = new sqlite3.Database(dbPath);
 
+function applyDatabasePragmas(database) {
+  database.serialize(() => {
+    database.run('PRAGMA foreign_keys = ON');
+    database.run('PRAGMA busy_timeout = 5000');
+    database.run('PRAGMA journal_mode = WAL');
+    database.run('PRAGMA synchronous = NORMAL');
+  });
+}
+
+applyDatabasePragmas(db);
+
 // 重新连接数据库（用于备份恢复后刷新连接）
 function reconnectDatabase() {
   return new Promise((resolve, reject) => {
@@ -29,6 +40,7 @@ function reconnectDatabase() {
           reject(err);
         } else {
           console.log('✓ 数据库已重新连接');
+          applyDatabasePragmas(db);
           resolve();
         }
       });
