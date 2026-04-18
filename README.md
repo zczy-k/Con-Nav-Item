@@ -117,6 +117,7 @@ docker run -d \
 > - The image does not bundle your old `database/nav.db`. To keep existing data, mount the old database directory or restore a backup into `/app/database`.
 > - `JWT_SECRET` and `CRYPTO_SECRET` can be auto-generated, but setting them explicitly is still recommended for long-term Docker deployments and easier migration.
 > - `AUTO_BACKUP_ENABLED=false` is optional. It is only recommended on low-resource platforms while you are checking container stability.
+> - `TRUST_PROXY` is optional. By default the app auto-trusts common private/local reverse proxies; if your platform is unusual, you can set `TRUST_PROXY=1`, `TRUST_PROXY=true`, or another Express-supported value explicitly.
 > - Recommended health check paths are `/healthz` for liveness and `/readyz` for readiness.
 > - If startup logs say `/app/database` or `/app/config` is not writable, the persistent volume is mounted incorrectly or does not support writes.
 > 💡 强烈建议同时持久化 `database/`、`backups/`、`config/` 三个目录：

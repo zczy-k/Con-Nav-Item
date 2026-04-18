@@ -5,6 +5,7 @@ require('dotenv').config();
 // 背景：部分服务器存在 IPv6 路由/出网异常，但 DNS 仍返回 AAAA，导致 WebDAV/AI 等网络请求超时 (ETIMEDOUT)
 // 目标：不依赖部署方式（Docker/PM2/systemd/面板），在代码层面稳定走 IPv4
 const dns = require('dns');
+const net = require('net');
 
 // 允许通过环境变量关闭（极少数需要访问 IPv6-only 资源的场景）
 const FORCE_IPV4 = !['0', 'false', 'no', 'off'].includes(String(process.env.FORCE_IPV4 || '').toLowerCase());
@@ -87,6 +88,81 @@ const cache = new Map();
 const CACHE_TTL = 60000; // 1分钟缓存
 
 const PORT = process.env.PORT || 3000;
+
+function normalizeIpAddress(value) {
+  if (!value) return '';
+
+  const zoneIndex = value.indexOf('%');
+  const withoutZone = zoneIndex >= 0 ? value.slice(0, zoneIndex) : value;
+
+  if (withoutZone.startsWith('::ffff:')) {
+    return withoutZone.slice(7);
+  }
+
+  return withoutZone;
+}
+
+function isPrivateProxyAddress(value) {
+  const ip = normalizeIpAddress(value);
+  const family = net.isIP(ip);
+
+  if (family === 4) {
+    const parts = ip.split('.').map(Number);
+    const [a, b] = parts;
+
+    return (
+      a === 10 ||
+      a === 127 ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168) ||
+      (a === 100 && b >= 64 && b <= 127)
+    );
+  }
+
+  if (family === 6) {
+    const lower = ip.toLowerCase();
+
+    return (
+      lower === '::1' ||
+      lower.startsWith('fc') ||
+      lower.startsWith('fd') ||
+      lower.startsWith('fe80:')
+    );
+  }
+
+  return false;
+}
+
+function parseTrustProxySetting(rawValue) {
+  const value = String(rawValue || 'auto').trim();
+  const normalized = value.toLowerCase();
+
+  if (['false', '0', 'off', 'no'].includes(normalized)) {
+    return { value: false, label: 'false' };
+  }
+
+  if (/^\d+$/.test(normalized)) {
+    return { value: Number(normalized), label: normalized };
+  }
+
+  if (['true', 'on', 'yes', 'all'].includes(normalized)) {
+    return { value: true, label: 'true' };
+  }
+
+  if (normalized === 'auto') {
+    return {
+      value: (addr) => isPrivateProxyAddress(addr),
+      label: 'auto-private'
+    };
+  }
+
+  return { value, label: value };
+}
+
+const trustProxy = parseTrustProxySetting(process.env.TRUST_PROXY);
+app.set('trust proxy', trustProxy.value);
+console.log(`Proxy trust mode: ${trustProxy.label}`);
 
 app.get('/healthz', (req, res) => {
   res.status(200).json({ ok: true });
