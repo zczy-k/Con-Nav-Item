@@ -109,10 +109,19 @@ docker run -d \
   -v $(pwd)/config:/app/config \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD=123456 \
+  -e JWT_SECRET=change-this-secret \
   -e CRYPTO_SECRET=change-this-to-a-long-random-string \
+  -e AUTO_BACKUP_ENABLED=false \
   --restart unless-stopped \
   ghcr.io/zczy-k/con-nav-item:latest
 ```
+> Docker deployment notes
+> - Persist `database/`, `backups/`, and `config/` together. If any of them is missing, container rebuilds may lose data, keys, or backup settings.
+> - The image does not bundle your old `database/nav.db`. To keep existing data, mount the old database directory or restore a backup into `/app/database`.
+> - Set `JWT_SECRET` and `CRYPTO_SECRET` explicitly in Docker deployments.
+> - On low-resource platforms, start with `AUTO_BACKUP_ENABLED=false` and enable automatic backups after the container is stable.
+> - Recommended health check paths are `/healthz` for liveness and `/readyz` for readiness.
+> - If startup logs say `/app/database` or `/app/config` is not writable, the persistent volume is mounted incorrectly or does not support writes.
 > 💡 强烈建议同时持久化 `database/`、`backups/`、`config/` 三个目录：
 > - `config/` 里包含 JWT 密钥与加密密钥（影响登录 token、WebDAV/AI 配置解密）
 > - `database/` 里是你的数据
