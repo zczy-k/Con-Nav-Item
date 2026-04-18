@@ -1565,7 +1565,7 @@
             isAuthenticated = true;
             
             // 强制刷新获取最新分类
-            const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+            const response = await chrome.runtime.sendMessage({ action: 'getMenus' });
             
             if (!response.success) {
                 showCategoryError('加载分类失败');
@@ -1610,7 +1610,7 @@
             lastSubMenuId = config.lastSubMenuId;
             
             // 强制刷新获取最新分类
-            const response = await chrome.runtime.sendMessage({ action: 'getMenus', forceRefresh: true });
+            const response = await chrome.runtime.sendMessage({ action: 'getMenus' });
             
             if (!response.success) {
                 showCategoryError('加载分类失败');
@@ -2226,9 +2226,7 @@ if (response.success) {
                 description: customDesc
             });
             
-            if (response && response.success !== false) {
-                showToast('添加成功', 'success');
-                setTimeout(closeQuickAddDialog, 1000);
+            if (handleAddResponse(response)) {
             } else {
                 // 检查是否是认证失败
                 if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401') || response?.error?.includes('密码已更改')) {
@@ -2271,9 +2269,7 @@ if (response.success) {
                 description: customDesc
             });
             
-            if (response && response.success !== false) {
-                showToast('添加成功', 'success');
-                setTimeout(closeQuickAddDialog, 1000);
+            if (handleAddResponse(response)) {
             } else {
                 // 检查是否是认证失败
                 if (response?.needAuth || response?.error?.includes('登录') || response?.error?.includes('401') || response?.error?.includes('密码已更改')) {
@@ -2301,6 +2297,26 @@ if (response.success) {
         setTimeout(() => {
             toast.className = 'toast';
         }, 2000);
+    }
+
+    function handleAddResponse(response) {
+        if (!response || response.success === false) {
+            return false;
+        }
+
+        if (response.skipped > 0 && !response.added) {
+            showToast('已跳过：该网站已存在', 'success');
+            setTimeout(closeQuickAddDialog, 1000);
+            return true;
+        }
+
+        if (response.added > 0 || response.success) {
+            showToast('添加成功', 'success');
+            setTimeout(closeQuickAddDialog, 1000);
+            return true;
+        }
+
+        return false;
     }
     
     // HTML 转义

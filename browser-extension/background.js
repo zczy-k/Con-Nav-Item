@@ -15,6 +15,35 @@ const MAX_MENU_RETRY_ATTEMPTS = 3;
 let forceRefreshCount = 0;
 let forceRefreshResetTime = 0;
 const FORCE_REFRESH_LIMIT = 15;
+const TOKEN_VERIFY_CACHE_MS = 30 * 1000;
+let lastTokenVerifyCache = {
+    token: '',
+    time: 0,
+    result: null
+};
+
+function getCachedTokenVerifyResult(token) {
+    if (!token || !lastTokenVerifyCache.result) return null;
+    if (lastTokenVerifyCache.token !== token) return null;
+    if (Date.now() - lastTokenVerifyCache.time > TOKEN_VERIFY_CACHE_MS) return null;
+    return lastTokenVerifyCache.result;
+}
+
+function setCachedTokenVerifyResult(token, result) {
+    lastTokenVerifyCache = {
+        token: token || '',
+        time: Date.now(),
+        result
+    };
+}
+
+function clearTokenVerifyCache() {
+    lastTokenVerifyCache = {
+        token: '',
+        time: 0,
+        result: null
+    };
+}
 const FORCE_REFRESH_WINDOW = 60 * 1000; // 1分钟
 
 function canForceRefresh() {
@@ -1012,6 +1041,12 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                     sendResponse({ valid: false, reason: 'no_token' });
                     return;
                 }
+
+                const cachedVerifyResult = getCachedTokenVerifyResult(token);
+                if (cachedVerifyResult) {
+                    sendResponse(cachedVerifyResult);
+                    return;
+                }
                 
                 const navServerUrl = config.navUrl.replace(/\/$/, '');
                 
@@ -1026,10 +1061,13 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
                 const data = await response.json();
                 
                 if (data.valid) {
-                    sendResponse({ valid: true });
+                    const result = { valid: true };
+                    setCachedTokenVerifyResult(token, result);
+                    sendResponse(result);
                 } else {
                     // Token 无效，清除本地存储的 Token
                     await chrome.storage.local.remove(['navAuthToken']);
+                    clearTokenVerifyCache();
                     sendResponse({ 
                         valid: false, 
                         reason: data.reason || 'invalid',
@@ -1080,6 +1118,7 @@ if (data.success && data.token) {
                       // 确保 Token 保存完成后再返回成功
                       try {
                           await chrome.storage.local.set({ navAuthToken: data.token });
+                          setCachedTokenVerifyResult(data.token, { valid: true });
                           // 验证 Token 已保存
                           const stored = await chrome.storage.local.get(['navAuthToken']);
                           if (stored.navAuthToken === data.token) {
