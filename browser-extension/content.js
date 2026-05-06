@@ -30,6 +30,281 @@
     // 避免重复注入
     if (window.__navFloatBtnInjected) return;
     window.__navFloatBtnInjected = true;
+
+    let floatingBtnHost = null;
+    let floatingShadowRoot = null;
+    let autoHideTimer = null;
+    let isFloatingExpanded = false;
+    const FLOATING_HIDE_DELAY = 900;
+    let floatingTopPercent = 50;
+
+    let dragState = {
+        active: false,
+        startY: 0,
+        startTopPercent: 50,
+        moved: false
+    };
+
+    function shouldShowFloatingButtonOnPage() {
+        const href = window.location.href || '';
+        if (!href) return false;
+        if (href.startsWith('chrome://') || href.startsWith('edge://') || href.startsWith('about:') || href.startsWith('chrome-extension://')) {
+            return false;
+        }
+        return true;
+    }
+
+    function collapseFloatingButton() {
+        if (!floatingShadowRoot) return;
+        const button = floatingShadowRoot.getElementById('nav-floating-btn');
+        if (!button) return;
+        button.classList.remove('expanded');
+        isFloatingExpanded = false;
+    }
+
+    function clamp(value, min, max) {
+        return Math.min(max, Math.max(min, value));
+    }
+
+    function applyFloatingTopPosition() {
+        if (!floatingShadowRoot) return;
+        const button = floatingShadowRoot.getElementById('nav-floating-btn');
+        if (!button) return;
+        button.style.top = `${floatingTopPercent}%`;
+    }
+
+    function saveFloatingTopPosition() {
+        const rounded = Math.round(floatingTopPercent * 10) / 10;
+        chrome.storage.sync.set({ floatingBtnTopPercent: rounded }, () => {});
+    }
+
+    function expandFloatingButton() {
+        if (!floatingShadowRoot) return;
+        const button = floatingShadowRoot.getElementById('nav-floating-btn');
+        if (!button) return;
+
+        applyFloatingTopPosition();
+        button.classList.add('expanded');
+        isFloatingExpanded = true;
+    }
+
+    function queueAutoHide() {
+        if (autoHideTimer) {
+            clearTimeout(autoHideTimer);
+        }
+        autoHideTimer = setTimeout(() => {
+            collapseFloatingButton();
+        }, FLOATING_HIDE_DELAY);
+    }
+
+    function removeFloatingButton() {
+        if (autoHideTimer) {
+            clearTimeout(autoHideTimer);
+            autoHideTimer = null;
+        }
+        if (floatingBtnHost) {
+            floatingBtnHost.remove();
+            floatingBtnHost = null;
+            floatingShadowRoot = null;
+        }
+    }
+
+    function mountFloatingButton() {
+        if (!shouldShowFloatingButtonOnPage()) return;
+        if (floatingBtnHost) return;
+
+        floatingBtnHost = document.createElement('div');
+        floatingBtnHost.id = 'nav-floating-btn-host';
+        document.documentElement.appendChild(floatingBtnHost);
+        floatingShadowRoot = floatingBtnHost.attachShadow({ mode: 'closed' });
+
+        floatingShadowRoot.innerHTML = `
+            <style>
+                .fab {
+                    position: fixed;
+                    right: -126px;
+                    top: 50%;
+                    transform: translateY(-50%);
+                    z-index: 2147483645;
+                    height: 44px;
+                    border: none;
+                    border-radius: 999px;
+                    padding: 0 14px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 8px;
+                    cursor: pointer;
+                    color: #fff;
+                    background: linear-gradient(135deg, #059669 0%, #0d9488 100%);
+                    box-shadow: 0 8px 20px rgba(6, 95, 70, 0.35);
+                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+                    font-size: 13px;
+                    font-weight: 600;
+                    transition: right 0.22s cubic-bezier(0.22, 0.61, 0.36, 1), opacity 0.18s ease, box-shadow 0.2s ease, transform 0.2s ease;
+                    width: 138px;
+                    opacity: 0.92;
+                }
+
+                .fab:hover {
+                    transform: translateY(-50%) translateX(-2px);
+                    box-shadow: 0 10px 24px rgba(6, 95, 70, 0.42);
+                }
+
+                .fab .icon {
+                    font-size: 16px;
+                    line-height: 1;
+                    flex-shrink: 0;
+                }
+
+                .fab .label {
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+
+                .fab::before {
+                    content: "";
+                    position: absolute;
+                    right: 126px;
+                    top: 12px;
+                    width: 2px;
+                    height: 20px;
+                    border-radius: 999px;
+                    background: rgba(13, 148, 136, 0.88);
+                    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.5);
+                }
+
+                .fab.expanded {
+                    right: 12px;
+                    opacity: 0.98;
+                }
+
+                .fab.expanded::before {
+                    opacity: 0;
+                }
+
+                .fab:active {
+                    transform: translateY(-50%) scale(0.995);
+                }
+            </style>
+            <button class="fab" id="nav-floating-btn" type="button" title="添加当前网页到导航页">
+                <span class="icon">+</span>
+                <span class="label">添加到导航</span>
+            </button>
+        `;
+
+        const button = floatingShadowRoot.getElementById('nav-floating-btn');
+        if (!button) return;
+
+        button.addEventListener('mouseenter', () => {
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+                autoHideTimer = null;
+            }
+            expandFloatingButton();
+        });
+
+        button.addEventListener('focus', () => {
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+                autoHideTimer = null;
+            }
+            expandFloatingButton();
+        });
+
+        button.addEventListener('mouseleave', () => {
+            queueAutoHide();
+        });
+
+        button.addEventListener('blur', () => {
+            queueAutoHide();
+        });
+
+        button.addEventListener('click', () => {
+            if (dragState.moved) {
+                dragState.moved = false;
+                return;
+            }
+            const url = window.location.href;
+            const title = document.title;
+            openQuickAddDialog(url, title);
+            expandFloatingButton();
+            queueAutoHide();
+        });
+
+        button.addEventListener('pointerdown', (event) => {
+            dragState.active = true;
+            dragState.moved = false;
+            dragState.startY = event.clientY;
+            dragState.startTopPercent = floatingTopPercent;
+            button.setPointerCapture(event.pointerId);
+            if (autoHideTimer) {
+                clearTimeout(autoHideTimer);
+                autoHideTimer = null;
+            }
+            expandFloatingButton();
+        });
+
+        button.addEventListener('pointermove', (event) => {
+            if (!dragState.active) return;
+            const deltaY = event.clientY - dragState.startY;
+            if (Math.abs(deltaY) > 3) {
+                dragState.moved = true;
+            }
+            const deltaPercent = (deltaY / window.innerHeight) * 100;
+            floatingTopPercent = clamp(dragState.startTopPercent + deltaPercent, 8, 92);
+            applyFloatingTopPosition();
+        });
+
+        button.addEventListener('pointerup', (event) => {
+            if (!dragState.active) return;
+            dragState.active = false;
+            button.releasePointerCapture(event.pointerId);
+            if (dragState.moved) {
+                saveFloatingTopPosition();
+            }
+            queueAutoHide();
+        });
+
+        button.addEventListener('pointercancel', () => {
+            dragState.active = false;
+            queueAutoHide();
+        });
+
+        queueAutoHide();
+    }
+
+    function applyFloatingButtonVisibility(enabled, topPercent) {
+        if (typeof topPercent === 'number' && Number.isFinite(topPercent)) {
+            floatingTopPercent = clamp(topPercent, 8, 92);
+        }
+        if (!enabled) {
+            removeFloatingButton();
+            return;
+        }
+        mountFloatingButton();
+        collapseFloatingButton();
+    }
+
+    chrome.storage.sync.get(['showFloatingBtn', 'floatingBtnTopPercent'], (result) => {
+        applyFloatingButtonVisibility(
+            result.showFloatingBtn !== false,
+            result.floatingBtnTopPercent
+        );
+    });
+
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+        if (areaName !== 'sync') return;
+
+        if (!changes.showFloatingBtn && !changes.floatingBtnTopPercent) return;
+
+        chrome.storage.sync.get(['showFloatingBtn', 'floatingBtnTopPercent'], (result) => {
+            applyFloatingButtonVisibility(
+                result.showFloatingBtn !== false,
+                result.floatingBtnTopPercent
+            );
+        });
+    });
     
     // ==================== 快捷添加弹窗 ====================
     

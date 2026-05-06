@@ -1,0 +1,42 @@
+name: Auto Bump Version
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    if: github.actor != 'github-actions[bot]' && !contains(github.event.head_commit.message, 'chore(release):')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Bump patch and sync version
+        run: |
+          npm version patch --no-git-tag-version
+          npm run sync:version
+
+      - name: Refresh lockfiles
+        run: |
+          npm install --package-lock-only
+          npm install --prefix web --package-lock-only
+
+      - name: Commit bumped version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json web/package.json web/package-lock.json browser-extension/manifest.json browser-extension/popup.html README.md
+          git commit -m "chore(release): auto bump version [skip ci]" || echo "No changes to commit"
+          git push

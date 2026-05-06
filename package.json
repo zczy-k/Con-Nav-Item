@@ -1,6 +1,6 @@
 {
   "name": "Con-Nav-Item-backend",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "zczy-k",
   "description": "Con-Nav-Item-backend - 个人导航站后端",
   "repository": "https://github.com/zczy-k/Con-Nav-Item",
@@ -24,7 +24,9 @@
     "build": "npm run build --prefix web",
     "web:dev": "npm run dev --prefix web",
     "install:all": "npm install && npm install --prefix web",
-    "check-password": "node scripts/check-password.js"
+    "check-password": "node scripts/check-password.js",
+    "sync:version": "node scripts/sync-version.js",
+    "release:patch": "npm version patch -m \"chore(release): v%s\" && npm run sync:version"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

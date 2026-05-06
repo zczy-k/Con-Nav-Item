@@ -1,11 +1,14 @@
 function loadSettings() {
-    chrome.storage.sync.get(['navUrl'], function(result) {
+    chrome.storage.sync.get(['navUrl', 'showFloatingBtn'], function(result) {
         if (result.navUrl) {
             document.getElementById('navUrl').value = result.navUrl;
             document.getElementById('currentUrlText').textContent = result.navUrl;
             document.getElementById('currentUrl').style.display = 'block';
             testConnection(true);
         }
+
+        const floatingToggle = document.getElementById('showFloatingBtn');
+        floatingToggle.checked = result.showFloatingBtn !== false;
     });
 }
 
@@ -72,6 +75,7 @@ document.getElementById('testBtn').addEventListener('click', () => testConnectio
 
 document.getElementById('saveBtn').addEventListener('click', function() {
     const url = document.getElementById('navUrl').value.trim();
+    const showFloatingBtn = document.getElementById('showFloatingBtn').checked;
     
     if (!url) {
         showMessage('请输入导航站地址', 'error');
@@ -88,18 +92,25 @@ document.getElementById('saveBtn').addEventListener('click', function() {
         return;
     }
     
-    chrome.storage.sync.set({ navUrl: url }, function() {
+    chrome.storage.sync.set({ navUrl: url, showFloatingBtn: showFloatingBtn }, function() {
         showMessage('设置已保存！');
         document.getElementById('currentUrlText').textContent = url;
         document.getElementById('currentUrl').style.display = 'block';
     });
 });
 
+document.getElementById('showFloatingBtn').addEventListener('change', function(e) {
+    chrome.storage.sync.set({ showFloatingBtn: e.target.checked }, function() {
+        showMessage(e.target.checked ? '已开启悬浮按钮' : '已关闭悬浮按钮');
+    });
+});
+
 document.getElementById('resetBtn').addEventListener('click', function() {
     if (confirm('确定要重置设置吗？')) {
-        chrome.storage.sync.remove(['navUrl'], function() {
+        chrome.storage.sync.remove(['navUrl', 'showFloatingBtn', 'floatingBtnTopPercent'], function() {
             document.getElementById('navUrl').value = '';
             document.getElementById('currentUrl').style.display = 'none';
+            document.getElementById('showFloatingBtn').checked = true;
             updateConnectionStatus('unknown');
             showMessage('设置已重置');
         });
