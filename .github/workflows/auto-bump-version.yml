@@ -23,9 +23,27 @@ jobs:
         with:
           node-version: 20
 
-      - name: Bump patch and sync version
+      - name: Determine bump level
+        id: bump_level
+        shell: bash
         run: |
-          npm version patch --no-git-tag-version
+          MESSAGE=$(jq -r '.head_commit.message // ""' "$GITHUB_EVENT_PATH")
+          echo "Head commit message: $MESSAGE"
+
+          if echo "$MESSAGE" | grep -Eq 'BREAKING CHANGE|^[a-zA-Z]+\(.+\)!:|^[a-zA-Z]+!:'; then
+            LEVEL="major"
+          elif echo "$MESSAGE" | grep -Eq '^feat\(.+\):|^feat:'; then
+            LEVEL="minor"
+          else
+            LEVEL="patch"
+          fi
+
+          echo "level=$LEVEL" >> "$GITHUB_OUTPUT"
+          echo "Selected bump level: $LEVEL"
+
+      - name: Bump version and sync
+        run: |
+          npm version ${{ steps.bump_level.outputs.level }} --no-git-tag-version
           npm run sync:version
 
       - name: Refresh lockfiles
@@ -38,5 +56,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add package.json package-lock.json web/package.json web/package-lock.json browser-extension/manifest.json browser-extension/popup.html README.md
-          git commit -m "chore(release): auto bump version [skip ci]" || echo "No changes to commit"
+          git commit -m "chore(release): auto bump ${{ steps.bump_level.outputs.level }} version [skip ci]" || echo "No changes to commit"
           git push
