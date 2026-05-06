@@ -21,7 +21,7 @@
 
 ```bash
 # 运行管理脚本
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-linux.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-linux.sh)
 
 # 选择 2) 重置管理密码
 # 按提示输入新密码即可
@@ -30,8 +30,8 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scrip
 ### 方法B：交互式重置
 
 ```bash
-# 进入安装目录（默认 ~/Con-Nav-Item）
-cd ~/Con-Nav-Item
+# 进入安装目录（默认 ~/SmartNavora）
+cd ~/SmartNavora
 
 # 交互式重置
 node scripts/check-password.js interactive
@@ -71,7 +71,7 @@ node scripts/check-password.js interactive
 
 ```bash
 # 运行管理脚本
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/manage-serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-serv00.sh)
 
 # 选择 3) 重置管理密码
 # 按提示输入新密码即可
@@ -101,10 +101,10 @@ node scripts/check-password.js reset 新密码123
 
 ```bash
 # 下载重置脚本
-curl -O https://raw.githubusercontent.com/zczy-k/Con-Nav-Item/main/scripts/docker-reset-password.sh
+curl -O https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/docker-reset-password.sh
 chmod +x docker-reset-password.sh
 
-# 运行脚本（默认容器名 Con-Nav-Item）
+# 运行脚本（默认容器名 SmartNavora）
 ./docker-reset-password.sh
 
 # 或指定容器名
@@ -121,31 +121,31 @@ chmod +x docker-reset-password.sh
 
 ```bash
 # 交互式重置
-docker exec -it Con-Nav-Item node scripts/check-password.js interactive
+docker exec -it SmartNavora node scripts/check-password.js interactive
 
 # 或快速重置
-docker exec -it Con-Nav-Item node scripts/check-password.js reset 新密码123
+docker exec -it SmartNavora node scripts/check-password.js reset 新密码123
 ```
 
 ### 方法C：环境变量重置
 
 ```bash
 # 停止并删除容器
-docker stop Con-Nav-Item
-docker rm Con-Nav-Item
+docker stop SmartNavora
+docker rm SmartNavora
 
 # 使用新密码重启
 docker run -d \
-  --name Con-Nav-Item \
+  --name SmartNavora \
   -p 3000:3000 \
   -v $(pwd)/database:/app/database \
   -e ADMIN_USERNAME=admin \
   -e ADMIN_PASSWORD=新密码123 \
   --restart unless-stopped \
-  ghcr.io/zczy-k/con-nav-item:latest
+  ghcr.io/zczy-k/smartnavora:latest
 
 # 进入容器应用环境变量
-docker exec -it Con-Nav-Item node scripts/check-password.js reset-env
+docker exec -it SmartNavora node scripts/check-password.js reset-env
 ```
 
 ---
@@ -156,7 +156,7 @@ docker exec -it Con-Nav-Item node scripts/check-password.js reset-env
 
 ```bash
 # 进入项目目录
-cd /path/to/Con-Nav-Item
+cd /path/to/SmartNavora
 
 # 直接重置（一行命令）
 node scripts/check-password.js reset 新密码123
@@ -174,7 +174,7 @@ node scripts/check-password.js reset 新密码123
 如果不确定是否是默认密码：
 
 ```bash
-cd /path/to/Con-Nav-Item
+cd /path/to/SmartNavora
 node scripts/check-password.js check
 ```
 
@@ -261,7 +261,7 @@ node scripts/check-password.js generate-token
 
 如果以上方案都无法解决问题，请：
 
-1. 查看项目 [Issues](https://github.com/zczy-k/Con-Nav-Item/issues)
+1. 查看项目 [Issues](https://github.com/zczy-k/SmartNavora/issues)
 2. 提交新的 Issue 并详细描述问题
 3. 加入社区讨论
 

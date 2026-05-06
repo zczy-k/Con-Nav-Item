@@ -34,9 +34,9 @@ jobs:
       - name: Create extension package
         run: |
           cd browser-extension
-          zip -r ../nav-extension-v${{ steps.version.outputs.version }}.zip . -x "*.git*" -x "*.DS_Store"
+          zip -r ../smartnavora-extension-v${{ steps.version.outputs.version }}.zip . -x "*.git*" -x "*.DS_Store"
           cd ..
-          echo "Package created: nav-extension-v${{ steps.version.outputs.version }}.zip"
+          echo "Package created: smartnavora-extension-v${{ steps.version.outputs.version }}.zip"
           ls -la *.zip
 
       - name: Create Release
@@ -50,20 +50,20 @@ jobs:
             ### Installation
             
             **Chrome / Edge:**
-            1. Download `nav-extension-v${{ steps.version.outputs.version }}.zip` and extract
+            1. Download `smartnavora-extension-v${{ steps.version.outputs.version }}.zip` and extract
             2. Open browser extensions page (`chrome://extensions` or `edge://extensions`)
             3. Enable "Developer mode"
             4. Click "Load unpacked" and select the extracted folder
             
             **Firefox:**
-            1. Download `nav-extension-v${{ steps.version.outputs.version }}.zip`
+            1. Download `smartnavora-extension-v${{ steps.version.outputs.version }}.zip`
             2. Open `about:debugging#/runtime/this-firefox`
             3. Click "Load Temporary Add-on" and select the zip file
             
             ---
-            > Use with Con-Nav-Item backend for full functionality
+            > Use with SmartNavora backend for full functionality
           files: |
-            nav-extension-v${{ steps.version.outputs.version }}.zip
+            smartnavora-extension-v${{ steps.version.outputs.version }}.zip
           draft: false
           prerelease: false
         env:
@@ -73,6 +73,6 @@ jobs:
         if: github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
-          name: nav-extension-v${{ steps.version.outputs.version }}
-          path: nav-extension-v${{ steps.version.outputs.version }}.zip
+          name: smartnavora-extension-v${{ steps.version.outputs.version }}
+          path: smartnavora-extension-v${{ steps.version.outputs.version }}.zip
           retention-days: 30

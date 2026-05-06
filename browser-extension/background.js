@@ -200,7 +200,7 @@ async function registerContextMenus() {
         // 只保留一个入口，点击后打开快速添加弹窗
         chrome.contextMenus.create({
             id: 'nav_quick_dialog',
-            title: '🚀 导航站 - 新标签页',
+            title: '🚀 SmartNavora - 新标签页',
             contexts: ['page', 'link']
         });
         

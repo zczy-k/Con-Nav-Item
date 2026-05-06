@@ -1,7 +1,7 @@
 services:
-  Con-Nav-Item:
-    image: ghcr.io/zczy-k/con-nav-item:latest
-    container_name: Con-Nav-Item
+  SmartNavora:
+    image: ghcr.io/zczy-k/smartnavora:latest
+    container_name: SmartNavora
     ports:
       - "3000:3000"
     environment:

@@ -1,9 +1,9 @@
 {
-  "name": "Con-Nav-Item-backend",
+  "name": "smartnavora-backend",
   "version": "1.0.5",
   "author": "zczy-k",
-  "description": "Con-Nav-Item-backend - 个人导航站后端",
-  "repository": "https://github.com/zczy-k/Con-Nav-Item",
+  "description": "SmartNavora backend - AI 智能导航网站后端",
+  "repository": "https://github.com/zczy-k/SmartNavora",
   "license": "MIT",
   "main": "app.js",
   "overrides": {

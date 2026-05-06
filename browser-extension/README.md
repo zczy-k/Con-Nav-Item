@@ -1,4 +1,4 @@
-# 导航站浏览器扩展
+# SmartNavora 浏览器扩展
 
 用于接管新标签页、整理浏览器书签，并将网页或书签快速导入导航站。
 
@@ -46,7 +46,7 @@
 
 或者：
 - 访问 `chrome://extensions/`
-- 找到"导航站 - 新标签页"
+- 找到"SmartNavora - 新标签页"
 - 点击"详情"
 - 点击"扩展程序选项"
 
@@ -124,4 +124,4 @@ MIT License
 
 ## 联系方式
 
-项目地址: https://github.com/zczy-k/Con-Nav-Item
+项目地址: https://github.com/zczy-k/SmartNavora

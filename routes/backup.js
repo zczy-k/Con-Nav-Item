@@ -1258,7 +1258,7 @@ router.post('/webdav/backup', authMiddleware, async (req, res) => {
     });
     
     // 确保备份目录存在
-    const remotePath = '/Con-Nav-Item-Backups';
+    const remotePath = '/SmartNavora-Backups';
     try {
       await client.createDirectory(remotePath);
     } catch (e) {
@@ -1337,10 +1337,20 @@ router.get('/webdav/list', authMiddleware, async (req, res) => {
       httpsAgent
     });
     
-    const remotePath = '/Con-Nav-Item-Backups';
+    const remotePaths = ['/SmartNavora-Backups', '/Con-Nav-Item-Backups'];
     
     try {
-      const contents = await client.getDirectoryContents(remotePath);
+      let contents = [];
+      for (const remotePath of remotePaths) {
+        try {
+          const currentContents = await client.getDirectoryContents(remotePath);
+          contents = contents.concat(currentContents);
+        } catch (error) {
+          if (error.status !== 404) {
+            throw error;
+          }
+        }
+      }
       
       const backups = contents
         .filter(item => item.type === 'file' && item.filename.endsWith('.zip'))
@@ -1354,9 +1364,6 @@ router.get('/webdav/list', authMiddleware, async (req, res) => {
       
       res.json({ success: true, backups });
     } catch (error) {
-      if (error.status === 404) {
-        return res.json({ success: true, backups: [] });
-      }
       throw error;
     }
     
@@ -1427,8 +1434,29 @@ router.post('/webdav/restore', authMiddleware, async (req, res) => {
       httpsAgent
     });
     
-    const remotePath = `/Con-Nav-Item-Backups/${filename}`;
-    const fileBuffer = await client.getFileContents(remotePath);
+    let fileBuffer = null;
+    const remoteCandidates = [
+      `/SmartNavora-Backups/${filename}`,
+      `/Con-Nav-Item-Backups/${filename}`
+    ];
+
+    for (const remotePath of remoteCandidates) {
+      try {
+        fileBuffer = await client.getFileContents(remotePath);
+        break;
+      } catch (error) {
+        if (error.status !== 404) {
+          throw error;
+        }
+      }
+    }
+
+    if (!fileBuffer) {
+      return res.status(404).json({
+        success: false,
+        message: '未找到指定的 WebDAV 备份文件'
+      });
+    }
     
     const { skipEnv = true } = req.body; // 默认跳过.env文件
     const projectRoot = path.join(__dirname, '..');
@@ -1887,7 +1915,7 @@ router.delete('/webdav/delete/:filename', authMiddleware, async (req, res) => {
       httpsAgent
     });
     
-    const remotePath = `/Con-Nav-Item-Backups/${filename}`;
+    const remotePath = `/SmartNavora-Backups/${filename}`;
     await client.deleteFile(remotePath);
     
     res.json({ 

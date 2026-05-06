@@ -4,7 +4,8 @@ const path = require('path');
 
 // 加密算法
 const ALGORITHM = 'aes-256-gcm';
-const SALT = 'Con-Nav-Item-WebDAV-Salt';
+const SALT = 'SmartNavora-WebDAV-Salt';
+const LEGACY_SALTS = ['Con-Nav-Item-WebDAV-Salt'];
 
 // 密钥文件路径（作为备用）
 const CRYPTO_SECRET_PATH = path.join(__dirname, '..', 'config', '.crypto-secret');
@@ -252,6 +253,17 @@ function getKey() {
   return crypto.scryptSync(cachedSecret, SALT, 32);
 }
 
+function getKeys() {
+  if (!cachedSecret) {
+    cachedSecret = getCryptoSecretSync();
+  }
+
+  return [SALT, ...LEGACY_SALTS].map((salt) => ({
+    salt,
+    key: crypto.scryptSync(cachedSecret, salt, 32)
+  }));
+}
+
 /**
  * 加密数据
  * @param {string} text - 要加密的文本
@@ -286,14 +298,16 @@ function decrypt(encrypted, iv, authTag) {
   if (!encrypted || !iv || !authTag) return null;
   
   try {
-    const key = getKey();
-    const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(iv, 'hex'));
-    
-    decipher.setAuthTag(Buffer.from(authTag, 'hex'));
-    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
-    decrypted += decipher.final('utf8');
-    
-    return decrypted;
+    for (const { key } of getKeys()) {
+      try {
+        const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(iv, 'hex'));
+        decipher.setAuthTag(Buffer.from(authTag, 'hex'));
+        let decrypted = decipher.update(encrypted, 'hex', 'utf8');
+        decrypted += decipher.final('utf8');
+        return decrypted;
+      } catch (_error) {}
+    }
+    return null;
   } catch (error) {
     return null;
   }
@@ -362,15 +376,24 @@ function generateBackupSignature(data) {
  */
 function verifyBackupSignature(data, signature, optionalSecret) {
   const secretToUse = optionalSecret || cachedSecret || getCryptoSecretSync();
-  const hmac = crypto.createHmac('sha256', secretToUse + SALT);
-  hmac.update(data);
-  const expectedSignature = hmac.digest('hex');
-  
-  // 使用时间安全的比较防止时序攻击
-  return crypto.timingSafeEqual(
-    Buffer.from(expectedSignature, 'hex'),
-    Buffer.from(signature, 'hex')
-  );
+
+  for (const salt of [SALT, ...LEGACY_SALTS]) {
+    const hmac = crypto.createHmac('sha256', secretToUse + salt);
+    hmac.update(data);
+    const expectedSignature = hmac.digest('hex');
+
+    if (
+      expectedSignature.length === signature.length &&
+      crypto.timingSafeEqual(
+        Buffer.from(expectedSignature, 'hex'),
+        Buffer.from(signature, 'hex')
+      )
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 module.exports = {

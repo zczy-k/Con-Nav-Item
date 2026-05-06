@@ -559,7 +559,7 @@
             </button>
           </div>
         </div>
-        <p class="copyright">Copyright © 2025 Con-Nav-Item | <a href="https://github.com/zczy-k/Con-Nav-Item" target="_blank" class="footer-link">Powered by zczy-k</a></p>
+        <p class="copyright">Copyright © 2025 SmartNavora | <a href="https://github.com/zczy-k/SmartNavora" target="_blank" class="footer-link">Powered by zczy-k</a></p>
       </div>
     </footer>
 

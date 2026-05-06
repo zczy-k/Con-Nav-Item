@@ -405,7 +405,7 @@ const command = process.argv[2];
 
 if (!command) {
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-  console.log('  Con-Nav-Item 密码管理工具');
+  console.log('  SmartNavora 密码管理工具');
   console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
   console.log('用法:');
   console.log('  node check-password.js check              - 检查当前密码信息');

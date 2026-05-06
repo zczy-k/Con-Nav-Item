@@ -38,7 +38,7 @@ writeJson(manifestPath, manifest);
 
 replaceInFile(readmePath, (text) => {
   let next = text;
-  next = next.replace(/^# Con-Nav-Item - 现代化个人导航站 v\d+\.\d+\.\d+/m, `# Con-Nav-Item - 现代化个人导航站 v${version}`);
+  next = next.replace(/^# SmartNavora - AI 智能导航网站 v\d+\.\d+\.\d+/m, `# SmartNavora - AI 智能导航网站 v${version}`);
   next = next.replace(/Version-\d+\.\d+\.\d+-brightgreen/g, `Version-${version}-brightgreen`);
   next = next.replace(/^## 🆕 v\d+\.\d+\.\d+ 更新内容/m, `## 🆕 v${version} 更新内容`);
   return next;
