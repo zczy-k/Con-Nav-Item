@@ -24,6 +24,8 @@ const webPkgPath = path.join(root, 'web', 'package.json');
 const manifestPath = path.join(root, 'browser-extension', 'manifest.json');
 const readmePath = path.join(root, 'README.md');
 const popupPath = path.join(root, 'browser-extension', 'popup.html');
+const packageLockPath = path.join(root, 'package-lock.json');
+const webPackageLockPath = path.join(root, 'web', 'package-lock.json');
 
 const rootPkg = readJson(rootPkgPath);
 const version = rootPkg.version;
@@ -31,6 +33,28 @@ const version = rootPkg.version;
 const webPkg = readJson(webPkgPath);
 webPkg.version = version;
 writeJson(webPkgPath, webPkg);
+
+const packageLock = readJson(packageLockPath);
+packageLock.name = rootPkg.name;
+packageLock.version = version;
+if (packageLock.packages && packageLock.packages['']) {
+  packageLock.packages[''].name = rootPkg.name;
+  packageLock.packages[''].version = version;
+}
+writeJson(packageLockPath, packageLock);
+
+const webPackageLock = readJson(webPackageLockPath);
+webPackageLock.name = webPkg.name;
+webPackageLock.version = version;
+if (webPackageLock.packages && webPackageLock.packages['']) {
+  webPackageLock.packages[''].name = webPkg.name;
+  webPackageLock.packages[''].version = version;
+}
+if (webPackageLock.packages && webPackageLock.packages['..']) {
+  webPackageLock.packages['..'].name = rootPkg.name;
+  webPackageLock.packages['..'].version = version;
+}
+writeJson(webPackageLockPath, webPackageLock);
 
 const manifest = readJson(manifestPath);
 manifest.version = version;

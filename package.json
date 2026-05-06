@@ -26,7 +26,7 @@
     "install:all": "npm install && npm install --prefix web",
     "check-password": "node scripts/check-password.js",
     "sync:version": "node scripts/sync-version.js",
-    "release:patch": "npm version patch -m \"chore(release): v%s\" && npm run sync:version"
+    "release:patch": "npm version patch --no-git-tag-version && npm run sync:version && npm install --package-lock-only && npm install --prefix web --package-lock-only"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",
