@@ -48,7 +48,7 @@ bootstrap_config() {
     done
 }
 
-log "Starting Con-Nav-Item"
+log "Starting SmartNavora"
 
 ensure_dir "$DB_DIR"
 ensure_dir "$BACKUP_DIR"

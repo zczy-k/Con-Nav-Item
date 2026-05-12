@@ -15,7 +15,7 @@ red() { echo -e "\e[1;91m$1${re}"; }
 green() { echo -e "\e[1;32m$1${re}"; }
 yellow() { echo -e "\e[1;33m$1${re}"; }
 
-CONTAINER_NAME=${1:-"Con-Nav-Item"}
+CONTAINER_NAME=${1:-"SmartNavora"}
 
 echo ""
 green "=========================================="

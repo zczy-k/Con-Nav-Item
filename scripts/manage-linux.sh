@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Con-Nav-Item Linux 服务器综合管理脚本
+# SmartNavora Linux 服务器综合管理脚本
 # 支持：安装、更新、卸载
 # 适用系统：Ubuntu, Debian, CentOS, RHEL, Fedora 等
 
@@ -8,7 +8,7 @@ set -e
 
 # --- 环境变量与基础配置 ---
 export LC_ALL=C
-INSTALL_DIR=${INSTALL_DIR:-"$HOME/Con-Nav-Item"}
+INSTALL_DIR=${INSTALL_DIR:-"$HOME/SmartNavora"}
 
 # 颜色定义
 re="\033[0m"
@@ -82,7 +82,7 @@ do_install() {
     install_nodejs
     install_pm2
     
-    yellow "安装 Con-Nav-Item..."
+    yellow "安装 SmartNavora..."
     
     # 如果目录存在，处理备份
     if [ -d "$INSTALL_DIR" ]; then
@@ -101,7 +101,7 @@ do_install() {
     
     # 克隆与构建
     yellow "  → 克隆项目..."
-    git clone --quiet https://github.com/zczy-k/Con-Nav-Item.git "$INSTALL_DIR"
+    git clone --quiet https://github.com/zczy-k/SmartNavora.git "$INSTALL_DIR"
     cd "$INSTALL_DIR"
     
     yellow "  → 安装依赖与构建..."
@@ -149,8 +149,8 @@ EOF
     
     # 启动
     yellow "启动应用..."
-    pm2 delete Con-Nav-Item 2>/dev/null || true
-    pm2 start app.js --name Con-Nav-Item >/dev/null 2>&1
+    pm2 delete SmartNavora 2>/dev/null || true
+    pm2 start app.js --name SmartNavora >/dev/null 2>&1
     pm2 save >/dev/null 2>&1
     pm2 startup 2>/dev/null | tail -n 1 | bash >/dev/null 2>&1 || true
     
@@ -171,7 +171,7 @@ EOF
 
 # 执行卸载
 do_uninstall() {
-    red "警告: 这将卸载 Con-Nav-Item 并删除所有数据！"
+    red "警告: 这将卸载 SmartNavora 并删除所有数据！"
     read -p "确认卸载? (yes/no): " -r
     echo
     [ "$REPLY" != "yes" ] && { yellow "已取消卸载"; exit 0; }
@@ -192,8 +192,8 @@ do_uninstall() {
     # 停止服务
     yellow "停止 PM2 进程..."
     if command -v pm2 &> /dev/null; then
-        pm2 stop Con-Nav-Item 2>/dev/null || true
-        pm2 delete Con-Nav-Item 2>/dev/null || true
+        pm2 stop SmartNavora 2>/dev/null || true
+        pm2 delete SmartNavora 2>/dev/null || true
         pm2 save --force 2>/dev/null || true
     fi
     
@@ -246,8 +246,8 @@ show_finish_info() {
     echo ""
     yellow "常用命令："
     echo "  pm2 status              - 查看状态"
-    echo "  pm2 logs Con-Nav-Item   - 查看日志"
-    echo "  pm2 restart Con-Nav-Item - 重启应用"
+    echo "  pm2 logs SmartNavora    - 查看日志"
+    echo "  pm2 restart SmartNavora - 重启应用"
     echo ""
 }
 
@@ -255,7 +255,7 @@ show_finish_info() {
 
 echo ""
 green "=========================================="
-green "  Con-Nav-Item Linux 综合管理脚本"
+green "  SmartNavora Linux 综合管理脚本"
 green "=========================================="
 echo ""
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Con-Nav-Item Serv00 综合管理脚本
+# SmartNavora Serv00 综合管理脚本
 # 支持：安装、重置、修复前端
 # 作者: zczy-k
 
@@ -84,21 +84,21 @@ do_install() {
     
     # 下载
     yellow "  [1/5] 下载项目文件..."
-    curl -sLo "Con-Nav-Item.zip" "https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip"
+    curl -sLo "SmartNavora.zip" "https://github.com/zczy-k/SmartNavora/archive/refs/heads/main.zip"
     
     # 解压与更新
     yellow "  [2/5] 解压与数据恢复..."
-    unzip -oq "Con-Nav-Item.zip" -d "."
-    if [ -d "Con-Nav-Item-main" ]; then
+    unzip -oq "SmartNavora.zip" -d "."
+    if [ -d "SmartNavora-main" ]; then
         [ -d "database" ] && mv "database" "database.backup"
         [ -d "data" ] && mv "data" "data.backup"
         [ -f ".env" ] && mv ".env" ".env.backup"
 
         rm -rf "public"
-        find . -mindepth 1 -maxdepth 1 ! -name 'database.backup' ! -name 'data.backup' ! -name '.env.backup' ! -name 'node_modules' ! -name 'Con-Nav-Item-main' ! -name 'Con-Nav-Item.zip' -exec rm -rf {} + 2>/dev/null || true
+        find . -mindepth 1 -maxdepth 1 ! -name 'database.backup' ! -name 'data.backup' ! -name '.env.backup' ! -name 'node_modules' ! -name 'SmartNavora-main' ! -name 'SmartNavora.zip' -exec rm -rf {} + 2>/dev/null || true
 
-        cp -r Con-Nav-Item-main/* ./
-        rm -rf Con-Nav-Item-main "Con-Nav-Item.zip"
+        cp -r SmartNavora-main/* ./
+        rm -rf SmartNavora-main "SmartNavora.zip"
         
         [ -d "database.backup" ] && rm -rf "database" && mv "database.backup" "database"
         [ -d "data.backup" ] && mv "data.backup" "data"
@@ -226,10 +226,10 @@ do_fix_frontend() {
     cd "$WORKDIR"
     
     yellow "正在修复前端文件..."
-    curl -L https://github.com/zczy-k/Con-Nav-Item/archive/refs/heads/main.zip -o temp.zip
-    unzip -oq temp.zip "Con-Nav-Item-main/public/*" -d "."
-    rm -rf public && mv Con-Nav-Item-main/public ./
-    rm -rf Con-Nav-Item-main temp.zip
+    curl -L https://github.com/zczy-k/SmartNavora/archive/refs/heads/main.zip -o temp.zip
+    unzip -oq temp.zip "SmartNavora-main/public/*" -d "."
+    rm -rf public && mv SmartNavora-main/public ./
+    rm -rf SmartNavora-main temp.zip
     
     # 强制端口注入
     ASSIGNED_PORT=$(devil port list | awk '$2 == "tcp" {print $1; exit}')
@@ -283,7 +283,7 @@ show_finish_info() {
 
 echo ""
 green "=========================================="
-green "  Con-Nav-Item Serv00 综合管理脚本"
+green "  SmartNavora Serv00 综合管理脚本"
 green "=========================================="
 echo ""
 
