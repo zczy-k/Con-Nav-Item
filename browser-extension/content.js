@@ -1296,6 +1296,32 @@
                       align-items: center;
                       gap: 4px;
                   }
+                  .duplicate-hint {
+                      display: none;
+                      margin-top: 12px;
+                      padding: 10px 12px;
+                      border-radius: 8px;
+                      font-size: 13px;
+                      line-height: 1.5;
+                  }
+                  .duplicate-hint.exact {
+                      display: block;
+                      color: #b91c1c;
+                      background: #fef2f2;
+                      border: 1px solid #fca5a5;
+                  }
+                  .duplicate-hint.similar {
+                      display: block;
+                      color: #b45309;
+                      background: #fffbeb;
+                      border: 1px solid #fcd34d;
+                  }
+                  .duplicate-hint code {
+                      padding: 1px 4px;
+                      border-radius: 4px;
+                      background: rgba(255, 255, 255, 0.72);
+                      font-family: Consolas, Monaco, monospace;
+                  }
               </style>
             
             <div class="overlay" id="overlay">
@@ -1377,6 +1403,7 @@
                                       <span class="confirm-value" id="confirmUrlText"></span>
                                   </div>
                               </div>
+                              <div class="duplicate-hint" id="duplicateHint"></div>
                           </div>
                           
                           <div class="more-options">
@@ -1575,6 +1602,7 @@
                   dialogShadowRoot.getElementById('confirmTitleText').textContent = customTitle;
                   dialogShadowRoot.getElementById('confirmCategoryText').textContent = categoryPath;
                   dialogShadowRoot.getElementById('confirmUrlText').textContent = url;
+                  checkDuplicateForConfirmation(url, customTitle);
               } else {
                   // 返回选择步骤
                   // 如果有上次选择，显示快速添加
@@ -1586,6 +1614,7 @@
                   moreOptions.style.display = 'block';
                   pagePreview.style.display = 'flex';
                   confirmSection.style.display = 'none';
+                  renderDuplicateHint(null);
                   backBtn.style.display = 'none';
                   submitBtn.textContent = '下一步';
               }
@@ -1693,6 +1722,121 @@
             const selectedItem = dialogShadowRoot.querySelector('.category-item.selected');
             selectedItem?.scrollIntoView?.({ block: 'nearest', behavior: 'smooth' });
         }, 30);
+    }
+
+    function normalizeUrlForDuplicate(value) {
+        if (!value || typeof value !== 'string') return '';
+        return value.trim().toLowerCase().replace(/^(https?:\/\/)?(www\.)?/, '').replace(/\/+$/, '');
+    }
+
+    function extractHostnameForDuplicate(value) {
+        if (!value || typeof value !== 'string') return '';
+        try {
+            const parsed = new URL(value.startsWith('http') ? value : `https://${value}`);
+            return parsed.hostname.toLowerCase().replace(/^www\./, '');
+        } catch {
+            return normalizeUrlForDuplicate(value).split('/')[0].split('?')[0].split('#')[0];
+        }
+    }
+
+    function extractRootDomainForDuplicate(value) {
+        const hostname = extractHostnameForDuplicate(value);
+        if (!hostname) return '';
+        const parts = hostname.split('.').filter(Boolean);
+        if (parts.length <= 2) return hostname;
+        const secondLevelSuffixes = new Set(['com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn', 'com.hk', 'com.tw', 'co.uk', 'org.uk', 'gov.uk', 'ac.uk', 'co.jp', 'com.au', 'net.au', 'org.au']);
+        const lastTwo = parts.slice(-2).join('.');
+        if (secondLevelSuffixes.has(lastTwo) && parts.length >= 3) return parts.slice(-3).join('.');
+        return lastTwo;
+    }
+
+    function extractPathnameForDuplicate(value) {
+        if (!value || typeof value !== 'string') return '';
+        try {
+            const parsed = new URL(value.startsWith('http') ? value : `https://${value}`);
+            const pathname = parsed.pathname.replace(/\/+$/, '');
+            return pathname || '/';
+        } catch {
+            const pathPart = value.trim().replace(/^(https?:\/\/)?[^/]+/i, '').split('?')[0].split('#')[0];
+            return pathPart.replace(/\/+$/, '') || '/';
+        }
+    }
+
+    function getDuplicateMatchForQuickAdd(newCard, existingCard) {
+        const url1 = normalizeUrlForDuplicate(newCard.url);
+        const url2 = normalizeUrlForDuplicate(existingCard.url);
+        if (url1 && url2 && url1 === url2) {
+            return { type: 'exact', reason: 'URL 完全相同' };
+        }
+
+        const root1 = extractRootDomainForDuplicate(newCard.url);
+        const root2 = extractRootDomainForDuplicate(existingCard.url);
+        const path1 = extractPathnameForDuplicate(newCard.url);
+        const path2 = extractPathnameForDuplicate(existingCard.url);
+        if (root1 && root2 && root1 === root2 && path1 !== path2) {
+            return { type: 'similar', reason: '主域名相同但路径不同', currentPath: path1, existingPath: path2 };
+        }
+
+        const title1 = (newCard.title || '').trim().toLowerCase();
+        const title2 = (existingCard.title || '').trim().toLowerCase();
+        if (title1 && title2 && title1.length > 3 && title1 === title2) {
+            return { type: 'similar', reason: '标题相同' };
+        }
+
+        return null;
+    }
+
+    function renderDuplicateHint(match) {
+        const hint = dialogShadowRoot?.getElementById('duplicateHint');
+        if (!hint) return;
+        hint.className = 'duplicate-hint';
+        hint.textContent = '';
+
+        if (!match) return;
+
+        hint.classList.add(match.type);
+        if (match.type === 'exact') {
+            hint.innerHTML = `⚠️ 该链接已存在：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>。继续提交时系统会自动跳过重复项。`;
+            return;
+        }
+
+        if (match.reason === '主域名相同但路径不同') {
+            hint.innerHTML = `ℹ️ 检测到同主域名的其他页面：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>，现有路径为 <code>${escapeHtml(match.existingPath)}</code>，当前路径为 <code>${escapeHtml(match.currentPath)}</code>。如需收藏当前页面，可继续确认添加。`;
+            return;
+        }
+
+        hint.innerHTML = `ℹ️ 检测到疑似重复卡片：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>（${escapeHtml(match.reason)}），请确认是否继续添加。`;
+    }
+
+    async function checkDuplicateForConfirmation(url, title) {
+        renderDuplicateHint(null);
+        if (!selectedMenuId) return;
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'getCardsForDuplicateCheck',
+                menuId: selectedMenuId.toString(),
+                subMenuId: selectedSubMenuId?.toString() || null
+            });
+
+            if (!response?.success || !Array.isArray(response.cards)) return;
+
+            let similarMatch = null;
+            for (const card of response.cards) {
+                const match = getDuplicateMatchForQuickAdd({ title, url }, card);
+                if (!match) continue;
+                const candidate = { ...match, card };
+                if (match.type === 'exact') {
+                    renderDuplicateHint(candidate);
+                    return;
+                }
+                if (!similarMatch) similarMatch = candidate;
+            }
+
+            renderDuplicateHint(similarMatch);
+        } catch (e) {
+            console.warn('重复检测失败:', e);
+        }
     }
 
     function updateCategorySectionMode() {

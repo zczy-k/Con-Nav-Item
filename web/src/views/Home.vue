@@ -434,7 +434,12 @@
           <div v-if="batchStep === 3" class="batch-step">
             <p class="batch-tip">请选择需要添加的网站：</p>
             <div class="batch-preview-list">
-              <div v-for="(item, index) in parsedCards" :key="index" class="batch-preview-item" :class="{ 'is-duplicate': item.isDuplicate }">
+              <div
+                v-for="(item, index) in parsedCards"
+                :key="index"
+                class="batch-preview-item"
+                :class="{ 'is-duplicate': item.isDuplicate, 'is-similar-duplicate': item.isSimilarDuplicate }"
+              >
                 <input type="checkbox" v-model="item.selected" :id="`card-${index}`" />
                 <div class="batch-card-preview">
                   <!-- 重复标记徽章 -->
@@ -444,10 +449,18 @@
                       <line x1="12" y1="9" x2="12" y2="13"></line>
                       <line x1="12" y1="17" x2="12.01" y2="17"></line>
                     </svg>
-                    <span>重复</span>
-                  </div>
-                  <img :src="item.logo" :alt="item.title" class="batch-card-logo" @error="e => e.target.src = '/default-favicon.png'" />
-                  <div class="batch-card-info">
+                     <span>重复</span>
+                   </div>
+                   <div v-else-if="item.isSimilarDuplicate" class="duplicate-badge similar">
+                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                       <circle cx="12" cy="12" r="10"></circle>
+                       <path d="M12 8v4"></path>
+                       <path d="M12 16h.01"></path>
+                     </svg>
+                     <span>同站不同页</span>
+                   </div>
+                   <img :src="item.logo" :alt="item.title" class="batch-card-logo" @error="e => e.target.src = '/default-favicon.png'" />
+                   <div class="batch-card-info">
                     <div class="batch-edit-field">
                       <label>标题：</label>
                       <input type="text" v-model="item.title" class="batch-edit-input" />
@@ -512,6 +525,9 @@
                     <!-- 重复提示信息 -->
                     <p v-if="item.isDuplicate && item.duplicateOf" class="batch-card-duplicate-info">
                       ⚠️ 与已存在的卡片重复：<strong>{{ item.duplicateOf.title }}</strong>
+                    </p>
+                    <p v-else-if="item.isSimilarDuplicate && item.duplicateOf" class="batch-card-duplicate-info similar">
+                      ℹ️ 检测到同主域名的其他页面：<strong>{{ item.duplicateOf.title }}</strong>（{{ item.duplicateReason || '同站不同页面' }}），现有路径为 <code>{{ item.duplicateOf.path }}</code>，当前路径为 <code>{{ item.currentPath }}</code>。如需收藏当前路径可直接保留勾选后添加。
                     </p>
                   </div>
                 </div>
@@ -997,7 +1013,7 @@ const api = {
 import MenuBar from '../components/MenuBar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
-import { getDuplicateMatch } from '../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const mobileDrawerVisible = ref(false);
@@ -3005,15 +3021,17 @@ async function parseUrls() {
       
       return {
         ...card,
-        selected: !isDuplicate, // 只有精确重复的默认不选中
+        selected: !isDuplicate, // 只有精确重复的默认不选中，同站不同页默认允许继续添加
         isDuplicate: isDuplicate,
         isSimilarDuplicate: isSimilar,
         duplicateReason: duplicateMatch?.reason || '',
         duplicateOf: duplicateCard ? {
           id: duplicateCard.id,
           title: duplicateCard.title,
-          url: duplicateCard.url
+          url: duplicateCard.url,
+          path: extractPathname(duplicateCard.url)
         } : null,
+        currentPath: extractPathname(card.url),
         tagIds: recommendedTagIds,
         recommendedTagIds: recommendedTagIds
       };
@@ -6894,6 +6912,17 @@ async function saveCardEdit() {
   border-color: #f87171;
 }
 
+.batch-preview-item.is-similar-duplicate .batch-card-preview {
+  background: #fffbeb;
+  border: 2px solid #fcd34d;
+  position: relative;
+}
+
+.batch-preview-item.is-similar-duplicate .batch-card-preview:hover {
+  background: #fef3c7;
+  border-color: #f59e0b;
+}
+
 .batch-preview-item input[type="checkbox"] {
   margin-top: 8px;
   width: 18px;
@@ -6933,6 +6962,11 @@ async function saveCardEdit() {
   font-weight: 600;
   border-radius: 6px;
   box-shadow: 0 2px 6px rgba(220, 38, 38, 0.3);
+}
+
+.duplicate-badge.similar {
+  background: #d97706;
+  box-shadow: 0 2px 6px rgba(217, 119, 6, 0.28);
 }
 
 .duplicate-badge svg {
@@ -6992,6 +7026,12 @@ async function saveCardEdit() {
   border: 1px solid #fca5a5;
   border-radius: 6px;
   line-height: 1.5;
+}
+
+.batch-card-duplicate-info.similar {
+  color: #b45309;
+  background: #fffbeb;
+  border-color: #fcd34d;
 }
 
 .batch-card-duplicate-info strong {

@@ -41,6 +41,48 @@ export function extractHostname(url) {
   }
 }
 
+export function extractRootDomain(url) {
+  const hostname = extractHostname(url);
+  if (!hostname) {
+    return '';
+  }
+
+  const parts = hostname.split('.').filter(Boolean);
+  if (parts.length <= 2) {
+    return hostname;
+  }
+
+  const secondLevelSuffixes = new Set([
+    'com.cn', 'net.cn', 'org.cn', 'gov.cn', 'edu.cn',
+    'com.hk', 'com.tw', 'co.uk', 'org.uk', 'gov.uk',
+    'ac.uk', 'co.jp', 'com.au', 'net.au', 'org.au'
+  ]);
+  const lastTwo = parts.slice(-2).join('.');
+  const lastThree = parts.slice(-3).join('.');
+
+  if (secondLevelSuffixes.has(lastTwo) && parts.length >= 3) {
+    return lastThree;
+  }
+
+  return lastTwo;
+}
+
+export function extractPathname(url) {
+  if (!url || typeof url !== 'string') {
+    return '';
+  }
+
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const pathname = parsed.pathname.replace(/\/+$/, '');
+    return pathname || '/';
+  } catch (error) {
+    const normalized = url.trim();
+    const pathPart = normalized.replace(/^(https?:\/\/)?[^/]+/i, '').split('?')[0].split('#')[0];
+    return pathPart.replace(/\/+$/, '') || '/';
+  }
+}
+
 /**
  * 提取 URL 的域名
  * @param {string} url - 原始 URL
@@ -86,15 +128,25 @@ export function getDuplicateMatch(card1, card2) {
     return { type: 'exact', reason: 'URL 完全相同' };
   }
 
-  // 2. 主机名相同视为疑似重复，仅提示不拦截
+  // 2. 同主域名但路径不同，视为同站不同页面，仅提示不拦截
+  const rootDomain1 = extractRootDomain(card1.url);
+  const rootDomain2 = extractRootDomain(card2.url);
+  const path1 = extractPathname(card1.url);
+  const path2 = extractPathname(card2.url);
+
+  if (rootDomain1 && rootDomain2 && rootDomain1 === rootDomain2 && path1 !== path2) {
+    return { type: 'similar', reason: '主域名相同但路径不同' };
+  }
+
+  // 3. 主机名完全相同但路径一致之外的变体，仍提示为疑似重复
   const hostname1 = extractHostname(card1.url);
   const hostname2 = extractHostname(card2.url);
-  
+
   if (hostname1 && hostname2 && hostname1 === hostname2) {
     return { type: 'similar', reason: '主机名相同' };
   }
 
-  // 3. 标题完全相同也视为疑似重复，仅提示不拦截
+  // 4. 标题完全相同也视为疑似重复，仅提示不拦截
   const title1 = (card1.title || '').trim().toLowerCase();
   const title2 = (card2.title || '').trim().toLowerCase();
   

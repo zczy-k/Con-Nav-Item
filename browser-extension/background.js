@@ -1001,7 +1001,49 @@ chrome.runtime.onMessage.addListener((request, _sender, sendResponse) => {
         })();
         return true;
     }
-    
+
+    if (request.action === 'getCardsForDuplicateCheck') {
+        (async () => {
+            try {
+                const config = await chrome.storage.sync.get(['navUrl']);
+                const token = (await chrome.storage.local.get(['navAuthToken'])).navAuthToken;
+
+                if (!config.navUrl) {
+                    sendResponse({ success: false, error: '未配置导航站' });
+                    return;
+                }
+
+                if (!token) {
+                    sendResponse({ success: false, needAuth: true, error: '需要登录' });
+                    return;
+                }
+
+                const navServerUrl = config.navUrl.replace(/\/$/, '');
+                const params = new URLSearchParams({ _t: Date.now().toString() });
+                if (request.subMenuId) params.set('subMenuId', request.subMenuId);
+
+                const response = await fetch(`${navServerUrl}/api/cards/${request.menuId}?${params.toString()}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                    cache: 'no-store'
+                });
+
+                if (response.status === 401) {
+                    await chrome.storage.local.remove(['navAuthToken']);
+                    sendResponse({ success: false, needAuth: true, error: '登录已过期' });
+                    return;
+                }
+
+                if (!response.ok) throw new Error('获取卡片失败');
+
+                const cards = await response.json();
+                sendResponse({ success: true, cards: Array.isArray(cards) ? cards : [] });
+            } catch (e) {
+                sendResponse({ success: false, error: e.message });
+            }
+        })();
+        return true;
+    }
+
     if (request.action === 'refreshMenus') {
         // 同步等待刷新完成，确保无延迟
         (async () => {

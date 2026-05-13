@@ -108,16 +108,14 @@
               <line x1="12" y1="9" x2="12" y2="13"></line>
               <line x1="12" y1="17" x2="12.01" y2="17"></line>
             </svg>
-            <h3>{{ duplicateMode === 'exact' ? '检测到重复卡片' : '检测到疑似重复卡片' }}</h3>
+            <h3>{{ duplicateDialogTitle }}</h3>
           </div>
           <button class="close-btn" @click="closeDuplicateModal">×</button>
         </div>
         <div class="modal-body">
-          <div class="duplicate-warning">
+          <div class="duplicate-warning" :class="{ similar: duplicateMode !== 'exact' }">
             <p class="warning-text">
-              {{ duplicateMode === 'exact'
-                ? '您要添加的卡片与以下现有卡片重复：'
-                : `您要添加的卡片与以下现有卡片疑似重复（${duplicateReason}）：` }}
+              {{ duplicateWarningText }}
             </p>
           </div>
           
@@ -135,6 +133,10 @@
                 <div class="detail-row">
                   <span class="detail-label">网址：</span>
                   <span class="detail-value url">{{ duplicateInfo?.url }}</span>
+                </div>
+                <div class="detail-row" v-if="duplicateReason === '主域名相同但路径不同'">
+                  <span class="detail-label">路径：</span>
+                  <span class="detail-value path">{{ duplicateExistingPath }}</span>
                 </div>
                 <div class="detail-row" v-if="duplicateInfo?.logo_url">
                   <span class="detail-label">Logo：</span>
@@ -164,6 +166,10 @@
                   <span class="detail-label">网址：</span>
                   <span class="detail-value url">{{ pendingCard?.url }}</span>
                 </div>
+                <div class="detail-row" v-if="duplicateReason === '主域名相同但路径不同'">
+                  <span class="detail-label">路径：</span>
+                  <span class="detail-value path">{{ duplicatePendingPath }}</span>
+                </div>
                 <div class="detail-row" v-if="pendingCard?.logo_url">
                   <span class="detail-label">Logo：</span>
                   <span class="detail-value url">{{ pendingCard?.logo_url }}</span>
@@ -173,7 +179,7 @@
           </div>
           
           <div class="duplicate-actions-info">
-            <p>请选择如何处理：</p>
+            <p>{{ duplicateActionHint }}</p>
           </div>
         </div>
         <div class="modal-footer duplicate-footer">
@@ -220,7 +226,7 @@ import {
   deleteCard as apiDeleteCard,
   getTags
 } from '../../api';
-import { getDuplicateMatch } from '../../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname } from '../../utils/urlNormalizer';
 import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
@@ -241,6 +247,31 @@ const duplicateInfo = ref(null);
 const pendingCard = ref(null);
 const duplicateMode = ref('exact');
 const duplicateReason = ref('');
+
+const duplicateDialogTitle = computed(() => {
+  if (duplicateMode.value === 'exact') return '检测到重复卡片';
+  if (duplicateReason.value === '主域名相同但路径不同') return '检测到同站不同页面';
+  return '检测到疑似重复卡片';
+});
+
+const duplicateWarningText = computed(() => {
+  if (duplicateMode.value === 'exact') return '您要添加的卡片与以下现有卡片重复：';
+  if (duplicateReason.value === '主域名相同但路径不同') {
+    return '发现同主域名下的另一个页面。很多站点会在不同路径下承载不同内容，请确认是否需要同时保留这两个页面：';
+  }
+  return `您要添加的卡片与以下现有卡片疑似重复（${duplicateReason.value}）：`;
+});
+
+const duplicateActionHint = computed(() => {
+  if (duplicateMode.value === 'exact') return '请选择如何处理这张重复卡片：';
+  if (duplicateReason.value === '主域名相同但路径不同') {
+    return '如果当前链接对应的是同一网站中的另一篇文章、产品页或文档页，通常可以直接选择“仍然添加”。';
+  }
+  return '这是一次弱提醒，你可以继续添加，也可以返回修改后再添加。';
+});
+
+const duplicateExistingPath = computed(() => extractPathname(duplicateInfo.value?.url || ''));
+const duplicatePendingPath = computed(() => extractPathname(pendingCard.value?.url || ''));
 
 const currentSubMenus = computed(() => {
   if (!selectedMenuId.value) return [];
@@ -870,11 +901,20 @@ function editAndAdd() {
   margin-bottom: 20px;
 }
 
+.duplicate-warning.similar {
+  background: #fffbeb;
+  border-color: #fcd34d;
+}
+
 .warning-text {
   margin: 0;
   color: #dc2626;
   font-size: 14px;
   font-weight: 500;
+}
+
+.duplicate-warning.similar .warning-text {
+  color: #b45309;
 }
 
 .duplicate-comparison {
@@ -946,6 +986,12 @@ function editAndAdd() {
   font-size: 12px;
 }
 
+.detail-value.path {
+  color: #7c3aed;
+  font-size: 12px;
+  font-family: Consolas, Monaco, monospace;
+}
+
 .arrow-divider {
   display: flex;
   align-items: center;
@@ -960,11 +1006,20 @@ function editAndAdd() {
   padding: 12px 16px;
 }
 
+.duplicate-warning.similar + .duplicate-comparison + .duplicate-actions-info {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
 .duplicate-actions-info p {
   margin: 0;
   color: #15803d;
   font-size: 14px;
   font-weight: 500;
+}
+
+.duplicate-warning.similar + .duplicate-comparison + .duplicate-actions-info p {
+  color: #9a3412;
 }
 
 .duplicate-footer {
