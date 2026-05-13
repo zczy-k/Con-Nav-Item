@@ -3,7 +3,6 @@ name: Release Browser Extension
 on:
   push:
     tags:
-      - 'v*'
       - 'ext-v*'
   workflow_dispatch:
     inputs:

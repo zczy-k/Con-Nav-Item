@@ -1,0 +1,99 @@
+name: Create GitHub Release
+
+on:
+  workflow_run:
+    workflows: ["Auto Bump Version"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          TAG="v${VERSION}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "Release tag: ${TAG}"
+
+      - name: Check existing release
+        id: existing
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop if release exists
+        if: steps.existing.outputs.exists == 'true'
+        run: echo "Release ${{ steps.version.outputs.tag }} already exists. Nothing to do."
+
+      - name: Create browser extension package
+        if: steps.existing.outputs.exists != 'true'
+        run: |
+          cd browser-extension
+          zip -r ../smartnavora-extension-v${{ steps.version.outputs.version }}.zip . -x "*.git*" -x "*.DS_Store"
+          cd ..
+
+      - name: Build release notes
+        if: steps.existing.outputs.exists != 'true'
+        id: notes
+        run: |
+          PREVIOUS_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+          {
+            echo "body<<EOF"
+            echo "## SmartNavora v${{ steps.version.outputs.version }}"
+            echo ""
+            echo "### Changes"
+            if [ -n "$PREVIOUS_TAG" ]; then
+              git log --pretty=format:'- %s' "${PREVIOUS_TAG}..HEAD" | grep -v '^$' || true
+            else
+              git log --pretty=format:'- %s' --max-count=20 | grep -v '^$' || true
+            fi
+            echo ""
+            echo "### Browser Extension"
+            echo "Download \`smartnavora-extension-v${{ steps.version.outputs.version }}.zip\` from the assets below, extract it, and load it as an unpacked extension."
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create tag
+        if: steps.existing.outputs.exists != 'true'
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists locally."
+          else
+            git tag "$TAG"
+          fi
+          git push origin "$TAG"
+
+      - name: Create release
+        if: steps.existing.outputs.exists != 'true'
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: SmartNavora v${{ steps.version.outputs.version }}
+          body: ${{ steps.notes.outputs.body }}
+          files: smartnavora-extension-v${{ steps.version.outputs.version }}.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
