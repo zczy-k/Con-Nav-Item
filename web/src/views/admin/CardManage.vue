@@ -180,6 +180,10 @@
           
           <div class="duplicate-actions-info">
             <p>{{ duplicateActionHint }}</p>
+            <label v-if="isSameDomainDifferentPath" class="domain-preference-option">
+              <input type="checkbox" v-model="rememberMultiPathDomain" />
+              <span>以后此站点不同路径不再提醒</span>
+            </label>
           </div>
         </div>
         <div class="modal-footer duplicate-footer">
@@ -187,7 +191,7 @@
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M18 6L6 18M6 6l12 12"></path>
             </svg>
-            跳过
+            取消
           </button>
           <button v-if="duplicateMode === 'exact'" class="btn btn-warning" @click="replaceDuplicate">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -196,14 +200,17 @@
             </svg>
             替换
           </button>
-          <button v-else class="btn btn-warning" @click="continueAddAnyway">
+          <button v-else class="btn btn-link danger-link" @click="replaceDuplicate">
+            覆盖已有卡片
+          </button>
+          <button v-if="duplicateMode !== 'exact'" class="btn btn-primary" @click="continueAddAnyway">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M5 12h14"></path>
               <path d="M12 5l7 7-7 7"></path>
             </svg>
-            仍然添加
+            添加为新卡片
           </button>
-          <button class="btn btn-primary" @click="editAndAdd">
+          <button v-if="duplicateMode === 'exact'" class="btn btn-primary" @click="editAndAdd">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -226,7 +233,7 @@ import {
   deleteCard as apiDeleteCard,
   getTags
 } from '../../api';
-import { getDuplicateMatch, extractPathname } from '../../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname, isMultiPathDomainAllowed, allowMultiPathDomain } from '../../utils/urlNormalizer';
 import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
@@ -247,6 +254,7 @@ const duplicateInfo = ref(null);
 const pendingCard = ref(null);
 const duplicateMode = ref('exact');
 const duplicateReason = ref('');
+const rememberMultiPathDomain = ref(false);
 
 const duplicateDialogTitle = computed(() => {
   if (duplicateMode.value === 'exact') return '检测到重复卡片';
@@ -272,6 +280,7 @@ const duplicateActionHint = computed(() => {
 
 const duplicateExistingPath = computed(() => extractPathname(duplicateInfo.value?.url || ''));
 const duplicatePendingPath = computed(() => extractPathname(pendingCard.value?.url || ''));
+const isSameDomainDifferentPath = computed(() => duplicateReason.value === '主域名相同但路径不同');
 
 const currentSubMenus = computed(() => {
   if (!selectedMenuId.value) return [];
@@ -351,6 +360,9 @@ async function addCard() {
       card
     );
     if (match) {
+      if (match.type === 'similar' && match.reason === '主域名相同但路径不同' && isMultiPathDomainAllowed(newCardUrl.value)) {
+        continue;
+      }
       duplicate = card;
       duplicateMatch = match;
       if (match.type === 'exact') break;
@@ -469,6 +481,7 @@ function closeDuplicateModal() {
   pendingCard.value = null;
   duplicateMode.value = 'exact';
   duplicateReason.value = '';
+  rememberMultiPathDomain.value = false;
 }
 
 // 跳过添加
@@ -492,6 +505,9 @@ async function replaceDuplicate() {
 
 async function continueAddAnyway() {
   if (!pendingCard.value) return;
+  if (rememberMultiPathDomain.value && isSameDomainDifferentPath.value) {
+    allowMultiPathDomain(pendingCard.value.url);
+  }
   const cardToAdd = { ...pendingCard.value };
   closeDuplicateModal();
   await performAddCard(cardToAdd);
@@ -1016,6 +1032,30 @@ function editAndAdd() {
   color: #15803d;
   font-size: 14px;
   font-weight: 500;
+}
+
+.domain-preference-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  font-size: 13px;
+  color: #9a3412;
+  cursor: pointer;
+}
+
+.btn-link {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+}
+
+.danger-link {
+  color: #b91c1c;
+}
+
+.danger-link:hover {
+  background: #fef2f2;
 }
 
 .duplicate-warning.similar + .duplicate-comparison + .duplicate-actions-info p {

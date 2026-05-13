@@ -1322,6 +1322,17 @@
                       background: rgba(255, 255, 255, 0.72);
                       font-family: Consolas, Monaco, monospace;
                   }
+                  .duplicate-preference {
+                      display: none;
+                      align-items: center;
+                      gap: 8px;
+                      margin-top: 8px;
+                      font-size: 12px;
+                      color: #9a3412;
+                  }
+                  .duplicate-preference.show {
+                      display: flex;
+                  }
               </style>
             
             <div class="overlay" id="overlay">
@@ -1404,6 +1415,10 @@
                                   </div>
                               </div>
                               <div class="duplicate-hint" id="duplicateHint"></div>
+                              <label class="duplicate-preference" id="duplicatePreference">
+                                  <input type="checkbox" id="allowMultiPathDomainCheckbox">
+                                  <span>以后此站点不同路径不再提醒</span>
+                              </label>
                           </div>
                           
                           <div class="more-options">
@@ -1750,6 +1765,28 @@
         return lastTwo;
     }
 
+    async function getAllowedMultiPathDomains() {
+        const result = await chrome.storage.sync.get(['allowMultiPathDomains']);
+        return Array.isArray(result.allowMultiPathDomains) ? result.allowMultiPathDomains : [];
+    }
+
+    async function isMultiPathDomainAllowed(value) {
+        const rootDomain = extractRootDomainForDuplicate(value);
+        if (!rootDomain) return false;
+        const domains = await getAllowedMultiPathDomains();
+        return domains.includes(rootDomain);
+    }
+
+    async function allowMultiPathDomain(value) {
+        const rootDomain = extractRootDomainForDuplicate(value);
+        if (!rootDomain) return;
+        const domains = await getAllowedMultiPathDomains();
+        if (!domains.includes(rootDomain)) {
+            domains.push(rootDomain);
+            await chrome.storage.sync.set({ allowMultiPathDomains: domains });
+        }
+    }
+
     function extractPathnameForDuplicate(value) {
         if (!value || typeof value !== 'string') return '';
         try {
@@ -1788,9 +1825,13 @@
 
     function renderDuplicateHint(match) {
         const hint = dialogShadowRoot?.getElementById('duplicateHint');
+        const preference = dialogShadowRoot?.getElementById('duplicatePreference');
+        const checkbox = dialogShadowRoot?.getElementById('allowMultiPathDomainCheckbox');
         if (!hint) return;
         hint.className = 'duplicate-hint';
         hint.textContent = '';
+        preference?.classList.remove('show');
+        if (checkbox) checkbox.checked = false;
 
         if (!match) return;
 
@@ -1802,6 +1843,7 @@
 
         if (match.reason === '主域名相同但路径不同') {
             hint.innerHTML = `ℹ️ 检测到同主域名的其他页面：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>，现有路径为 <code>${escapeHtml(match.existingPath)}</code>，当前路径为 <code>${escapeHtml(match.currentPath)}</code>。如需收藏当前页面，可继续确认添加。`;
+            preference?.classList.add('show');
             return;
         }
 
@@ -1825,6 +1867,9 @@
             for (const card of response.cards) {
                 const match = getDuplicateMatchForQuickAdd({ title, url }, card);
                 if (!match) continue;
+                if (match.type === 'similar' && match.reason === '主域名相同但路径不同' && await isMultiPathDomainAllowed(url)) {
+                    continue;
+                }
                 const candidate = { ...match, card };
                 if (match.type === 'exact') {
                     renderDuplicateHint(candidate);
@@ -2678,6 +2723,11 @@ if (response.success) {
         try {
             const customTitle = dialogShadowRoot.getElementById('customTitle').value;
             const customDesc = dialogShadowRoot.getElementById('customDesc').value;
+            const allowCheckbox = dialogShadowRoot.getElementById('allowMultiPathDomainCheckbox');
+            const preferenceVisible = dialogShadowRoot.getElementById('duplicatePreference')?.classList.contains('show');
+            if (preferenceVisible && allowCheckbox?.checked) {
+                await allowMultiPathDomain(url);
+            }
             
             const response = await chrome.runtime.sendMessage({
                 action: 'addToCategory',

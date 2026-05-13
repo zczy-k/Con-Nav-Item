@@ -67,6 +67,34 @@ export function extractRootDomain(url) {
   return lastTwo;
 }
 
+const MULTI_PATH_DOMAIN_KEY = 'smartnavora_allow_multi_path_domains';
+
+export function getAllowedMultiPathDomains() {
+  try {
+    const value = localStorage.getItem(MULTI_PATH_DOMAIN_KEY);
+    const domains = JSON.parse(value || '[]');
+    return Array.isArray(domains) ? domains : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+export function isMultiPathDomainAllowed(url) {
+  const rootDomain = extractRootDomain(url);
+  return !!rootDomain && getAllowedMultiPathDomains().includes(rootDomain);
+}
+
+export function allowMultiPathDomain(url) {
+  const rootDomain = extractRootDomain(url);
+  if (!rootDomain) return;
+
+  const domains = getAllowedMultiPathDomains();
+  if (!domains.includes(rootDomain)) {
+    domains.push(rootDomain);
+    localStorage.setItem(MULTI_PATH_DOMAIN_KEY, JSON.stringify(domains));
+  }
+}
+
 export function extractPathname(url) {
   if (!url || typeof url !== 'string') {
     return '';

@@ -1013,7 +1013,7 @@ const api = {
 import MenuBar from '../components/MenuBar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
-import { getDuplicateMatch, extractPathname } from '../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname, isMultiPathDomainAllowed } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const mobileDrawerVisible = ref(false);
@@ -3010,6 +3010,9 @@ async function parseUrls() {
       for (const existing of existingCards) {
         const match = getDuplicateMatch({ title: card.title, url: card.url }, existing);
         if (match) {
+          if (match.type === 'similar' && match.reason === '主域名相同但路径不同' && isMultiPathDomainAllowed(card.url)) {
+            continue;
+          }
           duplicateCard = existing;
           duplicateMatch = match;
           if (match.type === 'exact') break;
