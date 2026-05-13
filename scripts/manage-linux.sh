@@ -76,27 +76,37 @@ install_pm2() {
     green "  ✔ PM2 安装完成"
 }
 
-# 执行安装/更新
+get_package_version() {
+    [ -f "$1/package.json" ] || { echo "unknown"; return; }
+    grep -m1 '"version"' "$1/package.json" | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/'
+}
+
+start_app() {
+    PORT="$1"
+    yellow "启动应用..."
+    pm2 delete SmartNavora 2>/dev/null || true
+    pm2 start app.js --name SmartNavora >/dev/null 2>&1
+    pm2 save >/dev/null 2>&1
+    pm2 startup 2>/dev/null | tail -n 1 | bash >/dev/null 2>&1 || true
+}
+
+# 执行首次安装
 do_install() {
     detect_os
     install_nodejs
     install_pm2
     
-    yellow "安装 SmartNavora..."
+    yellow "首次安装 SmartNavora..."
     
     # 如果目录存在，处理备份
     if [ -d "$INSTALL_DIR" ]; then
         yellow "  ⚠ 检测到已存在的安装目录: $INSTALL_DIR"
-        read -p "是否备份并重新安装? (y/n): " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            BACKUP_DIR="${INSTALL_DIR}_backup_$(date +%Y%m%d_%H%M%S)"
-            mv "$INSTALL_DIR" "$BACKUP_DIR"
-            green "  ✔ 已备份到: $BACKUP_DIR"
-        else
-            yellow "操作已取消"
-            exit 0
-        fi
+        yellow "  如果只是升级版本，建议选择“更新应用”。"
+        read -p "是否备份并重新安装? (yes/no): " -r
+        [ "$REPLY" != "yes" ] && { yellow "操作已取消"; exit 0; }
+        BACKUP_DIR="${INSTALL_DIR}_backup_$(date +%Y%m%d_%H%M%S)"
+        mv "$INSTALL_DIR" "$BACKUP_DIR"
+        green "  ✔ 已备份到: $BACKUP_DIR"
     fi
     
     # 克隆与构建
@@ -148,11 +158,7 @@ EOF
     green "✓ 配置文件已生成"
     
     # 启动
-    yellow "启动应用..."
-    pm2 delete SmartNavora 2>/dev/null || true
-    pm2 start app.js --name SmartNavora >/dev/null 2>&1
-    pm2 save >/dev/null 2>&1
-    pm2 startup 2>/dev/null | tail -n 1 | bash >/dev/null 2>&1 || true
+    start_app "$PORT"
     
     # 防火墙
     read -p "是否开放端口 $PORT 的防火墙规则? (y/n): " -n 1 -r
@@ -167,6 +173,65 @@ EOF
     fi
     
     show_finish_info "$PORT" "$ADMIN_USER"
+}
+
+# 执行更新
+do_update() {
+    detect_os
+    install_nodejs
+    install_pm2
+
+    if [ ! -d "$INSTALL_DIR" ] || [ ! -f "$INSTALL_DIR/package.json" ]; then
+        red "错误: 未检测到已安装的 SmartNavora，请先执行首次安装"
+        exit 1
+    fi
+
+    CURRENT_VERSION=$(get_package_version "$INSTALL_DIR")
+    BACKUP_DIR="${INSTALL_DIR}_update_backup_$(date +%Y%m%d_%H%M%S)"
+
+    yellow "更新 SmartNavora..."
+    yellow "  安装目录: $INSTALL_DIR"
+    yellow "  当前版本: $CURRENT_VERSION"
+
+    mkdir -p "$BACKUP_DIR"
+    [ -d "$INSTALL_DIR/database" ] && cp -r "$INSTALL_DIR/database" "$BACKUP_DIR/"
+    [ -d "$INSTALL_DIR/backups" ] && cp -r "$INSTALL_DIR/backups" "$BACKUP_DIR/"
+    [ -d "$INSTALL_DIR/config" ] && cp -r "$INSTALL_DIR/config" "$BACKUP_DIR/"
+    [ -f "$INSTALL_DIR/.env" ] && cp "$INSTALL_DIR/.env" "$BACKUP_DIR/"
+    green "  ✔ 数据和配置已备份到: $BACKUP_DIR"
+
+    TMP_DIR="${INSTALL_DIR}_new_$(date +%Y%m%d_%H%M%S)"
+    yellow "  → 下载最新代码..."
+    git clone --quiet https://github.com/zczy-k/SmartNavora.git "$TMP_DIR"
+    TARGET_VERSION=$(get_package_version "$TMP_DIR")
+    yellow "  目标版本: $TARGET_VERSION"
+
+    [ -d "$INSTALL_DIR/database" ] && rm -rf "$TMP_DIR/database" && mv "$INSTALL_DIR/database" "$TMP_DIR/database"
+    [ -d "$INSTALL_DIR/backups" ] && rm -rf "$TMP_DIR/backups" && mv "$INSTALL_DIR/backups" "$TMP_DIR/backups"
+    [ -d "$INSTALL_DIR/config" ] && rm -rf "$TMP_DIR/config" && mv "$INSTALL_DIR/config" "$TMP_DIR/config"
+    [ -f "$INSTALL_DIR/.env" ] && mv "$INSTALL_DIR/.env" "$TMP_DIR/.env"
+
+    OLD_DIR="${INSTALL_DIR}_old_$(date +%Y%m%d_%H%M%S)"
+    mv "$INSTALL_DIR" "$OLD_DIR"
+    mv "$TMP_DIR" "$INSTALL_DIR"
+
+    cd "$INSTALL_DIR"
+    yellow "  → 安装依赖与构建..."
+    npm run install:all >/dev/null 2>&1
+    npm run build >/dev/null 2>&1
+    green "  ✔ 项目更新与构建完成"
+
+    PORT=$(grep '^PORT=' .env 2>/dev/null | cut -d'=' -f2)
+    PORT=${PORT:-3000}
+    start_app "$PORT"
+
+    rm -rf "$OLD_DIR"
+
+    echo ""
+    green "✔ 更新完成！"
+    green "  版本: $CURRENT_VERSION -> $(get_package_version "$INSTALL_DIR")"
+    green "  数据库和 .env 配置已保留"
+    show_finish_info "$PORT" "$(grep '^ADMIN_USERNAME=' .env 2>/dev/null | cut -d'=' -f2 || echo admin)" "update"
 }
 
 # 执行卸载
@@ -236,9 +301,14 @@ do_reset_password() {
 
 show_finish_info() {
     IP=$(curl -s ifconfig.me 2>/dev/null || echo "YOUR_SERVER_IP")
+    MODE=${3:-install}
     echo ""
     green "=========================================="
-    green "  ✔ 安装完成！"
+    if [ "$MODE" = "update" ]; then
+        green "  ✔ 更新完成！"
+    else
+        green "  ✔ 安装完成！"
+    fi
     green "=========================================="
     echo -e "${green}访问地址：${purple}http://${IP}:$1${re}"
     echo -e "${green}后台管理：${purple}http://${IP}:$1/admin${re}"
@@ -263,6 +333,9 @@ case "$1" in
     install)
         do_install
         ;;
+    update)
+        do_update
+        ;;
     uninstall)
         do_uninstall
         ;;
@@ -271,15 +344,17 @@ case "$1" in
         ;;
     *)
         echo "请选择操作："
-        echo "  1) 安装 / 更新 (Install)"
-        echo "  2) 重置管理密码 (Reset Password)"
-        echo "  3) 彻底卸载 (Uninstall)"
+        echo "  1) 首次安装 (Install)"
+        echo "  2) 更新应用 (Update)"
+        echo "  3) 重置管理密码 (Reset Password)"
+        echo "  4) 彻底卸载 (Uninstall)"
         echo "  q) 退出"
-        read -p "输入序号 [1-3]: " choice
+        read -p "输入序号 [1-4]: " choice
         case "$choice" in
             1) do_install ;;
-            2) do_reset_password ;;
-            3) do_uninstall ;;
+            2) do_update ;;
+            3) do_reset_password ;;
+            4) do_uninstall ;;
             *) exit 0 ;;
         esac
         ;;

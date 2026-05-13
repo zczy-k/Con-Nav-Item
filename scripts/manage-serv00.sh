@@ -73,10 +73,35 @@ check_website() {
     fi
 }
 
-# 执行安装/更新
-do_install() {
+get_package_version() {
+    [ -f "$1/package.json" ] || { echo "unknown"; return; }
+    grep -m1 '"version"' "$1/package.json" | sed 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/'
+}
+
+# 执行部署（install/update 共用核心流程）
+deploy_app() {
+    MODE="$1"
     check_website
-    yellow "安装应用到 $WORKDIR ..."
+
+    if [ "$MODE" = "update" ] && [ ! -f "$WORKDIR/package.json" ]; then
+        red "错误: 未检测到已安装的 SmartNavora，请先执行首次安装"
+        exit 1
+    fi
+
+    if [ "$MODE" = "install" ] && [ -f "$WORKDIR/package.json" ]; then
+        yellow "检测到已有 SmartNavora 安装: $WORKDIR"
+        yellow "如果只是升级版本，建议选择“更新应用”。"
+        read -p "仍要继续首次安装流程? (yes/no): " -r
+        [ "$REPLY" != "yes" ] && { yellow "已取消"; exit 0; }
+    fi
+
+    CURRENT_VERSION=$(get_package_version "$WORKDIR")
+    if [ "$MODE" = "update" ]; then
+        yellow "更新应用到 $WORKDIR ..."
+        yellow "  当前版本: $CURRENT_VERSION"
+    else
+        yellow "首次安装应用到 $WORKDIR ..."
+    fi
     echo ""
     
     mkdir -p "$WORKDIR"
@@ -90,6 +115,11 @@ do_install() {
     yellow "  [2/5] 解压与数据恢复..."
     unzip -oq "SmartNavora.zip" -d "."
     if [ -d "SmartNavora-main" ]; then
+        TARGET_VERSION=$(get_package_version "SmartNavora-main")
+        if [ "$MODE" = "update" ]; then
+            yellow "      目标版本: $TARGET_VERSION"
+        fi
+
         [ -d "database" ] && mv "database" "database.backup"
         [ -d "data" ] && mv "data" "data.backup"
         [ -f ".env" ] && mv ".env" ".env.backup"
@@ -103,6 +133,10 @@ do_install() {
         [ -d "database.backup" ] && rm -rf "database" && mv "database.backup" "database"
         [ -d "data.backup" ] && mv "data.backup" "data"
         [ -f ".env.backup" ] && mv ".env.backup" ".env"
+    else
+        red "错误: 项目解压失败，未找到 SmartNavora-main 目录"
+        rm -f "SmartNavora.zip"
+        exit 1
     fi
     
     # 环境配置
@@ -139,8 +173,21 @@ EOF
     devil www restart "${CURRENT_DOMAIN}" > /dev/null 2>&1
     
     echo ""
-    green "✔ 安装完成！"
-    show_finish_info
+    if [ "$MODE" = "update" ]; then
+        green "✔ 更新完成！"
+        green "  版本: $CURRENT_VERSION -> $(get_package_version "$WORKDIR")"
+    else
+        green "✔ 安装完成！"
+    fi
+    show_finish_info "$MODE"
+}
+
+do_install() {
+    deploy_app "install"
+}
+
+do_update() {
+    deploy_app "update"
 }
 
 # 彻底重置环境
@@ -271,10 +318,15 @@ do_reset_password() {
 }
 
 show_finish_info() {
+    MODE="$1"
     echo ""
     green "=========================================="
     green "  站点地址：https://${CURRENT_DOMAIN}"
-    green "  管理账号：admin / 123456"
+    if [ "$MODE" = "install" ]; then
+        green "  默认管理账号：admin / 123456"
+    else
+        green "  数据库和 .env 配置已保留"
+    fi
     green "=========================================="
     echo ""
 }
@@ -289,22 +341,25 @@ echo ""
 
 case "$1" in
     install) do_install ;;
+    update) do_update ;;
     reset) do_reset ;;
     fix) do_fix_frontend ;;
     password) do_reset_password ;;
     *)
         echo "请选择操作："
-        echo "  1) 安装 / 更新 (Install)"
-        echo "  2) 修复前端显示 (Fix Frontend)"
-        echo "  3) 重置管理密码 (Reset Password)"
-        echo "  4) 彻底重置环境 (Reset All - DANGEROUS)"
+        echo "  1) 首次安装 (Install)"
+        echo "  2) 更新应用 (Update)"
+        echo "  3) 修复前端显示 (Fix Frontend)"
+        echo "  4) 重置管理密码 (Reset Password)"
+        echo "  5) 彻底重置环境 (Reset All - DANGEROUS)"
         echo "  q) 退出"
-        read -p "输入序号 [1-4]: " choice
+        read -p "输入序号 [1-5]: " choice
         case "$choice" in
             1) do_install ;;
-            2) do_fix_frontend ;;
-            3) do_reset_password ;;
-            4) do_reset ;;
+            2) do_update ;;
+            3) do_fix_frontend ;;
+            4) do_reset_password ;;
+            5) do_reset ;;
             *) exit 0 ;;
         esac
         ;;
