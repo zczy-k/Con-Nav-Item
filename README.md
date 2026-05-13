@@ -1,7 +1,7 @@
-# SmartNavora - AI 智能导航网站 v1.4.1
+# SmartNavora - AI 智能导航网站 v1.4.2
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.4.1-brightgreen.svg)](https://github.com/zczy-k/SmartNavora/releases)
+[![Version](https://img.shields.io/badge/Version-1.4.2-brightgreen.svg)](https://github.com/zczy-k/SmartNavora/releases)
 [![Node](https://img.shields.io/badge/Node.js-20+-green.svg)](https://nodejs.org/)
 [![Security](https://img.shields.io/badge/Security-Enhanced-success.svg)](docs/SECURITY.md)
 
@@ -32,7 +32,7 @@ SmartNavora 是一款专为数字化工作者打造的 AI 智能导航网站。�
 
 ---
 
-## 🆕 v1.4.1 更新内容
+## 🆕 v1.4.2 更新内容
 
 ### 🔐 安全性增强
 - ✅ 新增交互式密码重置功能，避免命令行泄露
