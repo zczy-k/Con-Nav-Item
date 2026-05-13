@@ -1322,6 +1322,16 @@
                       background: rgba(255, 255, 255, 0.72);
                       font-family: Consolas, Monaco, monospace;
                   }
+                  .duplicate-link {
+                      display: inline-block;
+                      max-width: 100%;
+                      overflow: hidden;
+                      text-overflow: ellipsis;
+                      white-space: nowrap;
+                      color: inherit;
+                      font-weight: 600;
+                      vertical-align: bottom;
+                  }
                   .duplicate-preference {
                       display: none;
                       align-items: center;
@@ -1799,6 +1809,25 @@
         }
     }
 
+    function formatUrlPreviewForDuplicate(value, maxLength = 56) {
+        if (!value || typeof value !== 'string') return '';
+        try {
+            const parsed = new URL(value.startsWith('http') ? value : `https://${value}`);
+            const host = parsed.hostname.replace(/^www\./, '');
+            const path = `${parsed.pathname || '/'}${parsed.search || ''}${parsed.hash || ''}`;
+            const displayPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+            const display = `${host}${displayPath}`;
+            if (display.length <= maxLength) return display;
+            const availableForPath = Math.max(maxLength - host.length - 4, 12);
+            const headLength = Math.max(Math.floor(availableForPath * 0.42), 4);
+            const tailLength = Math.max(availableForPath - headLength, 6);
+            return `${host}${displayPath.slice(0, headLength)}...${displayPath.slice(-tailLength)}`;
+        } catch {
+            if (value.length <= maxLength) return value;
+            return `${value.slice(0, Math.floor(maxLength * 0.55))}...${value.slice(-Math.floor(maxLength * 0.3))}`;
+        }
+    }
+
     function getDuplicateMatchForQuickAdd(newCard, existingCard) {
         const url1 = normalizeUrlForDuplicate(newCard.url);
         const url2 = normalizeUrlForDuplicate(existingCard.url);
@@ -1842,7 +1871,9 @@
         }
 
         if (match.reason === '主域名相同但路径不同') {
-            hint.innerHTML = `ℹ️ 检测到同主域名的其他页面：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>，现有路径为 <code>${escapeHtml(match.existingPath)}</code>，当前路径为 <code>${escapeHtml(match.currentPath)}</code>。如需收藏当前页面，可继续确认添加。`;
+            const existingUrl = match.card.url || '';
+            const currentUrl = match.url || '';
+            hint.innerHTML = `ℹ️ 检测到同主域名的其他页面：<strong>${escapeHtml(match.card.title || '未命名卡片')}</strong>。已存在：<a class="duplicate-link" href="${escapeHtml(existingUrl)}" title="${escapeHtml(existingUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(formatUrlPreviewForDuplicate(existingUrl))}</a>；当前：<a class="duplicate-link" href="${escapeHtml(currentUrl)}" title="${escapeHtml(currentUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(formatUrlPreviewForDuplicate(currentUrl))}</a>。路径差异：<code>${escapeHtml(match.existingPath)}</code> → <code>${escapeHtml(match.currentPath)}</code>。如需收藏当前页面，可继续确认添加。`;
             preference?.classList.add('show');
             return;
         }
@@ -1870,7 +1901,7 @@
                 if (match.type === 'similar' && match.reason === '主域名相同但路径不同' && await isMultiPathDomainAllowed(url)) {
                     continue;
                 }
-                const candidate = { ...match, card };
+                const candidate = { ...match, card, url };
                 if (match.type === 'exact') {
                     renderDuplicateHint(candidate);
                     return;

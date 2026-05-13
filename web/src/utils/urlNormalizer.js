@@ -95,6 +95,28 @@ export function allowMultiPathDomain(url) {
   }
 }
 
+export function formatUrlPreview(url, maxLength = 56) {
+  if (!url || typeof url !== 'string') return '';
+
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    const host = parsed.hostname.replace(/^www\./, '');
+    const path = `${parsed.pathname || '/'}${parsed.search || ''}${parsed.hash || ''}`;
+    const displayPath = path === '/' ? '/' : path.replace(/\/+$/, '');
+    const display = `${host}${displayPath}`;
+
+    if (display.length <= maxLength) return display;
+
+    const availableForPath = Math.max(maxLength - host.length - 4, 12);
+    const headLength = Math.max(Math.floor(availableForPath * 0.42), 4);
+    const tailLength = Math.max(availableForPath - headLength, 6);
+    return `${host}${displayPath.slice(0, headLength)}...${displayPath.slice(-tailLength)}`;
+  } catch (error) {
+    if (url.length <= maxLength) return url;
+    return `${url.slice(0, Math.floor(maxLength * 0.55))}...${url.slice(-Math.floor(maxLength * 0.3))}`;
+  }
+}
+
 export function extractPathname(url) {
   if (!url || typeof url !== 'string') {
     return '';

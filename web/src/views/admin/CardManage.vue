@@ -132,7 +132,7 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">网址：</span>
-                  <span class="detail-value url">{{ duplicateInfo?.url }}</span>
+                  <a class="detail-value url link-preview" :href="duplicateInfo?.url" target="_blank" rel="noopener noreferrer" :title="duplicateInfo?.url">{{ duplicateExistingUrlPreview }}</a>
                 </div>
                 <div class="detail-row" v-if="duplicateReason === '主域名相同但路径不同'">
                   <span class="detail-label">路径：</span>
@@ -164,7 +164,7 @@
                 </div>
                 <div class="detail-row">
                   <span class="detail-label">网址：</span>
-                  <span class="detail-value url">{{ pendingCard?.url }}</span>
+                  <a class="detail-value url link-preview" :href="pendingCard?.url" target="_blank" rel="noopener noreferrer" :title="pendingCard?.url">{{ duplicatePendingUrlPreview }}</a>
                 </div>
                 <div class="detail-row" v-if="duplicateReason === '主域名相同但路径不同'">
                   <span class="detail-label">路径：</span>
@@ -233,7 +233,7 @@ import {
   deleteCard as apiDeleteCard,
   getTags
 } from '../../api';
-import { getDuplicateMatch, extractPathname, isMultiPathDomainAllowed, allowMultiPathDomain } from '../../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname, formatUrlPreview, isMultiPathDomainAllowed, allowMultiPathDomain } from '../../utils/urlNormalizer';
 import { useDataSync } from '../../composables/useDataSync';
 
 const menus = ref([]);
@@ -281,6 +281,8 @@ const duplicateActionHint = computed(() => {
 const duplicateExistingPath = computed(() => extractPathname(duplicateInfo.value?.url || ''));
 const duplicatePendingPath = computed(() => extractPathname(pendingCard.value?.url || ''));
 const isSameDomainDifferentPath = computed(() => duplicateReason.value === '主域名相同但路径不同');
+const duplicateExistingUrlPreview = computed(() => formatUrlPreview(duplicateInfo.value?.url || ''));
+const duplicatePendingUrlPreview = computed(() => formatUrlPreview(pendingCard.value?.url || ''));
 
 const currentSubMenus = computed(() => {
   if (!selectedMenuId.value) return [];
@@ -1006,6 +1008,19 @@ function editAndAdd() {
   color: #7c3aed;
   font-size: 12px;
   font-family: Consolas, Monaco, monospace;
+}
+
+.link-preview {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-decoration: none;
+}
+
+.link-preview:hover {
+  text-decoration: underline;
 }
 
 .arrow-divider {

@@ -527,7 +527,10 @@
                       ⚠️ 与已存在的卡片重复：<strong>{{ item.duplicateOf.title }}</strong>
                     </p>
                     <p v-else-if="item.isSimilarDuplicate && item.duplicateOf" class="batch-card-duplicate-info similar">
-                      ℹ️ 检测到同主域名的其他页面：<strong>{{ item.duplicateOf.title }}</strong>（{{ item.duplicateReason || '同站不同页面' }}），现有路径为 <code>{{ item.duplicateOf.path }}</code>，当前路径为 <code>{{ item.currentPath }}</code>。如需收藏当前路径可直接保留勾选后添加。
+                      ℹ️ 检测到同主域名的其他页面：<strong>{{ item.duplicateOf.title }}</strong>。
+                      已存在：<a :href="item.duplicateOf.url" target="_blank" rel="noopener noreferrer" :title="item.duplicateOf.url">{{ item.duplicateOf.urlPreview }}</a>；
+                      当前：<a :href="item.url" target="_blank" rel="noopener noreferrer" :title="item.url">{{ item.urlPreview }}</a>。
+                      路径差异：<code>{{ item.duplicateOf.path }}</code> → <code>{{ item.currentPath }}</code>。如需收藏当前路径可直接保留勾选后添加。
                     </p>
                   </div>
                 </div>
@@ -1013,7 +1016,7 @@ const api = {
 import MenuBar from '../components/MenuBar.vue';
 import MobileDrawer from '../components/MobileDrawer.vue';
 import { filterCardsWithPinyin } from '../utils/pinyin';
-import { getDuplicateMatch, extractPathname, isMultiPathDomainAllowed } from '../utils/urlNormalizer';
+import { getDuplicateMatch, extractPathname, formatUrlPreview, isMultiPathDomainAllowed } from '../utils/urlNormalizer';
 const CardGrid = defineAsyncComponent(() => import('../components/CardGrid.vue'));
 
 const mobileDrawerVisible = ref(false);
@@ -3032,9 +3035,11 @@ async function parseUrls() {
           id: duplicateCard.id,
           title: duplicateCard.title,
           url: duplicateCard.url,
-          path: extractPathname(duplicateCard.url)
+          path: extractPathname(duplicateCard.url),
+          urlPreview: formatUrlPreview(duplicateCard.url)
         } : null,
         currentPath: extractPathname(card.url),
+        urlPreview: formatUrlPreview(card.url),
         tagIds: recommendedTagIds,
         recommendedTagIds: recommendedTagIds
       };
