@@ -61,8 +61,10 @@ web/bun.lock
 # Crypto secrets
 config/.crypto-secret
 # Release files and temporary documents
+release/
 RELEASE_NOTES_*.md
 nav-extension-*.zip
+smartnavora-extension-*.zip
 *.release
 *.draft
 

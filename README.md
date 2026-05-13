@@ -91,6 +91,11 @@ bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/script
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-linux.sh) install
 ```
 
+更新已有安装：
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-linux.sh) update
+```
+
 - 默认安装目录：`~/SmartNavora`
 - PM2 进程名：`SmartNavora`
 
@@ -145,6 +150,11 @@ docker run -d \
 ```bash
 # 脚本会自动识别当前账号对应的默认域名
 bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-serv00.sh)
+```
+
+更新已有安装：
+```bash
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-serv00.sh) update
 ```
 
 **方式二：使用自定义域名**
@@ -206,7 +216,7 @@ docker exec -it SmartNavora node scripts/check-password.js interactive
 
 ### 🌐 浏览器插件安装
 想要实现“右键一键保存网站”或“新标签页即导航”？
-1.  前往 [Releases](https://github.com/zczy-k/SmartNavora/releases) 下载最新 `smartnavora-extension.zip`。
+1.  前往 [Releases](https://github.com/zczy-k/SmartNavora/releases) 下载最新 `smartnavora-extension-v*.zip`。
 2.  解压后，在 Chrome/Edge 浏览器进入 `chrome://extensions/`。
 3.  开启 **开发者模式**，选择 **加载已解压的扩展程序**。
 4.  在插件设置中填入你的导航站地址，完成绑定。
@@ -231,14 +241,14 @@ docker stop SmartNavora && docker rm SmartNavora
 ```
 
 #### 脚本用户 (Linux/Serv00)
-重新运行对应安装命令即可，脚本会执行安装 / 更新流程：
+运行对应更新命令即可，更新流程会保留数据库和 `.env` 配置：
 
 ```bash
 # Linux
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-linux.sh) install
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-linux.sh) update
 
 # Serv00
-bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-serv00.sh)
+bash <(curl -Ls https://raw.githubusercontent.com/zczy-k/SmartNavora/main/scripts/manage-serv00.sh) update
 ```
 
 ---
